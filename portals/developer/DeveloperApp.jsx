@@ -6,16 +6,6 @@ import React, { useState, useMemo } from "react";
 import D from "@/lib/data/store";
 import { useStoreVersion } from "@/lib/data/useStore";
 
-const params = new URLSearchParams(window.location.search);
-const devId = params.get("dev") || (D.DEVELOPERS[0] && D.DEVELOPERS[0].id);
-const developer = D.devById(devId) || D.DEVELOPERS[0];
-
-// Apply the developer's brand color so the sidebar accent matches.
-document.documentElement.style.setProperty("--brand",      developer.brand.primary);
-document.documentElement.style.setProperty("--brand-deep", developer.brand.deep);
-document.documentElement.style.setProperty("--brand-soft", developer.brand.soft);
-document.documentElement.style.setProperty("--brand-text", developer.brand.text);
-
 const ICONS = {
   dash:    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7.5" height="9" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="5" rx="1.5"/><rect x="13.5" y="11" width="7.5" height="10" rx="1.5"/><rect x="3" y="14" width="7.5" height="7" rx="1.5"/></svg>,
   orders:  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>,
@@ -44,30 +34,32 @@ const REP_NAV = [
   { id: "units",    label: "Inventory",     icon: ICONS.units },
 ];
 
-// Logged-in user. URL can force the sales-rep view: ?as=rep (optionally &u=<userId>),
-// so links from the sales portal land on the rep's "My deals" home even without a session.
-let session = null;
-try { session = JSON.parse(sessionStorage.getItem("revnu_session") || localStorage.getItem("revnu_session") || "null"); } catch (e) {}
-const asRole = params.get("as");          // "rep" | "admin" (default: admin)
-const forcedUser = params.get("u");
-const findAdmin = () => D.USERS.find((u) => u.developerId === developer.id && u.role === "developer_admin") || D.USERS.find((u) => u.developerId === developer.id);
-const findRep   = () => D.USERS.find((u) => u.developerId === developer.id && D.devHasPerm(u, "orders") && !D.devHasPerm(u, "team")) || D.USERS.find((u) => u.developerId === developer.id && u.role === "sales_rep") || findAdmin();
-// ---- Who is here? The SESSION decides; URL params only narrow the view. ----
-//  · session user of THIS developer      → that user, permissions enforced
-//  · Revnu staff session                  → impersonate (admin, or ?u= for a rep demo)
-//  · session of another developer / none → back to this developer's login
-let me = null;
-const sessionUser = session && (D.userById(session.id) || (session.role === "revnu_admin" ? session : null));
-if (sessionUser && sessionUser.developerId === developer.id) {
-  me = sessionUser;
-} else {
-  // No cross-account shortcuts: Revnu staff (or anyone else) must sign in with an account of THIS developer.
-  location.replace("/login");
-  throw new Error("redirecting to login");
-}
-if (!me) me = findAdmin();
+// ---- bootstrap: identity comes from the server-verified session (never from browser storage) ----
+let params, devId, developer, session, asRole, forcedUser, me;
 const PERM_FOR_PAGE = { dash: null, projects: "projects", orders: "orders", milestones: "financials", units: "inventory", team: "team", users: "team", money: "financials" };
 const canSee = (pageId) => !PERM_FOR_PAGE[pageId] || D.devHasPerm(me, PERM_FOR_PAGE[pageId]);
+function boot(p) {
+  params = new URLSearchParams(p || {});
+  session = D.me();
+  devId = params.get("dev") || (session && session.developerId) || (D.DEVELOPERS[0] && D.DEVELOPERS[0].id);
+  developer = D.devById(devId) || D.DEVELOPERS[0];
+  if (!developer || !session) return false;
+
+  // Apply the developer's brand color so the sidebar accent matches.
+  document.documentElement.style.setProperty("--brand",      developer.brand.primary);
+  document.documentElement.style.setProperty("--brand-deep", developer.brand.deep);
+  document.documentElement.style.setProperty("--brand-soft", developer.brand.soft);
+  document.documentElement.style.setProperty("--brand-text", developer.brand.text);
+  document.title = (window.I18N && window.I18N.isAR ? "إدارة — " : "Admin — ") + developer.name;
+
+  asRole = params.get("as");          // "rep" | "admin" (default: admin)
+  forcedUser = params.get("u");
+  // ---- Who is here? The SESSION decides; URL params only narrow the view. (Also enforced server-side.) ----
+  const sessionUser = D.userById(session.id) || session;
+  if (sessionUser && sessionUser.developerId === developer.id) me = sessionUser;
+  else { location.replace("/login"); return false; }
+  return true;
+}
 
 // ============================================================
 // Order status flow — there's a single forward path the team follows:
@@ -108,7 +100,7 @@ const STATUS_CHIP = {
   completed: "chip chip-positive",
   cancelled: "chip chip-negative",
 };
-const CAN_CANCEL = !!me && D.devHasPerm(me, "cancel");
+const CAN_CANCEL_FN = () => !!me && D.devHasPerm(me, "cancel");
 
 function LangToggle({ block }) {
   const ar = window.I18N && window.I18N.isAR;
@@ -189,27 +181,31 @@ function App() {
   const [orderVersion, setOrderVersion] = useState(0);
   const orders = useMemo(() => D.ORDERS.filter((o) => o.developerId === developer.id), [orderVersion]);
   const myOrders = useMemo(() => orders.filter((o) => o.repId === me?.id), [orders, me?.id]);
-  const advanceStatus = (orderId) => {
+  const advanceStatus = async (orderId) => {
+    const RS = window.RevnuSupport;
     const cur = D.ORDERS.find((o) => o.id === orderId)?.status;
     if (!cur) return;
     const next = STATUS_INFO[cur]?.next;
     if (!next || !canAdvance(me?.role, cur)) return;
     const o = D.ORDERS.find((x) => x.id === orderId);
-    if (cur === "issued" && !o.signedContractUrl) { alert(window.I18N && window.I18N.isAR ? "ارفع العقد الموقّع أولاً — من بطاقة الطلب." : "Upload the signed contract first — open the order card."); return; }
-    if (cur === "signed" && !o.paymentProofUrl) {
-      // Customer paid → proof of payment is mandatory before the deal moves on.
-      if (!window.RevnuSupport) return;
-      window.RevnuSupport.pickFile(".pdf,image/*").then((f) => {
-        if (!f) return;
-        window.RevnuSupport.storeFile("revnu_payment_proofs", orderId, f);
-        D.updateOrder(orderId, { paymentProofUrl: f.name, paidAt: new Date().toISOString().slice(0, 10), status: next });
-        setOrderVersion((v) => v + 1);
-        window.RevnuSupport.toast(window.I18N && window.I18N.isAR ? "تم حفظ إثبات الدفع ونقل الصفقة إلى «دفع العميل»." : "Proof of payment saved — deal moved to Customer paid.");
-      });
-      return;
+    const AR = window.I18N && window.I18N.isAR;
+    if (cur === "issued" && !D.documentFor(o.id, "signed_contract")) {
+      // Signed = the signed agreement is on file. Ask for it right here (the server refuses the step without it).
+      const doc = await RS.uploadFor(o, "signed_contract", null, ".pdf,.png,.jpg,.jpeg,.doc,.docx");
+      if (!doc) return;
     }
-    D.updateOrder(orderId, { status: next });
-    setOrderVersion((v) => v + 1);
+    if (cur === "signed" && !D.documentFor(o.id, "payment_proof")) {
+      // Customer paid → proof of payment is mandatory before the deal moves on.
+      const doc = await RS.uploadFor(o, "payment_proof", null, ".pdf,image/*");
+      if (!doc) return;
+    }
+    const r = await RS.act(() => D.transitionOrder(orderId, next), {
+      pending: AR ? "جارٍ تحديث الصفقة…" : "Updating the deal…",
+      done: next === "paid" ? (AR ? "تم حفظ إثبات الدفع ونقل الصفقة إلى «دفع العميل»." : "Proof of payment saved — deal moved to Customer paid.")
+          : next === "signed" ? (AR ? "تم حفظ العقد الموقّع ونقل الصفقة إلى «موقّع»." : "Signed agreement saved — deal moved to Signed.")
+          : (AR ? "تم تحديث الصفقة." : "Deal updated."),
+    });
+    if (r) setOrderVersion((v) => v + 1);
   };
   const [gOrder, setGOrder] = useState(null);
   window.__revnu_openOrder = (id) => setGOrder(D.ORDERS.find((x) => x.id === id) || null);
@@ -220,10 +216,7 @@ function App() {
   window.__revnu_role = me?.role;
   window.__revnu_isRep = isRep;
 
-  const signOut = () => {
-    try { sessionStorage.removeItem("revnu_session"); localStorage.removeItem("revnu_session"); } catch (e) {}
-    location.href = "/login";
-  };
+  const signOut = () => { D.signOut().finally(() => { location.href = "/login"; }); };
 
   const nav = inRep ? REP_NAV : NAV.filter((n) => canSee(n.id));
   const enterSales = () => { setSalesView(true); setPage("mine"); setSelectedProject(null); };
@@ -882,17 +875,15 @@ function OrderDrawer({ order: orderProp, onClose }) {
             const meta = M[order.status] || {};
             const isRep = window.__revnu_isRep;
             const needsUpload = order.status === "issued" && !order.signedContractUrl;
-            const uploadSigned = (e) => {
-              const f = e.target.files && e.target.files[0]; if (!f) return;
-              const fr = new FileReader();
-              fr.onload = () => {
-                try { if (f.size < 2500000) { const m = JSON.parse(localStorage.getItem("revnu_signed_files") || "{}"); m[order.id] = { name: f.name, type: f.type, data: fr.result }; localStorage.setItem("revnu_signed_files", JSON.stringify(m)); } } catch (err) {}
-                D.updateOrder(order.id, { signedContractUrl: f.name, signedAt: new Date().toISOString().slice(0, 10) });
-                if (order.status === "issued") window.__revnu_advanceStatus && window.__revnu_advanceStatus(order.id);   // a signed upload IS the "Signed" step
-                window.__revnu_bump && window.__revnu_bump(); tick((x) => x + 1);
-              };
-              fr.readAsDataURL(f); e.target.value = "";
+            const RS = window.RevnuSupport;
+            const uploadSigned = async () => {
+              const doc = await RS.uploadFor(order, "signed_contract", null, ".pdf,.png,.jpg,.jpeg,.doc,.docx");
+              if (!doc) return;
+              if (order.status === "issued") await window.__revnu_advanceStatus(order.id);   // a signed upload IS the "Signed" step
+              window.__revnu_bump && window.__revnu_bump(); tick((x) => x + 1);
             };
+            const signedDoc = D.documentFor(order.id, "signed_contract");
+            const proofDoc = D.documentFor(order.id, "payment_proof");
             const steps = ["issued", "signed", "paid", "active"];
             const ci = steps.indexOf(order.status);
             return (
@@ -915,9 +906,9 @@ function OrderDrawer({ order: orderProp, onClose }) {
                 <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: order.status === "paid" || D.firstPaymentReceived(order) ? 10 : 0 }}>
                   <button className="btn btn-sm btn-secondary" onClick={() => location.href = "/sales?dev=" + order.developerId + "&order=" + order.id}>{AR ? "تنزيل العقد" : "Download contract"}</button>
                   {order.signedContractUrl
-                    ? <React.Fragment><span className="chip chip-positive">{AR ? "✓ العقد الموقّع: " : "✓ Signed: "}{order.signedContractUrl}</span>{(() => { let sf = null; try { sf = JSON.parse(localStorage.getItem("revnu_signed_files") || "{}")[order.id]; } catch (err) {} return sf && sf.data ? <a className="btn btn-sm btn-ghost" href={sf.data} download={sf.name}>{AR ? "تنزيل الموقّع" : "Download signed"}</a> : null; })()}</React.Fragment>
-                    : <label className="btn btn-sm btn-ghost" style={{ cursor: "pointer" }}>{AR ? "رفع العقد الموقّع" : "Upload signed contract"}<input type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" style={{ display: "none" }} onChange={uploadSigned} /></label>}
-                  {order.paymentProofUrl ? (() => { const pf = window.RevnuSupport ? window.RevnuSupport.getFile("revnu_payment_proofs", order.id) : null; return <span className="chip chip-positive">{AR ? "✓ إثبات الدفع: " : "✓ Proof of payment: "}{pf && pf.data ? <a href={pf.data} download={pf.name} style={{ color: "inherit", textDecoration: "underline" }}>{order.paymentProofUrl}</a> : order.paymentProofUrl}</span>; })() : null}
+                    ? <React.Fragment><span className="chip chip-positive">{AR ? "✓ العقد الموقّع: " : "✓ Signed: "}{order.signedContractUrl}</span>{signedDoc ? <button className="btn btn-sm btn-ghost" onClick={() => RS.openDocument(signedDoc)}>{AR ? "فتح الموقّع" : "Open signed"}</button> : null}</React.Fragment>
+                    : <button className="btn btn-sm btn-ghost" onClick={uploadSigned}>{AR ? "رفع العقد الموقّع" : "Upload signed contract"}</button>}
+                  {order.paymentProofUrl ? <span className="chip chip-positive">{AR ? "✓ إثبات الدفع: " : "✓ Proof of payment: "}{proofDoc ? <a href="#" onClick={(e) => { e.preventDefault(); RS.openDocument(proofDoc); }} style={{ color: "inherit", textDecoration: "underline" }}>{order.paymentProofUrl}</a> : order.paymentProofUrl}</span> : null}
                   {canAdvance(window.__revnu_role, order.status) && (
                     <button className="btn btn-sm btn-primary" style={{ marginInlineStart: "auto" }}
                       disabled={needsUpload}
@@ -1007,17 +998,17 @@ function OrderDrawer({ order: orderProp, onClose }) {
           )}
           <div className="row" style={{ gap: 8, marginTop: 22, flexWrap: "wrap" }}>
             <button className="btn btn-secondary grow" onClick={() => location.href = "/sales?dev=" + order.developerId + "&order=" + order.id}>{L("Open agreement", "فتح الاتفاقية")}</button>
-            {CAN_CANCEL && order.status !== "cancelled" && (
+            {CAN_CANCEL_FN() && order.status !== "cancelled" && (
               <button className="btn btn-ghost" style={{ color: "#c0492f" }} onClick={() => {
                 const why = prompt(L("Reason for cancelling " + order.id + " (required):", "سبب إلغاء الطلب " + order.id + " (إلزامي):"));
                 if (why == null) return;
                 if (!why.trim()) { alert(L("A reason is required.", "السبب إلزامي.")); return; }
                 if (D.isCustomerPaid(order) && !confirm(L("The customer has already paid on this order. Cancelling will remove it from Revnu invoices and commissions. Continue?", "العميل دفع على هذا الطلب. الإلغاء سيُخرجه من فواتير Revnu والعمولات. هل تريد المتابعة؟"))) return;
-                D.cancelOrder(order.id, why.trim(), me && (me.name || me.email)); onClose();
+                window.RevnuSupport.act(() => D.cancelOrder(order.id, why.trim()), { pending: L("Cancelling…", "جارٍ الإلغاء…"), done: L("Order cancelled — its units are available again.", "أُلغي الطلب — أصبحت وحداته متاحة مجددًا.") }).then(() => { window.__revnu_bump && window.__revnu_bump(); onClose(); });
               }}>{L("Cancel order", "إلغاء الطلب")}</button>
             )}
-            {CAN_CANCEL && order.status === "cancelled" && (
-              <button className="btn btn-ghost" onClick={() => { const r = D.reinstateOrder(order.id); if (!r) alert(L("Cannot reinstate — a unit in this order is now in another live deal.", "لا يمكن الاستعادة — إحدى وحدات الطلب دخلت في صفقة أخرى.")); onClose(); }}>{L("Reinstate", "استعادة الطلب")}</button>
+            {CAN_CANCEL_FN() && order.status === "cancelled" && (
+              <button className="btn btn-ghost" onClick={async () => { const r = await window.RevnuSupport.act(() => D.reinstateOrder(order.id), { pending: L("Reinstating…", "جارٍ الاستعادة…") }); if (r === null) window.RevnuSupport.toast(L("Cannot reinstate — a unit in this order is now in another live deal.", "لا يمكن الاستعادة — إحدى وحدات الطلب دخلت في صفقة أخرى."), "err"); window.__revnu_bump && window.__revnu_bump(); onClose(); }}>{L("Reinstate", "استعادة الطلب")}</button>
             )}
           </div>
           </>); })()}
@@ -1043,6 +1034,8 @@ function Inventory() {
   const projects = D.PROJECTS.filter((p) => p.developerId === developer.id);
   const initial = D.UNITS.filter((u) => projects.some((p) => p.id === u.projectId));
   const [units, setUnits] = useState(initial);
+  const storeVersion = useStoreVersion();
+  React.useEffect(() => { setUnits(D.UNITS.filter((u) => projects.some((p) => p.id === u.projectId))); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [storeVersion]);
   const [projF, setProjF] = useState("all");
   const [stat,  setStat]  = useState("all");
   const [query, setQuery] = useState("");
@@ -1057,27 +1050,29 @@ function Inventory() {
     return true;
   });
 
+  const RS = window.RevnuSupport;
   const setStatus = (number, status) => {
-    D.setUnitStatus(number, status);
-    setUnits((all) => all.map((u) => u.number === number ? { ...u, status } : u));
+    RS.act(() => D.setUnitStatus(number, status)).then((ok) => { if (ok !== undefined) setUnits((all) => all.map((u) => u.number === number ? { ...u, status } : u)); });
   };
   const saveEdit = (next) => {
-    setUnits((all) => all.map((u) => u.number === next.number ? next : u));
-    setEditing(null);
+    RS.act(() => D.updateUnit(next.number, next), { done: (window.I18N && window.I18N.isAR) ? "تم حفظ الوحدة." : "Unit saved." }).then((r) => { if (r) { setUnits((all) => all.map((u) => u.number === next.number ? { ...u, ...r } : u)); setEditing(null); } });
   };
   const addUnit = (u) => {
-    const created = D.addUnit({ ...u, priceAdj: Number(u.priceAdj) || 0, floor: Number(u.floor) || 0 });
-    if (created) setUnits((all) => [created, ...all]);
-    setAdding(false);
+    RS.act(() => D.addUnit({ ...u, priceAdj: Number(u.priceAdj) || 0, floor: Number(u.floor) || 0 }), { done: (window.I18N && window.I18N.isAR) ? "أُضيفت الوحدة." : "Unit added." }).then((created) => { if (created) { setUnits((all) => [created, ...all]); setAdding(false); } else if (created === null) RS.toast((window.I18N && window.I18N.isAR) ? "رقم الوحدة موجود مسبقًا." : "That unit number already exists.", "err"); });
   };
   // CSV columns: number, projectId, typeId, tower, floor, view, priceAdj  (same as Export CSV)
   const bulkUpload = (e) => {
     const f = e.target.files && e.target.files[0]; if (!f) return;
     const reader = new FileReader();
     reader.onload = () => {
-      const rows = D.parseCSV(reader.result); let ok = 0, skipped = 0;
-      rows.forEach((r) => { if (!r.number || !projects.some((p) => p.id === r.projectId)) { skipped++; return; } const c = D.addUnit({ number: r.number, projectId: r.projectId, typeId: r.typeId, tower: r.tower || "", floor: Number(r.floor) || 0, view: r.view || "", priceAdj: Number(r.priceAdj) || 0 }); if (c) { ok++; setUnits((all) => [c, ...all]); } else skipped++; });
-      alert((window.I18N && window.I18N.isAR) ? (ok + " وحدة أُضيفت · " + skipped + " تم تجاوزها (مكرّرة أو مشروع غير معروف)") : (ok + " units added · " + skipped + " skipped (duplicate or unknown project)"));
+      const rows = D.parseCSV(reader.result); let skipped = 0;
+      const list = rows.filter((r) => { const ok = r.number && projects.some((p) => p.id === r.projectId) && !units.some((u) => u.number === r.number); if (!ok) skipped++; return ok; })
+        .map((r) => ({ number: r.number, projectId: r.projectId, typeId: r.typeId, tower: r.tower || "", floor: Number(r.floor) || 0, view: r.view || "", priceAdj: Number(r.priceAdj) || 0 }));
+      RS.act(() => D.addUnits(list), { pending: (window.I18N && window.I18N.isAR) ? "جارٍ إضافة الوحدات…" : "Adding units…" }).then((added) => {
+        if (!added) return;
+        setUnits((all) => [...added, ...all]);
+        RS.toast((window.I18N && window.I18N.isAR) ? (added.length + " وحدة أُضيفت · " + skipped + " تم تجاوزها (مكرّرة أو مشروع غير معروف)") : (added.length + " units added · " + skipped + " skipped (duplicate or unknown project)"), "ok");
+      });
     };
     reader.readAsText(f); e.target.value = "";
   };
@@ -1315,7 +1310,7 @@ function DevUsers() {
                 <td className="muted" style={{ fontSize: 12 }}>{u.email}</td>
                 <td><span className="chip chip-brand">{roleDisplay(u)}</span></td>
                 <td className="soft" style={{ fontSize: 12 }}>{!D.devHasPerm(u, "orders") ? "—" : (!u.assignedProjectIds || u.assignedProjectIds.length === 0 ? (AR ? "كل المشاريع" : "All projects") : u.assignedProjectIds.map((id) => { const p = D.projById(id); return (AR && p?.nameAr) ? p.nameAr : p?.name; }).join(window.I18N && window.I18N.isAR ? "، " : ", "))}</td>
-                {isAdmin && <td className="right"><div className="row" style={{ gap: 6, justifyContent: "flex-end" }}><button className="btn btn-sm btn-ghost" onClick={() => setEditing({ ...u })}>{AR ? "إدارة" : "Manage"}</button>{u.id !== (me && me.id) && <button className="btn btn-sm btn-ghost" style={{ color: "var(--negative, #c0492f)" }} onClick={() => { if (confirm(AR ? ("إزالة " + (u.nameAr || u.name) + " من الفريق؟ سيفقد الوصول فورًا.") : ("Remove " + u.name + " from the team? They will lose access immediately."))) { D.removeDevUser(u.id); bump((x) => x + 1); } }}>{AR ? "إزالة" : "Remove"}</button>}</div></td>}
+                {isAdmin && <td className="right"><div className="row" style={{ gap: 6, justifyContent: "flex-end" }}><button className="btn btn-sm btn-ghost" onClick={() => setEditing({ ...u })}>{AR ? "إدارة" : "Manage"}</button>{u.id !== (me && me.id) && <button className="btn btn-sm btn-ghost" style={{ color: "var(--negative, #c0492f)" }} onClick={() => { if (confirm(AR ? ("إزالة " + (u.nameAr || u.name) + " من الفريق؟ سيفقد الوصول فورًا.") : ("Remove " + u.name + " from the team? They will lose access immediately."))) { window.RevnuSupport.act(() => D.removeDevUser(u.id), { pending: AR ? "جارٍ الإزالة…" : "Removing…", done: AR ? "تمت الإزالة." : "Removed." }).then(() => bump((x) => x + 1)); } }}>{AR ? "إزالة" : "Remove"}</button>}</div></td>}
               </tr>
             ))}
             {users.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", padding: 28, color: "var(--text-soft)" }}>{AR ? "لا يوجد مستخدمون بعد." : "No users yet."}</td></tr>}
@@ -1525,10 +1520,15 @@ function DevTeamDrawer({ member, projects, onClose }) {
   const save = () => {
     const payload = { name: (m.name || m.nameAr).trim(), nameAr: (m.nameAr || "").trim(), email: m.email.trim(), role: (m.role || "").trim(), roleAr: (m.roleAr || "").trim(), perms: m.perms, developerId: member.developerId, assignedProjectIds: m.assignedProjectIds,
       commissionLevelId: m.commissionLevelId || null, reportsTo: m.reportsTo || null, bank: m.bank || null };
-    if (m._new) D.createDevUser(payload); else D.setDevUser(m.id, payload);
-    onClose();
+    const RS = window.RevnuSupport;
+    if (m._new) {
+      RS.act(() => D.createDevUser(payload), { pending: TL("Creating the account…", "جارٍ إنشاء الحساب…") }).then((u) => { if (!u) return; onClose(); RS.showCredentials({ name: u.name, email: u.email, password: u._tempPassword }); });
+    } else {
+      RS.act(() => D.setDevUser(m.id, payload), { pending: TL("Saving…", "جارٍ الحفظ…"), done: TL("Saved.", "تم الحفظ.") }).then((u) => { if (u) onClose(); });
+    }
   };
-  const del = () => { D.removeDevUser(m.id); onClose(); };
+  const del = () => { window.RevnuSupport.act(() => D.removeDevUser(m.id), { done: TL("Removed.", "تمت الإزالة.") }).then((ok) => { if (ok) onClose(); }); };
+  const resetPw = () => { const RS = window.RevnuSupport; RS.act(() => D.resetUserPassword(m.id), { pending: TL("Issuing a temporary password…", "جارٍ إصدار كلمة مرور مؤقتة…") }).then((r) => { if (r) RS.showCredentials({ name: m.name || m.nameAr, email: r.email || m.email, password: r.tempPassword, reset: true }); }); };
   const perms = m.perms || [];
   const togglePerm = (p) => set({ perms: perms.includes(p) ? perms.filter((x) => x !== p) : [...perms, p] });
   const setBank = (patch) => set({ bank: Object.assign({}, m.bank, patch) });
@@ -1616,11 +1616,12 @@ function DevTeamDrawer({ member, projects, onClose }) {
         </div>
 
         <div className="row" style={{ gap: 8 }}>
-          <button className="btn btn-primary grow" disabled={!valid} onClick={save}>{m._new ? TL("Send invite", "إرسال الدعوة") : TL("Save", "حفظ")}</button>
+          <button className="btn btn-primary grow" disabled={!valid} onClick={save}>{m._new ? TL("Create account", "إنشاء الحساب") : TL("Save", "حفظ")}</button>
+          {!m._new && <button className="btn btn-ghost" title={TL("Issue a temporary password for this person", "إصدار كلمة مرور مؤقتة لهذا الشخص")} onClick={resetPw}>{TL("Reset password", "إعادة تعيين كلمة المرور")}</button>}
           {!m._new && m.id !== (me && me.id) && <button className="btn btn-ghost" onClick={() => { if (confirm(TL("Remove " + m.name + " from the team? They will lose access immediately.", "إزالة " + (m.nameAr || m.name) + " من الفريق؟ سيفقد الوصول فورًا.")) ) del(); }} style={{ color: "var(--negative, #c0492f)" }}>{TL("Remove", "إزالة")}</button>}
           <button className="btn btn-ghost" onClick={onClose}>{TL("Cancel", "إلغاء")}</button>
         </div>
-        {m._new && <div className="soft" style={{ fontSize: 11, marginTop: 12, lineHeight: 1.5 }}>{TL("They sign in with this email at the developer portal. (Demo: any password.)", "يسجّل الدخول بهذا البريد في بوابة المطوّر. (للعرض: أي كلمة مرور.)")}</div>}
+        {m._new && <div className="soft" style={{ fontSize: 11, marginTop: 12, lineHeight: 1.5 }}>{TL("A temporary password is shown once after you create the account — share it with them privately. They choose their own password at first sign-in.", "تظهر كلمة مرور مؤقتة مرة واحدة بعد إنشاء الحساب — شاركها معه بشكل خاص. يختار كلمة مروره الخاصة عند أول تسجيل دخول.")}</div>}
       </div>
     </div>
   );
@@ -1842,17 +1843,11 @@ function RepDeals({ orders }) {
     if (needsDocToLeave(o)) return; // gated
     window.__revnu_advanceStatus(o.id); bump((x) => x + 1);
   };
-  const uploadSigned = (o, e) => {
-    const f = e.target.files && e.target.files[0]; if (!f) return;
-    e.target.value = "";
-    const fr = new FileReader();
-    fr.onload = () => {
-      try { if (f.size < 2500000) { const m = JSON.parse(localStorage.getItem("revnu_signed_files") || "{}"); m[o.id] = { name: f.name, type: f.type, data: fr.result }; localStorage.setItem("revnu_signed_files", JSON.stringify(m)); } } catch (err) {}
-      D.updateOrder(o.id, { signedContractUrl: f.name, signedAt: new Date().toISOString().slice(0, 10) });
-      if (o.status === "issued") window.__revnu_advanceStatus(o.id);   // upload = Signed
-      bump((x) => x + 1);
-    };
-    fr.readAsDataURL(f);
+  const uploadSigned = async (o) => {
+    const doc = await window.RevnuSupport.uploadFor(o, "signed_contract", null, ".pdf,.png,.jpg,.jpeg,.doc,.docx");
+    if (!doc) return;
+    if (o.status === "issued") await window.__revnu_advanceStatus(o.id);   // upload = Signed
+    bump((x) => x + 1);
   };
   return (
     <>
@@ -1890,10 +1885,9 @@ function RepDeals({ orders }) {
                       {o.signedContractUrl && o.status !== "issued" && <div className="chip chip-positive" style={{ fontSize: 10, marginBottom: 6 }}>{AR ? "✓ عقد موقّع" : "✓ Signed"}</div>}
                       {!isLast && (
                         gated ? (
-                          <label className="btn btn-sm btn-secondary" style={{ width: "100%", cursor: "pointer", justifyContent: "center" }} onClick={(e) => e.stopPropagation()}>
+                          <button className="btn btn-sm btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={(e) => { e.stopPropagation(); uploadSigned(o); }}>
                             {AR ? "⬆ رفع العقد الموقّع للمتابعة" : "⬆ Upload signed contract to advance"}
-                            <input type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" style={{ display: "none" }} onChange={(e) => uploadSigned(o, e)} />
-                          </label>
+                          </button>
                         ) : (
                           <button className="btn btn-sm btn-primary" style={{ width: "100%" }} onClick={(e) => { e.stopPropagation(); advance(o); }}>
                             {nextLabel} {AR ? "←" : "→"}
@@ -1966,3 +1960,17 @@ function RepEarnings({ orders }) {
   );
 }
 
+/* =================================================================
+   Module entry — booted by components/PortalBoot after the server
+   verified the session and the store was hydrated.
+================================================================= */
+function NotHere() {
+  const AR = window.I18N && window.I18N.isAR;
+  return <div className="rv-fullscreen"><div className="card card-pad-lg"><div className="display-sm" style={{ marginBottom: 8 }}>{AR ? "لم يُعثر على المطوّر" : "Developer not found"}</div><a className="btn btn-primary" href="/login">{AR ? "تسجيل الدخول" : "Sign in"}</a></div></div>;
+}
+export default function DeveloperPortal({ params: p }) {
+  const [ok] = useState(() => boot(p));
+  useStoreVersion();
+  if (!ok) return <NotHere />;
+  return <App />;
+}
