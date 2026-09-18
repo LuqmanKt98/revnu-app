@@ -1,0 +1,84 @@
+[
+  {
+    "legacyId": "msiyadi",
+    "developerId": null,
+    "name": "محمد سيادي",
+    "nameAr": "محمد سيادي",
+    "email": "m@revnu.com",
+    "role": "revnu_admin",
+    "roleAr": null,
+    "roleId": "super_admin",
+    "perms": null,
+    "commissionLevelId": null,
+    "reportsTo": null,
+    "assignedProjectIds": []
+  },
+  {
+    "legacyId": "nk-tarek",
+    "developerId": "noor-khuzam",
+    "name": "Tarek Sowilam",
+    "nameAr": "طارق سويلم",
+    "email": "tarek.sowilam@grovadevelopments.com",
+    "role": "sales_director",
+    "roleAr": "مدير عام المبيعات",
+    "roleId": null,
+    "perms": [
+      "orders",
+      "inventory",
+      "financials",
+      "team",
+      "projects",
+      "contracts",
+      "cancel"
+    ],
+    "commissionLevelId": "lvl-director",
+    "reportsTo": null,
+    "assignedProjectIds": []
+  },
+  {
+    "legacyId": "nk-majed",
+    "developerId": "noor-khuzam",
+    "name": "Majed Saeed",
+    "nameAr": "ماجد سعيد",
+    "email": "majed.saeed@grovadevelopments.com",
+    "role": "sales_manager",
+    "roleAr": "مدير مبيعات",
+    "roleId": null,
+    "perms": null,
+    "commissionLevelId": "lvl-manager",
+    "reportsTo": "nk-tarek",
+    "assignedProjectIds": [
+      "nk-noor-khuzam"
+    ]
+  },
+  {
+    "legacyId": "nk-afnan",
+    "developerId": "noor-khuzam",
+    "name": "Afnan Alammari",
+    "nameAr": "أفنان العماري",
+    "email": "afnan.alammari@grovadevelopments.com",
+    "role": "sales_rep",
+    "roleAr": "مندوبة مبيعات",
+    "roleId": null,
+    "perms": null,
+    "commissionLevelId": "lvl-rep",
+    "reportsTo": "nk-majed",
+    "assignedProjectIds": [
+      "nk-noor-khuzam"
+    ]
+  },
+  {
+    "legacyId": "nk-mohamed",
+    "developerId": "noor-khuzam",
+    "name": "Mohamed Elsayed",
+    "nameAr": "محمد السيد",
+    "email": "mohamed.relsayed@grovadevelopments.com",
+    "role": "finance",
+    "roleAr": "مدير مالي",
+    "roleId": null,
+    "perms": null,
+    "commissionLevelId": null,
+    "reportsTo": null,
+    "assignedProjectIds": []
+  }
+]
