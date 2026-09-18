@@ -22,40 +22,40 @@ import { FloorPlan, unitLevels, unitLevelName } from "@/portals/shared/floorplan
 const TT = (s) => (window.I18N ? window.I18N.t(s) : s);
 const TX = (o, b) => (window.I18N ? window.I18N.tx(o, b) : (o ? (o[b] || "") : ""));
 
-const params = new URLSearchParams(window.location.search);
-const devId  = params.get("dev") || (D.DEVELOPERS[0] && D.DEVELOPERS[0].id);
-const T      = D.scopedTo(devId);
-const developer = T.developer;
-if (!developer) {
-  document.getElementById("root").innerHTML = '<div style="padding:40px;text-align:center">Developer not found.</div>';
-  throw new Error("dev not found");
+// ---- bootstrap: identity comes from the server-verified session (never from browser storage) ----
+let params, devId, T, developer, session, urlUser, sessionUser, isRevnuStaff, viewingOrder, me, usableProjects;
+function boot(p) {
+  params = new URLSearchParams(p || {});
+  session = D.me();
+  devId  = params.get("dev") || (session && session.developerId) || (D.DEVELOPERS[0] && D.DEVELOPERS[0].id);
+  T      = D.scopedTo(devId);
+  developer = T.developer;
+  if (!developer || !session) return false;
+
+  document.documentElement.style.setProperty("--brand",      developer.brand.primary);
+  document.documentElement.style.setProperty("--brand-deep", developer.brand.deep);
+  document.documentElement.style.setProperty("--brand-soft", developer.brand.soft);
+  document.documentElement.style.setProperty("--brand-text", developer.brand.text);
+  document.title = "Sales — " + developer.name;
+
+  urlUser = params.get("u") && D.userById(params.get("u"));
+  sessionUser = D.userById(session.id) || session;
+  isRevnuStaff = !session.developerId;
+  viewingOrder = !!params.get("order");
+  // Strict accounts: a developer's staff sign in with their own account. Revnu staff may only OPEN A RECORDED
+  // AGREEMENT here (read-only viewer) — never run the sales flow under someone else's name. (Also enforced server-side.)
+  if ((!isRevnuStaff && sessionUser.developerId !== developer.id) || (isRevnuStaff && !viewingOrder)) {
+    location.replace(isRevnuStaff ? "/revnu" : "/login");
+    return false;
+  }
+  me = (sessionUser.developerId === developer.id)
+    ? sessionUser
+    : (isRevnuStaff && urlUser && urlUser.developerId === developer.id)
+      ? urlUser
+      : T.users.find((u) => u.role === "sales_rep") || T.users[0];
+  usableProjects = D.projectsForUser(me).filter((p) => p.developerId === developer.id);
+  return true;
 }
-
-document.documentElement.style.setProperty("--brand",      developer.brand.primary);
-document.documentElement.style.setProperty("--brand-deep", developer.brand.deep);
-document.documentElement.style.setProperty("--brand-soft", developer.brand.soft);
-document.documentElement.style.setProperty("--brand-text", developer.brand.text);
-document.title = "Sales — " + developer.name;
-
-let session = null;
-try { session = JSON.parse(sessionStorage.getItem("revnu_session") || localStorage.getItem("revnu_session") || "null"); } catch (e) {}
-const urlUser = params.get("u") && D.userById(params.get("u"));
-const sessionUser = session && D.userById(session.id);
-const isRevnuStaff = !!(session && session.role === "revnu_admin");
-const viewingOrder = !!params.get("order");
-// Strict accounts: a developer's staff sign in with their own account. Revnu staff may only OPEN A RECORDED
-// AGREEMENT here (read-only viewer) — never run the sales flow under someone else's name.
-if (!session || (!isRevnuStaff && !(sessionUser && sessionUser.developerId === developer.id)) || (isRevnuStaff && !viewingOrder && !(sessionUser && sessionUser.developerId === developer.id))) {
-  location.replace(isRevnuStaff ? "/revnu" : "/login");
-  throw new Error("redirecting");
-}
-const me = (sessionUser && sessionUser.developerId === developer.id)
-  ? sessionUser
-  : (isRevnuStaff && urlUser && urlUser.developerId === developer.id)
-    ? urlUser
-    : T.users.find((u) => u.role === "sales_rep") || T.users[0];
-
-const usableProjects = D.projectsForUser(me).filter((p) => p.developerId === developer.id);
 
 const I = {
   arrowL: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M19 12H5M11 6l-6 6 6 6"/></svg>,
@@ -88,8 +88,7 @@ function buildSteps(project) {
 }
 
 function signOut() {
-  try { sessionStorage.removeItem("revnu_session"); localStorage.removeItem("revnu_session"); } catch (e) {}
-  location.href = "/login";
+  D.signOut().finally(() => { location.href = "/login"; });
 }
 
 /* =================================================================
@@ -320,7 +319,7 @@ function OrderFlow({ projectId, onSwitch, homeHref, dealsHref, viewOrder }) {
     rate: null, occ: null, years: 5,
     skip: { furnishing: !viewOrder.packageId, smartHome: !viewOrder.smartId, operations: !viewOrder.opsId },
   } : {
-    id: D.nextOrderId(),          // reserved up-front so the agreement carries the real reference
+    id: null,                     // reserved from the server below so the agreement carries the real reference
     projectId: project.id,
     perUnitMode: false,           // multi-unit: one configuration for all, or one per unit
     perUnit: {},                  // { [unitNumber]: { designId, paletteId, packageId, smartId, fitout } }
@@ -341,6 +340,14 @@ function OrderFlow({ projectId, onSwitch, homeHref, dealsHref, viewOrder }) {
   });
   const [stepIdx, setStepIdx] = useState(() => viewOrder ? Math.max(0, buildSteps(project).length - 1) : 0);
   React.useEffect(() => { if (!viewOrder && window.RevnuSupport) window.RevnuSupport.firstRun("sales"); }, []);
+  // The order reference is issued by the server (monotonic, never reused) as soon as the wizard opens.
+  React.useEffect(() => {
+    if (viewOrder) return;
+    let alive = true;
+    D.reserveOrderId().then((id) => { if (alive) setOrder((o) => (o.id ? o : { ...o, id })); }).catch((e) => { if (window.RevnuSupport) window.RevnuSupport.fail(e); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const upd     = (patch) => setOrder((o) => ({ ...o, ...patch }));
   const updCust = (patch) => setOrder((o) => ({ ...o, customer: { ...o.customer, ...patch } }));
@@ -448,13 +455,12 @@ function OrderFlow({ projectId, onSwitch, homeHref, dealsHref, viewOrder }) {
 
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const submitOrder = () => {
-    if (submitted || submitting) return;
+  const submitOrder = async () => {
+    if (submitted || submitting || !order.id) return;
     setSubmitting(true);
     const AR = window.I18N && window.I18N.isAR;
-    let created = null;
     try {
-      created = D.createOrder({
+      await D.createOrder({
         id: order.id,
         perUnitMode: perMode, perUnit: perMode ? order.perUnit : null,
         developerId: developer.id, projectId: project.id,
@@ -471,10 +477,14 @@ function OrderFlow({ projectId, onSwitch, homeHref, dealsHref, viewOrder }) {
         monthlyNet: our && our.annualNet ? Math.round(our.annualNet / 12) : 0,
         status: "issued",
       });
-    } catch (e) { created = null; }
-    setSubmitting(false);
-    if (!created) { alert(AR ? "تعذّر إنشاء الطلب: إحدى الوحدات دخلت في صفقة أخرى أو أن الطلب أُرسل مسبقًا." : "Could not create the order: a unit was just taken by another deal, or this order was already submitted."); return; }
-    setSubmitted(true);
+      setSubmitted(true);
+    } catch (e) {
+      const msg = e && e.friendly ? e.friendly(AR) : (AR ? "تعذّر إنشاء الطلب. حاول مرة أخرى." : "Could not create the order. Please try again.");
+      if (window.RevnuSupport) window.RevnuSupport.toast(msg, "err"); else alert(msg);
+      if (e && e.code === "UNIT_TAKEN") { await D.refresh(D.ORDER_KEYS).catch(() => {}); setStepIdx(STEPS.findIndex((st) => st.id === "unit")); }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const goBack = () => setStepIdx(Math.max(0, stepIdx - 1));
@@ -503,7 +513,7 @@ function OrderFlow({ projectId, onSwitch, homeHref, dealsHref, viewOrder }) {
           <DevMark />
         </div>
         <div className="row" style={{ gap: 12, alignItems: "center" }}>
-          <span className="chip chip-mono">{window.I18N && window.I18N.isAR ? "طلب" : "ORDER"} #{order.id}</span>
+          <span className="chip chip-mono">{window.I18N && window.I18N.isAR ? "طلب" : "ORDER"} #{order.id || "…"}</span>
           {onSwitch && <button className="btn btn-ghost btn-sm" onClick={onSwitch} title={window.I18N && window.I18N.isAR ? "تبديل المشروع" : "Switch project"}>{window.I18N && window.I18N.isAR ? "تبديل المشروع" : "Switch project"}</button>}
           {!readOnly && window.RevnuSupport && <window.RevnuSupport.SupportButtons portal="sales" />}
           {readOnly ? <span className="chip">{isRevnuStaff && !(sessionUser && sessionUser.developerId === developer.id) ? (window.I18N && window.I18N.isAR ? "معاينة · إدارة Revnu" : "Preview · Revnu admin") : (window.I18N && window.I18N.isAR ? "معاينة" : "Preview")}</span> : <UserMenu />}
@@ -580,7 +590,7 @@ function OrderFlow({ projectId, onSwitch, homeHref, dealsHref, viewOrder }) {
             {TT("Continue")} <span style={{ display: "inline-flex", transform: (window.I18N && window.I18N.isAR) ? "scaleX(-1)" : "none" }}><I.arrowR width={14} height={14} /></span>
           </button>
         ) : (
-          <button className="btn btn-primary" onClick={submitOrder} disabled={submitted || submitting}><I.pen width={14} height={14} /> {submitted ? (window.I18N && window.I18N.isAR ? "تم الإرسال ✓" : "Submitted ✓") : (window.I18N && window.I18N.isAR ? "إرسال الطلب" : "Submit order")}</button>
+          <button className={"btn btn-primary" + (submitting ? " is-busy" : "")} onClick={submitOrder} disabled={submitted || submitting || !order.id}><I.pen width={14} height={14} /> {submitted ? (window.I18N && window.I18N.isAR ? "تم الإرسال ✓" : "Submitted ✓") : (window.I18N && window.I18N.isAR ? "إرسال الطلب" : "Submit order")}</button>
         )}
       </div>
       )}
@@ -1431,7 +1441,7 @@ function StepSign(ctx) {
     <>
       {/* Print-only container: full pack, portaled to <body> so it is a SIBLING of the app —
           the print CSS hides the app via display:none without also hiding this. */}
-      {printing && ReactDOM.createPortal(
+      {printing && createPortal(
         <div className="print-doc">
           {window.FullAgreement ? window.FullAgreement({ ...ctx, lang }) : null}
           {hasKyc ? kycPaper : null}
@@ -1660,3 +1670,17 @@ function Stat({ label, value, unit, big }) {
   );
 }
 
+/* =================================================================
+   Module entry — booted by components/PortalBoot after the server
+   verified the session and the store was hydrated.
+================================================================= */
+function NotHere() {
+  const AR = window.I18N && window.I18N.isAR;
+  return <div className="rv-fullscreen"><div className="card card-pad-lg"><div className="display-sm" style={{ marginBottom: 8 }}>{AR ? "لم يُعثر على المطوّر" : "Developer not found"}</div><a className="btn btn-primary" href="/login">{AR ? "تسجيل الدخول" : "Sign in"}</a></div></div>;
+}
+export default function SalesPortal({ params: p }) {
+  const [ok] = useState(() => boot(p));
+  useStoreVersion();
+  if (!ok) return <NotHere />;
+  return <App />;
+}

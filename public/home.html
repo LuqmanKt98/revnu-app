@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Revnu — A win-win-win plug-in for developer sales</title>
+<meta name="description" content="Revnu plugs into a developer's sales journey so they can sell furnished, operated, earning units. Developer earns more. Sales agent earns more. Customer earns more." />
+<link rel="icon" href="brand/favicon.svg" />
+<link rel="stylesheet" href="/styles.css" />
+<style>
+body { background: var(--ivory); overflow-x: hidden; }
+
+/* ===================== Top nav ===================== */
+.nav {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 28px;
+  background: rgba(248,245,238,0.82);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+.nav .links { display: flex; align-items: center; gap: 4px; }
+.nav .links a {
+  padding: 8px 14px; font-size: 13px; color: var(--text-muted);
+  border-radius: var(--r-pill);
+}
+.nav .links a:hover { color: var(--text); background: rgba(8,11,20,0.05); }
+.nav .signin {
+  margin-left: 8px; padding: 8px 18px; height: 36px;
+  display: inline-flex; align-items: center;
+  background: var(--ink); color: var(--cloud);
+  border-radius: var(--r-pill);
+  font-size: 13px; font-weight: 500;
+}
+.nav .signin:hover { background: #15192A; }
+
+/* ===================== Hero ===================== */
+.hero { margin: 28px 24px; max-width: 1320px; }
+@media (min-width: 1376px) { .hero { margin-left: auto; margin-right: auto; } }
+.hero-card {
+  background:
+    radial-gradient(circle at 88% -10%, rgba(94,196,212,0.32), transparent 45%),
+    radial-gradient(circle at -10% 110%, rgba(74,143,231,0.28), transparent 55%),
+    linear-gradient(160deg, #0E1322 0%, var(--ink) 60%);
+  color: var(--cloud);
+  border-radius: var(--r-xl);
+  padding: 100px 64px 96px;
+  position: relative; overflow: hidden;
+  isolation: isolate;
+}
+/* Animated orbs */
+.hero-card::before, .hero-card::after {
+  content: ""; position: absolute; border-radius: 50%;
+  filter: blur(60px);
+  pointer-events: none; z-index: 0;
+}
+.hero-card::before {
+  width: 380px; height: 380px;
+  background: rgba(94,196,212,0.28);
+  top: -120px; right: -60px;
+  animation: float1 18s ease-in-out infinite;
+}
+.hero-card::after {
+  width: 320px; height: 320px;
+  background: rgba(74,143,231,0.28);
+  bottom: -160px; left: -80px;
+  animation: float2 22s ease-in-out infinite;
+}
+@keyframes float1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-40px, 30px) scale(1.08); }
+}
+@keyframes float2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(60px, -40px) scale(1.1); }
+}
+/* removed dangling hero node icon */
+.hero-card > * { position: relative; z-index: 2; }
+
+.hero-eye {
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.18em; color: var(--cyan);
+  text-transform: uppercase;
+  margin-bottom: 28px;
+  display: inline-flex; align-items: center; gap: 10px;
+}
+.hero-eye .s { color: rgba(94,196,212,0.4); }
+.live-pulse {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 10px; letter-spacing: 0.14em;
+  padding: 3px 9px;
+  border: 1px solid rgba(94,196,212,0.35);
+  border-radius: var(--r-pill);
+  color: var(--cyan);
+}
+.live-pulse .dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--cyan);
+  box-shadow: 0 0 0 0 var(--cyan);
+  animation: livePulse 1.6s ease-out infinite;
+}
+@keyframes livePulse {
+  0%   { box-shadow: 0 0 0 0 rgba(94,196,212,0.65); }
+  100% { box-shadow: 0 0 0 10px rgba(94,196,212,0); }
+}
+
+.hero h1 {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 72px; letter-spacing: -0.018em; line-height: 1.04;
+  margin: 0 0 24px;
+  max-width: 920px;
+  color: var(--cloud);
+  text-wrap: balance;
+}
+.hero h1 em { font-style: italic; color: var(--cyan); font-weight: 500; }
+
+/* Cycling word reel inside the headline */
+.cycler {
+  display: inline-block; min-width: 240px;
+  position: relative;
+  vertical-align: baseline;
+}
+.cycler .word {
+  display: inline-block;
+  font-style: italic; color: var(--cyan); font-weight: 500;
+  animation: cycle 9s steps(1, end) infinite;
+  white-space: nowrap;
+}
+@keyframes cycle {
+  0%, 25%   { content: "furnished"; }
+  33%, 58%  { content: "operated"; }
+  66%, 91%  { content: "earning"; }
+  100%      { content: "furnished"; }
+}
+/* Use ::before content via attr-data so we can rotate words cleanly */
+.cycler .word::before {
+  content: attr(data-word-0);
+  animation: cycleText 9s linear infinite;
+}
+@keyframes cycleText {
+  0%, 24%   { content: var(--w0, attr(data-word-0)); }
+}
+
+.hero .lede {
+  font-size: 18px; line-height: 1.6;
+  color: rgba(232,237,245,0.78);
+  margin: 0; max-width: 660px;
+}
+.hero .cta-row {
+  display: flex; gap: 12px; margin-top: 36px;
+  flex-wrap: wrap;
+}
+.btn-cyan {
+  height: 52px; padding: 0 28px;
+  background: var(--cyan); color: var(--ink);
+  border: 0; border-radius: var(--r-pill);
+  font-size: 14px; font-weight: 600;
+  text-decoration: none;
+  display: inline-flex; align-items: center; gap: 8px;
+  position: relative;
+  transition: transform 0.15s, box-shadow 0.2s, background 0.15s;
+}
+.btn-cyan::after {
+  content: ""; position: absolute; inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 0 rgba(94,196,212,0.5);
+  animation: ctaPulse 2.6s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes ctaPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(94,196,212,0.5); }
+  100% { box-shadow: 0 0 0 18px rgba(94,196,212,0); }
+}
+.btn-cyan:hover { background: #7AD3DF; transform: translateY(-1px); }
+.btn-line-dark {
+  height: 52px; padding: 0 26px;
+  background: transparent; color: var(--cloud);
+  border: 1px solid rgba(232,237,245,0.24);
+  border-radius: var(--r-pill);
+  font-size: 14px; font-weight: 500;
+  text-decoration: none;
+  display: inline-flex; align-items: center; gap: 8px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-line-dark:hover { background: rgba(255,255,255,0.06); border-color: rgba(232,237,245,0.4); }
+
+/* Hero trust strip */
+.trust {
+  display: flex; gap: 32px; margin-top: 46px;
+  padding-top: 32px;
+  border-top: 1px solid rgba(232,237,245,0.12);
+  flex-wrap: wrap;
+}
+.trust .pr {
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: rgba(232,237,245,0.55);
+}
+.trust .pr strong { display: block; color: var(--cyan); font-weight: 500; font-size: 11px; }
+
+/* ===================== Section frame ===================== */
+.section { max-width: 1280px; margin: 0 auto; padding: 72px 32px; }
+.section-head {
+  margin-bottom: 36px;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; gap: 12px;
+}
+.section-head.left { align-items: flex-start; text-align: left; }
+.section-eye {
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.18em;
+  color: var(--text-soft); text-transform: uppercase;
+}
+.section-head h2 {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 48px; letter-spacing: -0.016em; line-height: 1.08;
+  margin: 0; max-width: 760px;
+  text-wrap: balance;
+}
+.section-head p {
+  color: var(--text-muted); font-size: 16px;
+  max-width: 580px; margin: 0;
+  line-height: 1.55;
+}
+
+/* Reveal-on-scroll */
+.reveal {
+  opacity: 0; transform: translateY(24px);
+  transition: opacity 0.7s cubic-bezier(.2,.7,.2,1), transform 0.7s cubic-bezier(.2,.7,.2,1);
+}
+.reveal.in { opacity: 1; transform: translateY(0); }
+.reveal.d2 { transition-delay: 0.10s; }
+.reveal.d3 { transition-delay: 0.20s; }
+.reveal.d4 { transition-delay: 0.30s; }
+
+/* ===================== Win × Win × Win ===================== */
+.www-wrap {
+  position: relative;
+  margin-top: 28px;
+}
+/* Connecting lines */
+.www-lines {
+  position: absolute; inset: 0; pointer-events: none;
+  z-index: 0;
+}
+.www-lines svg { width: 100%; height: 100%; }
+.www-lines path {
+  stroke: var(--cyan);
+  stroke-width: 1.5;
+  fill: none;
+  stroke-dasharray: 4 6;
+  opacity: 0;
+  animation: drawWin 1.4s 0.3s ease-out forwards;
+}
+@keyframes drawWin {
+  to { opacity: 0.3; stroke-dashoffset: 0; }
+}
+.www {
+  position: relative; z-index: 1;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+}
+.win {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  padding: 32px 28px;
+  display: flex; flex-direction: column; gap: 14px;
+  position: relative;
+  transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+}
+.win:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--brand);
+}
+.win .badge {
+  font-family: var(--font-mono);
+  font-size: 10.5px; letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--brand);
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.win .badge .nm {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--brand-soft); color: var(--brand-deep);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-weight: 600;
+  font-size: 11px;
+}
+.win h3 {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 26px; letter-spacing: -0.012em;
+  margin: 0;
+}
+.win .who {
+  font-size: 13.5px; color: var(--text-muted);
+  margin: 0;
+}
+.win .gain {
+  margin-top: 8px; padding: 14px 16px;
+  background: var(--bg-sunken);
+  border-radius: var(--r-md);
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+}
+.win .gain .v {
+  font-family: var(--font-display);
+  font-size: 30px; font-weight: 500; letter-spacing: -0.012em;
+  color: var(--ink);
+}
+.win .gain .l {
+  font-family: var(--font-mono);
+  font-size: 10.5px; letter-spacing: 0.1em;
+  color: var(--text-soft); text-transform: uppercase;
+}
+.win ul { padding: 0; margin: 0; list-style: none; }
+.win li {
+  padding: 8px 0; border-bottom: 1px solid var(--line);
+  font-size: 13.5px;
+  display: flex; gap: 10px; align-items: baseline;
+}
+.win li:last-child { border-bottom: 0; }
+.win li .ck {
+  width: 16px; height: 16px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--brand-soft); color: var(--brand-deep);
+  border-radius: 50%;
+}
+
+/* Per-winner accent */
+.win.developer .badge, .win.developer .gain .v { color: var(--signal-deep); }
+.win.developer .badge .nm { background: rgba(74,143,231,0.10); color: var(--signal-deep); }
+.win.developer .li .ck   { background: rgba(74,143,231,0.10); color: var(--signal-deep); }
+.win.developer:hover     { border-color: var(--signal); }
+
+.win.agent .badge, .win.agent .gain .v { color: #6E2E94; }
+.win.agent .badge .nm { background: rgba(110,46,148,0.10); color: #6E2E94; }
+.win.agent li .ck     { background: rgba(110,46,148,0.10); color: #6E2E94; }
+.win.agent:hover      { border-color: #9D5BCB; }
+
+.win.customer .badge, .win.customer .gain .v { color: #2E7D52; }
+.win.customer .badge .nm { background: rgba(76,175,136,0.12); color: #2E7D52; }
+.win.customer li .ck     { background: rgba(76,175,136,0.12); color: #2E7D52; }
+.win.customer:hover      { border-color: var(--growth); }
+
+/* ===================== Live calculator ===================== */
+.calc-wrap {
+  margin-top: 36px;
+  background: var(--ink);
+  color: var(--cloud);
+  border-radius: var(--r-xl);
+  padding: 40px;
+  position: relative; overflow: hidden;
+}
+.calc-wrap::before {
+  content: ""; position: absolute;
+  width: 360px; height: 360px;
+  border-radius: 50%;
+  background: rgba(94,196,212,0.16);
+  top: -160px; right: -120px;
+  filter: blur(60px);
+  pointer-events: none;
+}
+.calc-grid {
+  position: relative; z-index: 1;
+  display: grid; grid-template-columns: 1fr 1.3fr; gap: 36px;
+  align-items: center;
+}
+.calc-head h3 {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 30px; letter-spacing: -0.012em;
+  color: var(--cloud); margin: 0 0 8px;
+}
+.calc-head p { font-size: 14px; color: rgba(232,237,245,0.7); line-height: 1.55; margin: 0 0 22px; max-width: 360px; }
+.calc-input { margin-bottom: 18px; }
+.calc-input label {
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em;
+  color: rgba(232,237,245,0.6); text-transform: uppercase;
+  display: flex; justify-content: space-between; margin-bottom: 8px;
+}
+.calc-input label .v {
+  font-family: var(--font-display); font-weight: 500; font-size: 18px;
+  color: var(--cloud); letter-spacing: -0.005em;
+  text-transform: none;
+}
+.calc-input input[type=range] {
+  width: 100%; appearance: none;
+  background: rgba(232,237,245,0.12); height: 4px; border-radius: 2px;
+  outline: none;
+}
+.calc-input input[type=range]::-webkit-slider-thumb {
+  appearance: none;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--cyan); cursor: pointer;
+  box-shadow: 0 0 0 4px rgba(94,196,212,0.18), 0 2px 6px rgba(0,0,0,0.4);
+  border: 0;
+}
+.calc-input input[type=range]::-moz-range-thumb {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--cyan); cursor: pointer;
+  box-shadow: 0 0 0 4px rgba(94,196,212,0.18), 0 2px 6px rgba(0,0,0,0.4);
+  border: 0;
+}
+
+.calc-out {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: var(--r-lg);
+  padding: 24px;
+}
+.calc-out .ro {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 14px 0;
+  border-bottom: 1px dotted rgba(255,255,255,0.10);
+}
+.calc-out .ro:last-child { border-bottom: 0; }
+.calc-out .ro .nm {
+  font-family: var(--font); font-size: 13.5px;
+  color: rgba(232,237,245,0.85);
+}
+.calc-out .ro .nm .who {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
+  color: var(--cyan); text-transform: uppercase;
+  display: block; margin-bottom: 2px;
+}
+.calc-out .ro .val {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 22px; letter-spacing: -0.008em;
+  color: var(--cloud);
+}
+.calc-out .ro .val .u {
+  font-family: var(--font-mono); font-size: 10px; color: rgba(232,237,245,0.55);
+  margin-left: 4px; letter-spacing: 0.08em;
+}
+.calc-out .total {
+  margin-top: 8px; padding-top: 14px;
+  border-top: 1px solid rgba(94,196,212,0.4);
+  display: flex; align-items: baseline; justify-content: space-between;
+}
+.calc-out .total .nm {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em;
+  color: var(--cyan); text-transform: uppercase;
+}
+.calc-out .total .v {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 36px; letter-spacing: -0.018em; color: var(--cloud);
+}
+.calc-fine {
+  font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.08em;
+  color: rgba(232,237,245,0.45);
+  margin-top: 14px; line-height: 1.6;
+  text-transform: uppercase;
+}
+
+/* ===================== How it works ===================== */
+.flow {
+  margin-top: 28px;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  padding: 32px;
+  overflow: hidden;
+}
+.flow-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; position: relative; }
+.flow-step {
+  padding: 18px;
+  border-right: 1px solid var(--line);
+  border-radius: var(--r-md);
+  cursor: default;
+  transition: background 0.25s, transform 0.25s, box-shadow 0.25s;
+  opacity: 0;
+  transform: translateY(20px);
+}
+.flow-step:last-child { border-right: 0; }
+.flow.in .flow-step       { opacity: 1; transform: translateY(0); transition: opacity 0.7s cubic-bezier(.2,.7,.2,1), transform 0.7s cubic-bezier(.2,.7,.2,1), background 0.25s, box-shadow 0.25s; }
+.flow.in .flow-step:nth-child(1) { transition-delay: 0.05s; }
+.flow.in .flow-step:nth-child(2) { transition-delay: 0.18s; }
+.flow.in .flow-step:nth-child(3) { transition-delay: 0.31s; }
+.flow.in .flow-step:nth-child(4) { transition-delay: 0.44s; }
+.flow.in .flow-step:nth-child(5) { transition-delay: 0.57s; }
+.flow-step:hover {
+  background: linear-gradient(180deg, rgba(94,196,212,0.10), rgba(94,196,212,0.02));
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+.flow-step .n {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--brand-soft); color: var(--brand-deep);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  margin-bottom: 16px;
+  transition: transform 0.35s cubic-bezier(.4,1.6,.5,1), background 0.25s, color 0.25s;
+}
+.flow-step:hover .n {
+  transform: scale(1.15) rotate(-8deg);
+  background: var(--cyan);
+  color: var(--ink);
+}
+.flow-step h4 { font-family: var(--font-display); font-weight: 500; font-size: 17px; letter-spacing: -0.005em; margin: 0 0 6px; }
+.flow-step p  { font-size: 12.5px; color: var(--text-muted); line-height: 1.55; margin: 0; }
+
+/* ===================== What we handle ===================== */
+.handle {
+  margin-top: 36px;
+  display: grid; grid-template-columns: 1.2fr 1fr; gap: 28px;
+  align-items: start;
+}
+.handle h3 { font-family: var(--font-display); font-weight: 500; font-size: 30px; letter-spacing: -0.012em; margin: 0 0 6px; }
+.handle .lede { color: var(--text-muted); font-size: 14.5px; max-width: 480px; margin-bottom: 20px; }
+.handle ul { padding: 0; margin: 0; list-style: none; }
+.handle li {
+  padding: 14px 0; border-bottom: 1px solid var(--line);
+  display: grid; grid-template-columns: 30px 170px 1fr;
+  gap: 12px; align-items: baseline;
+  transition: padding-left 0.2s;
+}
+.handle li:hover { padding-left: 6px; }
+.handle li:last-child { border-bottom: 0; }
+.handle li .check {
+  width: 20px; height: 20px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--brand-soft); color: var(--brand-deep);
+  border-radius: 50%;
+}
+.handle li .what { font-family: var(--font-display); font-weight: 500; font-size: 15px; }
+.handle li .desc { color: var(--text-muted); font-size: 13px; }
+
+.handle .panel {
+  background: var(--ink); color: var(--cloud);
+  border-radius: var(--r-xl);
+  padding: 32px;
+  position: sticky; top: 90px;
+}
+.handle .panel .quote {
+  font-family: var(--font-display); font-style: italic;
+  font-size: 22px; line-height: 1.4;
+  color: var(--cloud); margin: 0 0 18px;
+}
+.handle .panel .author {
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.12em;
+  color: var(--cyan); text-transform: uppercase;
+}
+.handle .panel .stats {
+  margin-top: 22px; padding-top: 18px;
+  border-top: 1px solid rgba(232,237,245,0.12);
+  display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+}
+.handle .panel .stat-num {
+  font-family: var(--font-display); font-size: 30px; font-weight: 500;
+  color: var(--cloud); letter-spacing: -0.012em;
+}
+.handle .panel .stat-lbl {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
+  color: rgba(232,237,245,0.6); text-transform: uppercase;
+  margin-top: 2px;
+}
+
+/* ===================== Big number band (animated count-up) ===================== */
+.bignum {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  margin: 0 24px;
+  max-width: 1320px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-card);
+  border-radius: var(--r-xl);
+}
+@media (min-width: 1376px) { .bignum { margin-left: auto; margin-right: auto; } }
+.bignum .bn {
+  padding: 40px;
+  border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.bignum .bn:last-child { border-right: 0; }
+.bignum .bn .v {
+  font-family: var(--font-display); font-size: 72px; font-weight: 500;
+  letter-spacing: -0.025em; line-height: 1;
+  color: var(--ink);
+}
+.bignum .bn .v .suf { font-size: 28px; color: var(--cyan); margin-left: 2px; }
+.bignum .bn .l {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--text-soft);
+  margin-top: 10px;
+}
+.bignum .bn .d { color: var(--text-muted); font-size: 13.5px; margin-top: 6px; line-height: 1.5; }
+
+/* ===================== Request access ===================== */
+.request {
+  margin-top: 60px;
+  background:
+    radial-gradient(circle at 92% 100%, rgba(94,196,212,0.22), transparent 50%),
+    radial-gradient(circle at 5% 0%, rgba(74,143,231,0.16), transparent 50%),
+    var(--ink);
+  color: var(--cloud);
+  border-radius: var(--r-xl);
+  padding: 56px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 48px;
+}
+.request .left h2 {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 36px; letter-spacing: -0.012em;
+  color: var(--cloud); margin: 0 0 14px;
+  max-width: 380px;
+}
+.request .left p { color: rgba(232,237,245,0.72); font-size: 14.5px; line-height: 1.55; margin: 0; max-width: 360px; }
+.request .left .talk { margin-top: 26px; display: flex; gap: 18px; }
+.request .left .talk div {
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.08em;
+  color: rgba(232,237,245,0.55); text-transform: uppercase;
+}
+.request .left .talk div strong {
+  display: block; font-family: var(--font-display); font-size: 14px;
+  color: var(--cloud); margin-top: 2px; letter-spacing: 0;
+}
+
+.form {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--r-lg);
+  padding: 22px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.form .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form label {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
+  color: rgba(232,237,245,0.6); text-transform: uppercase;
+  margin-bottom: 4px; display: block;
+}
+.form .field { display: flex; flex-direction: column; }
+.form input, .form select, .form textarea {
+  width: 100%; height: 36px; padding: 0 12px;
+  background: rgba(8,11,20,0.5); color: var(--cloud);
+  border: 1px solid rgba(232,237,245,0.16);
+  border-radius: var(--r-sm); font-size: 13px;
+  font-family: var(--font);
+}
+.form textarea { height: auto; padding: 10px 12px; min-height: 72px; line-height: 1.5; resize: vertical; }
+.form input:focus, .form select:focus, .form textarea:focus {
+  outline: 0; border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(94,196,212,0.22);
+}
+.form .submit {
+  height: 46px; margin-top: 4px;
+  background: var(--cyan); color: var(--ink);
+  border: 0; border-radius: var(--r-pill);
+  font-size: 14px; font-weight: 600;
+}
+.form .submit:hover { background: #7AD3DF; }
+.form .fine { font-size: 11.5px; color: rgba(232,237,245,0.5); line-height: 1.5; margin: 4px 0 0; text-align: center; }
+.submitted {
+  background: rgba(76,175,136,0.14);
+  border: 1px solid rgba(76,175,136,0.32);
+  color: #B2E2C8; padding: 26px; border-radius: var(--r-md); text-align: center;
+}
+.submitted .h { font-family: var(--font-display); font-size: 22px; font-weight: 500; color: #D6F1E1; margin: 0 0 6px; }
+.submitted .p { font-size: 13.5px; color: rgba(232,237,245,0.78); margin: 0; }
+
+/* ===================== Footer ===================== */
+.foot {
+  max-width: 1280px; margin: 32px auto 0;
+  padding: 36px 32px 56px;
+  display: flex; justify-content: space-between; align-items: center;
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono); font-size: 10.5px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-soft);
+  flex-wrap: wrap; gap: 14px;
+}
+.foot .l { display: inline-flex; align-items: center; gap: 8px; }
+.foot .l .nd { width: 14px; height: 14px; }
+.foot .l .nd svg { width: 100%; height: 100%; display: block; }
+.foot .l .word {
+  font-family: var(--font-display); font-size: 14px; letter-spacing: 0;
+  color: var(--ink); text-transform: none; font-weight: 500;
+}
+.foot a { color: var(--text-muted); }
+.foot a:hover { color: var(--text); }
+
+@media (max-width: 1000px) {
+  .www, .flow-grid, .handle, .request, .bignum, .calc-grid { grid-template-columns: 1fr !important; }
+  .www-lines { display: none; }
+  .hero h1 { font-size: 44px; }
+  .hero-card { padding: 56px 32px; }
+  .hero-node { width: 44px; height: 44px; right: 20px; bottom: 20px; }
+  .request, .calc-wrap { padding: 36px; }
+  .flow-step, .bignum .bn { border-right: 0; border-bottom: 1px solid var(--line); padding: 24px; }
+  .flow-step:last-child, .bignum .bn:last-child { border-bottom: 0; }
+  .section-head h2 { font-size: 34px; }
+}
+
+/* ===================== Phone ===================== */
+html { scroll-behavior: smooth; }
+.nav-burger { display: none; width: 44px; height: 44px; align-items: center; justify-content: center; border: 1px solid rgba(8,11,20,0.18); border-radius: 12px; background: transparent; cursor: pointer; color: #080B14; }
+.nav-right { display: flex; align-items: center; gap: 8px; }
+@media (max-width: 760px) {
+  .nav { padding: 10px 14px; }
+  .nav-burger { display: flex; }
+  .lang-globe { display: none !important; }
+  .nav .links {
+    display: none; position: absolute; top: 100%; left: 0; right: 0;
+    flex-direction: column; align-items: stretch; gap: 4px;
+    background: rgba(247,245,239,0.98); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+    padding: 10px 14px 18px; border-bottom: 1px solid rgba(8,11,20,0.08);
+    box-shadow: 0 24px 48px rgba(8,11,20,0.16);
+  }
+  .nav .links.open { display: flex; }
+  .nav .links a { padding: 15px 16px; font-size: 15.5px; border-radius: 12px; }
+  .nav .signin { margin: 10px 0 0; text-align: center; height: auto; padding: 15px 16px; }
+  .nav .links .lang-row { display: flex !important; gap: 8px; margin-top: 12px; padding-top: 14px; border-top: 1px solid rgba(8,11,20,0.1); }
+  .nav .links .lang-row button { flex: 1; padding: 14px; border-radius: 12px; border: 1px solid rgba(8,11,20,0.18); background: transparent; font-size: 14.5px; font-weight: 700; cursor: pointer; color: #080B14; }
+  .nav .links .lang-row button.on { background: #080B14; color: #fff; }
+}
+@media (max-width: 640px) {
+  .hero { margin: 12px 10px; }
+  .hero-card { padding: 38px 20px 46px; border-radius: 22px; }
+  .hero h1 { font-size: 32px; line-height: 1.12; }
+  .hero .lede { font-size: 14.5px; line-height: 1.65; }
+  .hero .cta-row { flex-direction: column; align-items: stretch; margin-top: 26px; }
+  .hero .cta-row a { text-align: center; }
+  .trust { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 32px; padding-top: 24px; }
+  .section { padding: 44px 16px; }
+  .section-head h2 { font-size: 27px; }
+  .section-head p { font-size: 14.5px; }
+  .win { padding: 22px 18px; }
+  .calc-wrap, .request { padding: 24px 16px; border-radius: 22px; }
+  .calc-grid { gap: 24px; }
+  .calc-out .val { font-size: 24px; }
+  .form .pair { grid-template-columns: 1fr; }
+  .handle li { grid-template-columns: 26px 1fr; }
+  .handle li .desc { grid-column: 2; }
+  .bignum { margin: 0 10px; }
+  .bignum .bn { padding: 28px 22px; }
+  .bignum .bn .v { font-size: 52px; }
+  .request .left h2 { font-size: 28px; }
+  .foot { flex-wrap: wrap; gap: 12px; padding: 26px 16px 40px; }
+}
+
+</style>
+<meta name="ext-resource-dependency" content="brand/noor-khuzam-logo-dark.png" data-resource-id="brand_noor_khuzam_logo_dark_png" />
+<meta name="ext-resource-dependency" content="brand/noor-khuzam-logo-white.png" data-resource-id="brand_noor_khuzam_logo_white_png" />
+</head>
+<body>
+<template id="__bundler_thumbnail" data-bg-color="#080B14">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#080B14"></rect>
+    <rect x="470" y="270" width="260" height="260" rx="64" fill="#5EC4D4"></rect>
+    <text x="600" y="445" font-family="Georgia, serif" font-size="170" font-weight="700" fill="#080B14" text-anchor="middle">R</text>
+  </svg>
+</template>
+
+<header class="nav">
+  <div class="brand-mark">
+    <span class="node"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="42" fill="none" stroke="#080B14" stroke-width="14"/><circle cx="100" cy="100" r="18" fill="#080B14"/></svg></span>
+    <span class="word">Revnu</span>
+  </div>
+  <div class="links">
+    <a href="#win">Why it works</a>
+    <a href="#calc">See the upside</a>
+    <a href="#how">How it works</a>
+    <a href="#request">Request access</a>
+    <a class="signin" href="/login">Developer sign-in →</a>
+  </div>
+</header>
+
+<!-- ====================== HERO ====================== -->
+<section class="hero">
+  <div class="hero-card">
+    <div class="hero-eye">
+      <span class="live-pulse"><span class="dot"></span>LIVE PILOT · ACTIVE NOW</span>
+      <span class="s">·</span> THE ELEGANT PLATFORM <span class="s">·</span> V1.0
+    </div>
+    <h1>Sell the unit <em id="wordReel">furnished</em><span style="color:var(--cyan); font-style: italic;">..</span> and hand it over already earning for its owner.</h1>
+    <p class="lede">
+      Revnu sits on top of your existing sales journey, so you sell the unit together with its furnishing and its operation — in one sitting. Off-plan or ready, any developer with units to sell.
+      <strong style="color: var(--cyan); font-weight: 500;">The developer</strong> adds a new profit line on every unit.
+      <strong style="color: var(--cyan); font-weight: 500;">The agent</strong> earns a bigger commission on the same deal.
+      <strong style="color: var(--cyan); font-weight: 500;">The customer</strong> receives a ready unit that pays them from day one.
+    </p>
+    <div class="cta-row">
+      <a href="#request" class="btn-cyan">Request access →</a>
+      <a href="#calc" class="btn-line-dark">See the upside ↓</a>
+    </div>
+    <div class="trust">
+      <div class="pr"><strong>// SAUDI PDPL</strong>compliant by design</div>
+      <div class="pr"><strong>// E-SIGNATURE</strong>ready out of the box</div>
+      <div class="pr"><strong>// ARABIC + ENGLISH</strong>contract pack</div>
+      <div class="pr"><strong>// 8 STEPS</strong>average 30-min session</div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== WIN × WIN × WIN ====================== -->
+<section class="section" id="win">
+  <div class="section-head reveal">
+    <div class="section-eye">// WIN · WIN · WIN</div>
+    <h2>One deal.. and everyone walks out winning.</h2>
+    <p>Three parties sit around the table when a unit is sold — and Revnu is built so each one of them gains, without taking sides.</p>
+  </div>
+
+  <div class="www-wrap reveal d2">
+    <!-- Connecting lines between the 3 cards -->
+    <div class="www-lines" aria-hidden="true">
+      <svg viewBox="0 0 1000 60" preserveAspectRatio="none">
+        <path d="M 167 30 Q 333 -10 500 30" />
+        <path d="M 500 30 Q 667 70 833 30" />
+        <path d="M 167 30 Q 500 90 833 30" />
+      </svg>
+    </div>
+
+    <div class="www">
+      <!-- Developer -->
+      <div class="win developer">
+        <div class="badge"><span class="nm">01</span>// THE DEVELOPER</div>
+        <h3>Extra income on every unit you already sell.</h3>
+        <p class="who">Same building, same buyer — but now you also sell the furnishing and smart home with it, and keep a share of the operating income for years.</p>
+        <div class="gain">
+          <div>
+            <div style="font-size: 11px; letter-spacing: 0.04em; color: var(--text-soft);">Avg uplift per unit</div>
+            <div class="v" id="dev-uplift">+62K</div>
+          </div>
+          <div class="l">SAR</div>
+        </div>
+        <ul>
+          <li><span class="ck"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span>Furnishing margin + smart-home uplift on every signed unit.</span></li>
+          <li><span class="ck"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span>A share of the operating revenue — paid for years after handover.</span></li>
+          <li><span class="ck"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span>Brand-protected: your portal, your URL, your contracts.</span></li>
+        </ul>
+      </div>
+
+      <!-- Agent -->
+      <div class="win agent">
+        <div class="badge"><span class="nm">02</span>// THE SALES AGENT</div>
+        <h3>A bigger commission on the same deal.</h3>
+        <p class="who">Every furnishing package, smart-home layer and operating model the agent closes makes the ticket bigger — and their commission grows with it.</p>
+        <div class="gain">
+          <div>
+            <div style="font-size: 11px; letter-spacing: 0.04em; color: var(--text-soft);">Extra commission per deal</div>
+            <div class="v" id="agent-uplift">+8.4K</div>
+          </div>
+          <div class="l">SAR</div>
+        </div>
+        <ul>
+          <li><span class="ck"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span>1% commission on the entire furnishing pack they close.</span></li>
+          <li><span class="ck"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span>Higher conversion — one session, one signature, one ticket.</span></li>
+          <li><span class="ck"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span>A 9-step flow the agent looks senior on — not a sales pitch.</span></li>
+        </ul>
+      </div>
+
+      <!-- Customer -->
+      <div class="win customer">
+        <div class="badge"><span class="nm">03</span>// THE CUSTOMER</div>
+        <h3>Wholesale furnishing prices.. and income from day one.</h3>
+        <p class="who">A regular buyer can’t reach developer prices for furniture and operations. Through Revnu they can — and their unit starts earning the day they receive the keys.</p>
+        <div class="gain">
+          <div>
+            <div style="font-size: 11px; letter-spacing: 0.04em; color: var(--text-soft);">Savings vs DIY furnishing</div>
+            <div class="v" id="customer-uplift">~20%</div>
+          </div>
+          <div class="l">PRICE</div>
+        </div>
+        <ul>
+          <li><span class="ck"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span>Bulk-priced furnishing &amp; smart home — we buy at scale.</span></li>
+          <li><span class="ck"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span>Daily / Monthly / Long lease — the unit earns from day one.</span></li>
+          <li><span class="ck"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span>A signed contract pack in their hand by the end of the meeting.</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== LIVE UPSIDE CALCULATOR ====================== -->
+<section class="section" id="calc">
+  <div class="section-head reveal">
+    <div class="section-eye">// SEE THE UPSIDE</div>
+    <h2>Enter your project numbers.. and see the difference for yourself.</h2>
+    <p>Drag the sliders — the numbers below recalculate live, using the platform’s actual math on a typical developer deal.</p>
+  </div>
+
+  <div class="calc-wrap reveal d2">
+    <div class="calc-grid">
+      <div class="calc-head">
+        <h3>Your next project</h3>
+        <p>A back-of-envelope, but accurate to the platform's actual maths. Assumes Tier-II Full Home package and Daily / Airbnb operating model. Figures are indicative — your numbers are set when we onboard you.</p>
+
+        <div class="calc-input">
+          <label>Avg unit price <span class="v" id="lblPrice">2,000,000 SAR</span></label>
+          <input type="range" id="inPrice" min="100000" max="6000000" step="50000" value="2000000" />
+        </div>
+        <div class="calc-input">
+          <label>Units sold per quarter <span class="v" id="lblUnits">40</span></label>
+          <input type="range" id="inUnits" min="5" max="200" step="1" value="40" />
+        </div>
+        <div class="calc-input">
+          <label>Furnishing as % of unit price <span class="v" id="lblPct">10.0%</span></label>
+          <input type="range" id="inPct" min="4" max="15" step="0.5" value="10" />
+        </div>
+      </div>
+
+      <div class="calc-out">
+        <div class="ro">
+          <div class="nm"><span class="who">// DEVELOPER</span>Furnishing margin per unit</div>
+          <div class="val" id="oDevFurn">— <span class="u">SAR</span></div>
+        </div>
+        <div class="ro">
+          <div class="nm"><span class="who">// DEVELOPER</span>Operating-revenue share / yr <span style="font-family: var(--font-mono); font-size: 9.5px; color: var(--cyan); letter-spacing: 0.08em; margin-left: 6px;">(ILLUSTRATIVE)</span></div>
+          <div class="val" id="oDevOps">— <span class="u">SAR</span></div>
+        </div>
+        <div class="ro">
+          <div class="nm"><span class="who">// AGENT</span>Extra commission per closed unit</div>
+          <div class="val" id="oAgent">— <span class="u">SAR</span></div>
+        </div>
+        <div class="ro">
+          <div class="nm"><span class="who">// CUSTOMER</span>Annual net to owner (avg)</div>
+          <div class="val" id="oCust">— <span class="u">SAR</span></div>
+        </div>
+        <div class="total">
+          <div class="nm">// Developer additional revenue · this quarter</div>
+          <div class="v" id="oQuarter">— SAR</div>
+        </div>
+        <div class="calc-fine">// FIGURES ARE INDICATIVE · CONFIGURED PER DEVELOPER IN ONBOARDING</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== HOW IT WORKS ====================== -->
+<section class="section" id="how">
+  <div class="section-head left reveal">
+    <div class="section-eye">// HOW IT WORKS</div>
+    <h2>From a signed deal to monthly payouts — all under your name.</h2>
+  </div>
+
+  <div class="flow reveal d2">
+    <div class="flow-grid">
+      <div class="flow-step">
+        <span class="n">01</span>
+        <h4>We onboard you</h4>
+        <p>One workshop. We upload your projects, units, designs, packages, contract templates and brand into your tenant.</p>
+      </div>
+      <div class="flow-step">
+        <span class="n">02</span>
+        <h4>Your team signs in</h4>
+        <p>Sales reps and managers log into <em>your</em> branded portal. Role-based access. SSO if you need it.</p>
+      </div>
+      <div class="flow-step">
+        <span class="n">03</span>
+        <h4>They walk the buyer through</h4>
+        <p>The 9-step Sales flow on a tablet. Each step is configurable per project. Pricing comes from your numbers.</p>
+      </div>
+      <div class="flow-step">
+        <span class="n">04</span>
+        <h4>Sign in the same session</h4>
+        <p>The contract pack is generated under your letterhead and sent for e-signature on the spot.</p>
+      </div>
+      <div class="flow-step">
+        <span class="n">05</span>
+        <h4>We operate, you get paid</h4>
+        <p>Revnu handles the back-to-back delivery — furnishing, hosting, payouts — under your name. You see everything in your admin.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== WHAT WE HANDLE ====================== -->
+<section class="section" id="handle">
+  <div class="section-head left reveal">
+    <div class="section-eye">// WHAT WE HANDLE</div>
+    <h2>Everything between the sale and the return — handled.</h2>
+  </div>
+
+  <div class="handle">
+    <ul class="reveal">
+      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span class="what">Furnishing packages</span><span class="desc">Tiered, priced per unit type, 5-year warranty. We source at developer scale.</span></li>
+      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span class="what">Design styles</span><span class="desc">Curated visual directions per project. The customer picks the feeling; price is identical.</span></li>
+      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span class="what">Smart home</span><span class="desc">Optional layers — smart lock, climate, lighting, audio. A fixed-price kit per tier.</span></li>
+      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span class="what">Payment plans</span><span class="desc">Full payment, instalments, bank finance. Discounts and surcharges applied live.</span></li>
+      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span class="what">Operating models</span><span class="desc">Daily / Monthly / Long lease. Rate × occupancy maths — the calculator derives yield.</span></li>
+      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span class="what">Contracts</span><span class="desc">Your templates. Auto-filled from buyer + unit + choices. Buyer signs with you, not us.</span></li>
+      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span class="what">Per-project flexibility</span><span class="desc">Not every project needs every layer. Toggle furnishing, smart, ops on / off per project.</span></li>
+    </ul>
+
+    <aside class="panel reveal d2">
+      <p class="quote">"We picked Revnu because we keep the customer relationship — and we add a margin line that wasn't there before. Our reps fight over the demo."</p>
+      <div class="author">— PILOT PARTNER · RIYADH</div>
+      <div class="stats">
+        <div>
+          <div class="stat-num">~30 min</div>
+          <div class="stat-lbl">// SESSION TO SIGNED</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ====================== BIG NUMBER BAND ====================== -->
+<section class="bignum">
+  <div class="bn reveal">
+    <div class="v"><span class="count" data-to="3" data-suf="">0</span></div>
+    <div class="l">// ACTIVE DEVELOPERS</div>
+    <div class="d">In live pilot across multiple regions.</div>
+  </div>
+  <div class="bn reveal d2">
+    <div class="v"><span class="count" data-to="8" data-suf="">0</span></div>
+    <div class="l">// STEP SALES FLOW</div>
+    <div class="d">Each step toggleable per project. 30-minute average session.</div>
+  </div>
+  <div class="bn reveal d3">
+    <div class="v"><span class="count" data-to="48" data-suf="h">0</span></div>
+    <div class="l">// TENANT GO-LIVE</div>
+    <div class="d">From signed pilot to your own branded portal, ready for sales.</div>
+  </div>
+</section>
+
+<!-- ====================== REQUEST ACCESS ====================== -->
+<section class="section" id="request">
+  <div class="request reveal">
+    <div class="left">
+      <div class="section-eye" style="margin-bottom: 18px;">// JOIN THE PILOT</div>
+      <h2>Start your next project with us.</h2>
+      <p>Tell us about your project and we’ll come back within 48 hours with a full proposal — what we’d set up for you, how your contracts would read, and when you’d go live.</p>
+      <div class="talk">
+        <div>// EMAIL<strong>partners@revnu.sa</strong></div>
+        <div>// PHONE<strong>+966 11 234 8800</strong></div>
+      </div>
+    </div>
+
+    <form class="form" id="request-form" novalidate>
+      <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;height:0;width:0" />
+      <div class="pair">
+        <div class="field"><label>Full name</label><input name="name" type="text" placeholder="Abdullah Najjar" required /></div>
+        <div class="field"><label>Role</label><input name="role" type="text" placeholder="Head of Sales" /></div>
+      </div>
+      <div class="pair">
+        <div class="field"><label>Company</label><input name="company" type="text" placeholder="Grova Tilal" required /></div>
+        <div class="field"><label>Work email</label><input name="email" type="email" placeholder="name@company.sa" required /></div>
+      </div>
+      <div class="pair">
+        <div class="field"><label>Phone</label><input name="phone" type="tel" placeholder="+966 5x xxx xxxx" /></div>
+        <div class="field"><label>City</label>
+          <select name="city"><option>Riyadh</option><option>Dammam / Khobar</option><option>Madinah</option><option>Makkah</option><option>NEOM</option><option>Other</option></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Units in next project</label>
+        <select name="units"><option>&lt; 50</option><option>50 – 150</option><option>150 – 400</option><option>400 – 1,000</option><option>1,000+</option></select>
+      </div>
+      <div class="field">
+        <label>What would you want Revnu to handle?</label>
+        <textarea name="notes" placeholder="Furnishing only, or also operations? Any specific contract or payment-plan needs?"></textarea>
+      </div>
+      <button type="submit" class="submit">Request access →</button>
+      <p class="fine">By submitting you agree to be contacted by the Revnu partnerships team. We don't share enquiries with third parties.</p>
+    </form>
+  </div>
+</section>
+
+<!-- ====================== FOOTER ====================== -->
+<footer class="foot">
+  <span class="l">
+    <span class="nd"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="42" fill="none" stroke="#080B14" stroke-width="14"/><circle cx="100" cy="100" r="18" fill="#080B14"/></svg></span>
+    <span class="word">Revnu</span>
+    <span style="margin-left:14px;">© 2026</span>
+  </span>
+  <span>
+    <a href="/login" style="margin-right: 14px;">Revnu staff sign-in</a>
+    <span>Riyadh</span>
+  </span>
+</footer>
+
+<script>
+// ====================== Word reel in the hero ======================
+(() => {
+  const words = ["furnished", "operated", "move-in ready"];
+  let i = 0;
+  const el = document.getElementById("wordReel");
+  if (!el) return;
+  setInterval(() => {
+    i = (i + 1) % words.length;
+    el.style.opacity = 0;
+    setTimeout(() => {
+      el.textContent = words[i];
+      el.style.opacity = 1;
+    }, 220);
+  }, 2200);
+  el.style.transition = "opacity 0.25s";
+})();
+
+// ====================== Live calculator ======================
+(() => {
+  // Tunable assumptions (matched roughly to platform defaults)
+  const FURN_DEV_MARGIN = 0.08;     // developer keeps 8% of furnishing pack
+  const OP_FEE          = 0.22;     // 22% operator fee on gross
+  const DEV_OP_SHARE    = 0.06;     // illustrative — negotiated, capped at 10% of operator fee
+  const AGENT_FURN_COMM = 0.01;     // 1% commission on furnishing pack
+  const DAYS            = 365;
+  const OCC             = 0.72;     // mid-band daily/Airbnb occupancy
+  const ADR_PER_PRICE   = 0.00040;  // ADR roughly = 0.04% of unit price
+  const CUSTOMER_BULK   = 0.20;     // ~20% savings vs DIY furnishing
+  const fmt = (n) => new Intl.NumberFormat("en-US").format(Math.round(n));
+
+  const inPrice = document.getElementById("inPrice");
+  const inUnits = document.getElementById("inUnits");
+  const inPct   = document.getElementById("inPct");
+  if (!inPrice) return;
+  function recalc() {
+    const price = +inPrice.value;
+    const units = +inUnits.value;
+    const pct   = +inPct.value / 100;
+    document.getElementById("lblPrice").textContent = fmt(price) + " SAR";
+    document.getElementById("lblUnits").textContent = units;
+    document.getElementById("lblPct").textContent   = (pct * 100).toFixed(1) + "%";
+
+    const furnPack       = price * pct;
+    const devFurnMargin  = furnPack * FURN_DEV_MARGIN;
+    const adr            = price * ADR_PER_PRICE;
+    const annualGross    = adr * DAYS * OCC;
+    const annualOpFee    = annualGross * OP_FEE;
+    const devOpAnnual    = annualOpFee * DEV_OP_SHARE;
+    const agentExtra     = furnPack * AGENT_FURN_COMM;
+    const customerNet    = annualGross * (1 - OP_FEE);
+    const devTotalUnit   = devFurnMargin + devOpAnnual;
+    const quarterRev     = devTotalUnit * units;
+
+    document.getElementById("oDevFurn").innerHTML = fmt(devFurnMargin) + ' <span class="u">SAR</span>';
+    document.getElementById("oDevOps").innerHTML  = fmt(devOpAnnual)  + ' <span class="u">SAR / YR</span>';
+    document.getElementById("oAgent").innerHTML   = fmt(agentExtra)   + ' <span class="u">SAR</span>';
+    document.getElementById("oCust").innerHTML    = fmt(customerNet)  + ' <span class="u">SAR</span>';
+    document.getElementById("oQuarter").textContent = fmt(quarterRev) + " SAR";
+
+    // Update win-card headline numbers too
+    document.getElementById("dev-uplift").textContent     = "+" + (devFurnMargin >= 1000 ? Math.round(devFurnMargin / 1000) + "K" : fmt(devFurnMargin));
+    document.getElementById("agent-uplift").textContent   = "+" + (agentExtra >= 1000 ? (agentExtra / 1000).toFixed(1) + "K" : fmt(agentExtra));
+    document.getElementById("customer-uplift").textContent = "~" + Math.round(CUSTOMER_BULK * 100) + "%";
+  }
+  ["input", "change"].forEach((e) => {
+    inPrice.addEventListener(e, recalc);
+    inUnits.addEventListener(e, recalc);
+    inPct.addEventListener(e, recalc);
+  });
+  recalc();
+})();
+
+// ====================== Reveal on scroll ======================
+(() => {
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add("in");
+        obs.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  document.querySelectorAll(".reveal").forEach((el) => obs.observe(el));
+})();
+
+// ====================== Count-up numbers ======================
+(() => {
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        const el = entry.target;
+        const to = +el.dataset.to;
+        const suf = el.dataset.suf || "";
+        const start = performance.now();
+        const dur = 1400;
+        const tick = (now) => {
+          const t = Math.min(1, (now - start) / dur);
+          const e = 1 - Math.pow(1 - t, 3);
+          el.textContent = Math.round(to * e) + suf;
+          if (t < 1) requestAnimationFrame(tick);
+          else el.innerHTML = to + (suf ? '<span class="suf">' + suf + '</span>' : "");
+        };
+        requestAnimationFrame(tick);
+        obs.unobserve(el);
+      }
+    });
+  }, { threshold: 0.4 });
+  document.querySelectorAll(".count").forEach((el) => obs.observe(el));
+})();
+
+// ====================== Request form → /api/leads ======================
+document.getElementById("request-form").addEventListener("submit", function (e) {
+  e.preventDefault();
+  const form = this;
+  const fd = new FormData(form);
+  const lead = { name: fd.get("name"), role: fd.get("role"), company: fd.get("company"), email: fd.get("email"), phone: fd.get("phone"), city: fd.get("city"), units: fd.get("units"), notes: fd.get("notes"), website: fd.get("website") || "" };
+  const btn = form.querySelector('button[type="submit"], .btn-submit, button');
+  const prevLabel = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }
+  fetch("/api/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(lead) })
+    .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+    .then(({ ok, j }) => {
+      if (!ok) throw new Error(j && j.error ? j.error : "Could not send your request.");
+      const root = document.querySelector(".request");
+      root.querySelector(".form").outerHTML =
+        '<div class="submitted">' +
+        '  <div class="h">Request received.</div>' +
+        '  <div class="p">Thank you, ' + (lead.name || "—") + '. The Revnu partnerships team will reach out to ' + (lead.email || "you") + ' within 48 hours.</div>' +
+        '</div>';
+    })
+    .catch((err) => {
+      if (btn) { btn.disabled = false; btn.textContent = prevLabel; }
+      let el = form.querySelector(".form-err");
+      if (!el) { el = document.createElement("div"); el.className = "form-err"; el.style.cssText = "margin-top:10px;font-size:13px;color:#E85454"; form.appendChild(el); }
+      el.textContent = err.message || "Could not send your request. Please try again.";
+    });
+});
+</script>
+<script src="/i18n.js"></script>
+<script src="/home-ar.js"></script>
+<script>
+// ====================== Mobile nav (hamburger) ======================
+(() => {
+  const nav = document.querySelector(".nav");
+  const links = document.querySelector(".nav .links");
+  if (!nav || !links) return;
+  const right = document.createElement("div");
+  right.className = "nav-right";
+  const burger = document.createElement("button");
+  burger.className = "nav-burger";
+  burger.setAttribute("aria-label", "Menu");
+  burger.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
+  // the language dropdown (added by home-ar.js) lives directly on .nav — move it beside the burger
+  const langWrap = nav.querySelector("#langBtn") ? nav.querySelector("#langBtn").parentElement : null;
+  if (langWrap) { langWrap.classList.add("lang-globe"); right.appendChild(langWrap); }
+  right.appendChild(burger);
+  nav.appendChild(right);
+  // language switch inside the mobile menu too
+  const AR = window.I18N && window.I18N.isAR;
+  const langRow = document.createElement("div");
+  langRow.className = "lang-row";
+  langRow.style.display = "none";
+  langRow.innerHTML =
+    '<button data-lang="ar" class="' + (AR ? "on" : "") + '" style="font-family:Almarai,sans-serif;">العربية</button>' +
+    '<button data-lang="en" class="' + (!AR ? "on" : "") + '">English</button>';
+  langRow.querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => { if (window.I18N) window.I18N.setLang(b.getAttribute("data-lang")); }));
+  links.appendChild(langRow);
+  const X = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  const BARS = burger.innerHTML;
+  burger.addEventListener("click", () => {
+    const open = links.classList.toggle("open");
+    burger.innerHTML = open ? X : BARS;
+  });
+  links.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => {
+    links.classList.remove("open"); burger.innerHTML = BARS;
+  }));
+})();
+</script>
+
+</body>
+</html>
