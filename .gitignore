@@ -48,3 +48,5 @@ SEED-CREDENTIALS.local.*
 /test-results/
 /playwright-report/
 /supabase/.temp/
+
+.vercel
