@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="160" viewBox="0 0 560 160">
+  <rect width="560" height="160" fill="#F8F5EE"></rect>
+  <circle cx="104" cy="92" r="8" fill="none" stroke="#2D6BC4" stroke-width="2"></circle>
+  <circle cx="104" cy="92" r="3" fill="#2D6BC4"></circle>
+  <line x1="116" y1="92" x2="148" y2="92" stroke="#2D6BC4" stroke-width="1.3" opacity="0.5"></line>
+  <text x="310" y="112" font-family="Playfair Display, Georgia, serif" font-weight="500" font-size="88" fill="#1B2838" text-anchor="middle" letter-spacing="0.01em">Revnu</text>
+</svg>

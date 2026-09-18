@@ -1,0 +1,98 @@
+/* =================================================================
+   mobile.css — shared phone layer for all Revnu surfaces.
+   ≤860px: sidebar becomes an off-canvas drawer (with hamburger via
+   mobile.js), tables scroll horizontally, grids stack, tap targets grow.
+================================================================= */
+
+.mnav-burger { display: none; }
+
+@media (max-width: 860px) {
+  /* ---- shell: single column ---- */
+  .app-body { grid-template-columns: 1fr; }
+
+  /* ---- sidebar → off-canvas drawer ---- */
+  .sidebar {
+    position: fixed; top: 56px; bottom: 0; inset-inline-start: 0;
+    width: min(300px, 84vw); z-index: 220; height: auto;
+    transform: translateX(calc(-100% * var(--mdir, 1)));
+    transition: transform 0.22s ease;
+    box-shadow: none;
+  }
+  [dir="rtl"] .sidebar { --mdir: -1; }
+  .sidebar.m-open { transform: translateX(0); box-shadow: 0 18px 60px rgba(0,0,0,0.28); }
+  .m-backdrop {
+    position: fixed; inset: 0; top: 56px; z-index: 210;
+    background: rgba(15,13,10,0.42);
+  }
+  .side-link { padding: 13px 14px; font-size: 14.5px; }
+
+  /* ---- hamburger in topbar ---- */
+  .mnav-burger {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 42px; height: 42px; flex-shrink: 0;
+    border: 1px solid var(--line-strong, #ccc); border-radius: 10px;
+    background: transparent; color: var(--text, #222); cursor: pointer;
+  }
+
+  /* ---- topbar ---- */
+  .topbar { padding: 0 12px; gap: 8px; }
+  .topbar .row { flex-wrap: wrap; }
+
+  /* ---- page chrome ---- */
+  .page-body { padding: 18px 14px 90px; }
+  .page-head { flex-direction: column; align-items: stretch; gap: 12px; }
+  .page-title { font-size: 24px; }
+
+  /* ---- cards & grids stack ---- */
+  .card-pad-lg { padding: 16px 14px; }
+  [style*="grid-template-columns: repeat(4, 1fr)"],
+  [style*="grid-template-columns: repeat(5, 1fr)"],
+  [style*="grid-template-columns: repeat(3, 1fr)"] { grid-template-columns: 1fr 1fr !important; }
+  [style*="grid-template-columns: 1.4fr 1fr"],
+  [style*="grid-template-columns: 1.3fr 1fr"],
+  [style*="grid-template-columns: 1.2fr 1fr"],
+  [style*="grid-template-columns: 1fr 1.3fr"] { grid-template-columns: 1fr !important; }
+
+  /* ---- tables: horizontal scroll inside their card ---- */
+  .card, .card-flush { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .card .tbl, .card-flush .tbl { min-width: 620px; }
+
+  /* ---- buttons / inputs: comfortable tap targets ---- */
+  .btn { min-height: 42px; }
+  .btn-sm { min-height: 36px; }
+  .input, .select, select.select { min-height: 42px; }
+  .tabs { flex-wrap: wrap; }
+
+  /* ---- sales portal ---- */
+  .sales-top { flex-wrap: nowrap; gap: 8px; padding: 8px 10px; }
+  .sales-top .row { gap: 8px !important; flex-wrap: nowrap; }
+  .sales-top .powered, .sales-top .divider-v, .sales-top .chip-mono { display: none !important; }
+  .sales-top .dev-mark .col span:last-child { display: none; }   /* domain subtitle */
+  .sales-top .dev-mark .col span:first-child { padding: 5px 9px !important; }
+  .sales-top .dev-mark img { height: 16px !important; }
+  .progress-strip { overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 8px 10px; }
+  .progress-strip > * { flex-shrink: 0; }
+  .ctx-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap !important; padding: 6px 10px; }
+  .ctx-bar > * { flex-shrink: 0; white-space: nowrap; }
+  .sales-shell .action-bar {
+    position: fixed !important; bottom: 0 !important; left: 0; right: 0; z-index: 90;
+    background: var(--bg-card, #fff); border-top: 1px solid var(--line);
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom)) !important;
+    box-shadow: 0 -10px 28px rgba(0,0,0,0.10);
+  }
+  .action-bar .btn-primary { flex: 1; }
+  .progress-strip .pstep .pn { width: 26px !important; height: 26px !important; }
+  .progress-strip .pstep { flex-direction: row !important; align-items: center; gap: 6px !important; }
+  .progress-strip .pstep .pt { font-size: 11.5px !important; }
+  .progress-strip .pstep:not(.active) .pt { display: none; }   /* only the active step shows its name */
+  .progress-strip { gap: 8px !important; align-items: center; }
+  .step-area { padding: 16px 12px 150px; }
+  .step-title { font-size: 24px; }
+  .opt { padding: 16px 14px; }
+  .calc-grid { grid-template-columns: 1fr !important; }
+  .field-grid { grid-template-columns: 1fr !important; }
+
+  /* agreement pages shrink-to-fit */
+  .ag-page { padding: 26px 18px !important; }
+  .ag-doc-wrap { padding: 14px 6px !important; }
+}

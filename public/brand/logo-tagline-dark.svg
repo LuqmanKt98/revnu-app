@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="180" viewBox="0 0 700 180">
+  <rect width="700" height="180" fill="#080B14"></rect>
+  <circle cx="114" cy="82" r="8" fill="none" stroke="#5EC4D4" stroke-width="2"></circle>
+  <circle cx="114" cy="82" r="3" fill="#5EC4D4"></circle>
+  <line x1="126" y1="82" x2="158" y2="82" stroke="#5EC4D4" stroke-width="1.3" opacity="0.5"></line>
+  <text x="365" y="102" font-family="Playfair Display, Georgia, serif" font-weight="500" font-size="80" fill="#E8EDF5" text-anchor="middle" letter-spacing="0.01em">Revnu</text>
+  <text x="365" y="138" font-family="JetBrains Mono, Courier, monospace" font-weight="400" font-size="14" fill="#5EC4D4" text-anchor="middle" letter-spacing="0.3em">// FURNISH · OPERATE · EARN</text>
+</svg>
