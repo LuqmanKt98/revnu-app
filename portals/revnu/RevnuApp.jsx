@@ -37,26 +37,17 @@ const STATUS_CHIP = {
   active: "chip chip-positive", completed: "chip", cancelled: "chip chip-negative",
 };
 
-// Logged-in user. Resolves seed USERS, OR a Revnu team member added via "My team"
-// (persisted in localStorage and not present in the seed array).
-let session = null;
-try { session = JSON.parse(sessionStorage.getItem("revnu_session") || localStorage.getItem("revnu_session") || "null"); } catch (e) {}
-function revnuTeamMembers() {
-  try { return JSON.parse(localStorage.getItem("revnu_team") || "[]"); } catch (e) { return []; }
+// ---- bootstrap: identity comes from the server-verified session (never from browser storage) ----
+let params, session, me;
+function boot(p) {
+  params = new URLSearchParams(p || {});
+  session = D.me();
+  me = session ? (D.userById(session.id) || session) : null;
+  if (!me || me.role !== "revnu_admin") { location.replace(me ? "/developer" : "/login"); return false; }
+  document.title = (window.I18N && window.I18N.isAR) ? "إدارة Revnu" : "Revnu admin";
+  return true;
 }
-let me = (session && D.userById(session.id)) || null;
-if (!me && session && session.id) {
-  const tm = revnuTeamMembers().find((m) => m.id === session.id);
-  if (tm) me = { id: tm.id, name: tm.name, email: tm.email, role: "revnu_admin", roleId: tm.roleId, perms: tm.perms };
-}
-if (me && me.role !== "revnu_admin") {
-  // A developer-side session has no business in Revnu HQ.
-  location.replace("/login");
-  throw new Error("redirecting to login");
-}
-if (!me) { location.replace("/login"); throw new Error("redirecting to login"); }
-// seed Revnu admins carry the super_admin level (a stored override may change it)
-try { const _tp = JSON.parse(localStorage.getItem("revnu_team_patches") || "{}"); if (_tp[me.id]) me = Object.assign({}, me, _tp[me.id]); } catch (e) {}
+const CAN_DELETE_FN = () => !!me && (me.roleId === "super_admin" || (me.role === "revnu_admin" && !me.roleId));
 
 function roleLabel(r) {
   const TT = (s) => (window.I18N ? window.I18N.t(s) : s);
@@ -164,7 +155,7 @@ function Tickets() {
                 <span className="chip chip-soft">{TYPE[t.type] || t.type}</span>
                 <strong style={{ fontSize: 14 }}>{t.subject}</strong>
               </div>
-              <select className="select" style={{ height: 30, width: 160 }} value={t.status} onChange={(e) => { RS.updateTicket(t.id, { status: e.target.value }); tick((x) => x + 1); }}>
+              <select className="select" style={{ height: 30, width: 160 }} value={t.status} onChange={(e) => { RS.act(() => RS.updateTicket(t.id, { status: e.target.value })).then(() => tick((x) => x + 1)); }}>
                 {Object.keys(STATUS).map((k) => <option key={k} value={k}>{STATUS[k][0]}</option>)}
               </select>
             </div>
@@ -177,7 +168,7 @@ function Tickets() {
             )}
             <div className="row" style={{ gap: 8, marginTop: 12 }}>
               <input className="input" placeholder={AR ? "اكتب ردًّا…" : "Write a reply…"} value={reply[t.id] || ""} onChange={(e) => setReply({ ...reply, [t.id]: e.target.value })} />
-              <button className="btn btn-secondary" onClick={() => { if (!(reply[t.id] || "").trim()) return; RS.addReply(t.id, reply[t.id].trim()); setReply({ ...reply, [t.id]: "" }); tick((x) => x + 1); }}>{AR ? "ردّ" : "Reply"}</button>
+              <button className="btn btn-secondary" onClick={() => { if (!(reply[t.id] || "").trim()) return; const txt = reply[t.id].trim(); RS.act(() => RS.addReply(t.id, txt), { pending: AR ? "جارٍ الإرسال…" : "Sending…", done: AR ? "أُرسل الرد." : "Reply sent." }).then(() => { setReply({ ...reply, [t.id]: "" }); tick((x) => x + 1); }); }}>{AR ? "ردّ" : "Reply"}</button>
             </div>
           </div>
         ))}
@@ -192,10 +183,7 @@ function App() {
   window.__revnuOpenOrder = (id) => setGOrder(D.ORDERS.find((o) => o.id === id) || null);
   React.useEffect(() => { if (window.RevnuSupport) window.RevnuSupport.firstRun("revnu"); }, []);
   const [workspace, setWorkspace] = useState(null); // developer id when in workspace
-  const signOut = () => {
-    try { sessionStorage.removeItem("revnu_session"); localStorage.removeItem("revnu_session"); } catch (e) {}
-    location.href = "/login";
-  };
+  const signOut = () => { D.signOut().finally(() => { location.href = "/login"; }); };
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -428,41 +416,29 @@ const REVNU_PERMS = [
   { id: "settings",   en: "Platform settings",   ar: "إعدادات المنصّة" },
 ];
 function loadRevnuTeam() {
-  let extra = [];
-  try { extra = JSON.parse(localStorage.getItem("revnu_team") || "[]"); } catch (e) {}
-  let patches = {}; try { patches = JSON.parse(localStorage.getItem("revnu_team_patches") || "{}"); } catch (e) {}
-  const seed = D.USERS.filter((u) => u.role === "revnu_admin").map((u) => Object.assign({
-    id: u.id, name: u.name, email: u.email, roleId: "super_admin", _seed: true,
-  }, patches[u.id] || {}));
-  return [...seed, ...extra];
-}
-function saveRevnuTeam(list) {
-  try {
-    localStorage.setItem("revnu_team", JSON.stringify(list.filter((m) => !m._seed)));
-    const patches = {}; list.filter((m) => m._seed).forEach((m) => { patches[m.id] = { roleId: m.roleId, perms: m.perms || null, name: m.name }; });
-    localStorage.setItem("revnu_team_patches", JSON.stringify(patches));
-  } catch (e) {}
+  return D.USERS.filter((u) => u.role === "revnu_admin").map((u) => ({ id: u.id, name: u.name, nameAr: u.nameAr || "", email: u.email, roleId: u.roleId || "team", perms: u.perms || null }));
 }
 
 function RevnuTeam() {
   const AR = window.I18N && window.I18N.isAR;
   const TL = (en, ar) => (AR ? ar : en);
-  const [team, setTeam] = useState(loadRevnuTeam);
+  useStoreVersion();
+  const team = loadRevnuTeam();
   const [editing, setEditing] = useState(null); // member or {new:true}
   const roleById = (id) => REVNU_ROLES.find((r) => r.id === id) || REVNU_ROLES[REVNU_ROLES.length - 1];
   const permsFor = (m) => m.perms || roleById(m.roleId).perms;
 
   const save = (m) => {
-    setTeam((cur) => {
-      let next;
-      if (m.id && cur.some((x) => x.id === m.id)) next = cur.map((x) => x.id === m.id ? m : x);
-      else next = [...cur, { ...m, id: m.id || ("rt-" + Date.now()) }];
-      saveRevnuTeam(next);
-      return next;
-    });
-    setEditing(null);
+    const RS = window.RevnuSupport;
+    if (m.id) {
+      RS.act(() => D.setDevUser(m.id, { name: m.name, nameAr: m.nameAr || null, roleId: m.roleId, perms: m.perms || null }), { pending: TL("Saving…", "جارٍ الحفظ…"), done: TL("Saved.", "تم الحفظ.") }).then((u) => { if (u) setEditing(null); });
+    } else {
+      RS.act(() => D.createDevUser({ name: m.name, nameAr: m.nameAr || null, email: m.email, role: "revnu_admin", roleId: m.roleId, perms: m.perms || null }), { pending: TL("Creating the account…", "جارٍ إنشاء الحساب…") })
+        .then((u) => { if (!u) return; setEditing(null); RS.showCredentials({ name: u.name, email: u.email, password: u._tempPassword }); });
+    }
   };
-  const remove = (id) => { setTeam((cur) => { const n = cur.filter((x) => x.id !== id); saveRevnuTeam(n); return n; }); };
+  const remove = (id) => { window.RevnuSupport.act(() => D.removeDevUser(id), { pending: TL("Removing…", "جارٍ الإزالة…"), done: TL("Removed.", "تمت الإزالة.") }); };
+  const resetPw = (m) => { const RS = window.RevnuSupport; RS.act(() => D.resetUserPassword(m.id), { pending: TL("Issuing a temporary password…", "جارٍ إصدار كلمة مرور مؤقتة…") }).then((r) => { if (r) RS.showCredentials({ name: m.name, email: r.email || m.email, password: r.tempPassword, reset: true }); }); };
 
   return (
     <>
@@ -501,9 +477,10 @@ function RevnuTeam() {
                   </td>
                   <td className="right">
                     <div className="row" style={{ gap: 6, justifyContent: "flex-end" }}>
-                      {(CAN_DELETE || (me && m.id === me.id)) && <button className="btn btn-sm btn-ghost" onClick={() => setEditing(m)}>{TL("Edit", "تعديل")}</button>}
-                      {CAN_DELETE && !m._seed && <button className="btn btn-sm btn-ghost" onClick={() => remove(m.id)} style={{ color: "var(--negative, #c0492f)" }}>{TL("Remove", "إزالة")}</button>}
-                      {!CAN_DELETE && !(me && m.id === me.id) && <span className="soft" style={{ fontSize: 11 }}>—</span>}
+                      {(CAN_DELETE_FN() || (me && m.id === me.id)) && <button className="btn btn-sm btn-ghost" onClick={() => setEditing(m)}>{TL("Edit", "تعديل")}</button>}
+                      {CAN_DELETE_FN() && <button className="btn btn-sm btn-ghost" onClick={() => resetPw(m)}>{TL("Reset password", "إعادة تعيين كلمة المرور")}</button>}
+                      {CAN_DELETE_FN() && !(me && m.id === me.id) && <button className="btn btn-sm btn-ghost" onClick={() => { if (confirm(TL("Remove " + m.name + " from the Revnu team? They will lose access immediately.", "إزالة " + (m.nameAr || m.name) + " من فريق Revnu؟ سيفقد الوصول فورًا.")) ) remove(m.id); }} style={{ color: "var(--negative, #c0492f)" }}>{TL("Remove", "إزالة")}</button>}
+                      {!CAN_DELETE_FN() && !(me && m.id === me.id) && <span className="soft" style={{ fontSize: 11 }}>—</span>}
                     </div>
                   </td>
                 </tr>
@@ -638,7 +615,7 @@ function Developers({ onOpen }) {
         </table>
       </div>
 
-      {onboarding && <OnboardWizard onClose={() => setOnboarding(false)} />}
+      {onboarding && <OnboardWizard onClose={() => setOnboarding(false)} onCreated={(id) => { setOnboarding(false); onOpen(id); }} />}
     </>
   );
 }
@@ -714,9 +691,7 @@ function RevnuTermsEditor({ project, dev }) {
   const save = () => {
     if (!ok) return;
     const clean = JSON.parse(JSON.stringify(terms));
-    if (project) D.setRevnuTermsForProject(project.id, clean);
-    else if (dev) D.setRevnuTerms(dev.id, clean);
-    setSaved(true);
+    window.RevnuSupport.act(() => project ? D.setRevnuTermsForProject(project.id, clean) : D.setRevnuTerms(dev.id, clean), { done: (window.I18N && window.I18N.isAR) ? "تم حفظ شروط الدفع." : "Payment terms saved." }).then((r) => { if (r !== undefined) setSaved(true); });
   };
   return (
     <div style={{ marginTop: 22, padding: "16px 16px 14px", border: "1px solid var(--line)", borderRadius: "var(--r-md)", background: "var(--bg-sunken)" }}>
@@ -1089,7 +1064,8 @@ function AllOrders() {
    Interested — leads from the marketing site
 ============================================================ */
 function Interested() {
-  const [leads, setLeads] = useState(D.getInterested());
+  useStoreVersion();
+  const leads = D.getInterested();
   const [statF, setStatF] = useState("all");
 
   const statusOpts = [
@@ -1161,10 +1137,7 @@ function Interested() {
                 <td style={{ maxWidth: 240, fontSize: 12.5, color: "var(--text-muted)" }}>{l.notes || "—"}</td>
                 <td className="right">
                   <select className="select" style={{ width: 130, height: 28, fontSize: 12 }} value={l.status}
-                          onChange={(e) => {
-                            const next = leads.map((x) => x.id === l.id ? { ...x, status: e.target.value } : x);
-                            setLeads(next);
-                          }}>
+                          onChange={(e) => { window.RevnuSupport.act(() => D.setLeadStatus(l.id, e.target.value)); }}>
                     <option value="new">New</option>
                     <option value="qualified">Qualified</option>
                     <option value="in_proposal">In proposal</option>
@@ -1446,7 +1419,7 @@ function WsBrand({ dv }) {
   const [legalName, setLegalName]     = useState(dv.legalName || "");
   const [legalNameAr, setLegalNameAr] = useState(dv.legalNameAr || "");
   const saveName = () => {
-    D.patchDeveloper(dv.id, { name, nameAr, legalName: legalName.trim() || null, legalNameAr: legalNameAr.trim() || null, authorizedSigner: signer, authorizedSignerAr: signerAr, authorizedSignerTitle: signerTitle, authorizedSignerTitleAr: signerTitleAr });
+    window.RevnuSupport.act(() => D.patchDeveloper(dv.id, { name, nameAr, legalName: legalName.trim() || null, legalNameAr: legalNameAr.trim() || null, authorizedSigner: signer, authorizedSignerAr: signerAr, authorizedSignerTitle: signerTitle, authorizedSignerTitleAr: signerTitleAr }), { done: (window.I18N && window.I18N.isAR) ? "تم حفظ بيانات المطوّر." : "Developer details saved." });
   };
   return (
     <>
@@ -1588,7 +1561,7 @@ function NewProjectDrawer({ dv, onClose, onCreated }) {
     deliveryQ: "Q4",
     deliveryY: "2027",
     totalUnits: 100,
-    features: { furnishing: true, smartHome: true, operations: true, fitout: false },
+    features: Object.assign({ furnishing: true, smartHome: true, operations: true, fitout: false }, (dv.masterAgreement && dv.masterAgreement.defaultFeatures) || {}),
     custFee: 22,
     devShare: 6,
     salesPct: 1.0,
@@ -1600,8 +1573,8 @@ function NewProjectDrawer({ dv, onClose, onCreated }) {
 
   const save = () => {
     if (!valid) return;
-    // Create through the data layer so it persists across reloads (and can be deleted).
-    D.createProject({
+    // Create through the data layer so it persists (and can be deleted).
+    const payload = {
       id: p.id,
       developerId: p.developerId,
       name: p.name.trim(),
@@ -1616,24 +1589,20 @@ function NewProjectDrawer({ dv, onClose, onCreated }) {
         salesCommission: { kind: "pct", value: Number(p.salesPct)  || 0 },
         contractMarkup:  { kind: "pct", value: Number(p.markupPct) || 0 },
       },
-    });
+    };
     // Seed one default 3-instalment payment plan so the project is usable end-to-end.
-    D.PAYMENT_PLANS.push({
-      id: p.id + "-3x",
-      projectId: p.id,
-      name: "3 instalments",
-      disc: 0,
+    const plan = {
+      id: p.id + "-3x", projectId: p.id, name: "3 instalments",
       milestones: [
         { pct: 40, mileId: null, label: "On signature" },
         { pct: 30, mileId: null, label: "Mid construction" },
         { pct: 30, mileId: null, label: "Handover" },
       ],
-      note: "Standard.",
       schedule: "40% On signature  ·  30% Mid construction  ·  30% Handover",
-    });
-    onCreated && onCreated();
+    };
+    window.RevnuSupport.act(async () => { await D.createProject(payload); await D.createPaymentPlan(plan); }, { pending: (window.I18N && window.I18N.isAR) ? "جارٍ إنشاء المشروع…" : "Creating the project…", done: (window.I18N && window.I18N.isAR) ? "أُنشئ المشروع." : "Project created." })
+      .then((r) => { if (r !== undefined) onCreated(); });
   };
-
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 200, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
       <div style={{ width: 520, background: "var(--bg-card)", height: "100vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
@@ -1726,11 +1695,11 @@ function DevLogoSlot({ dv, field, label, darkPreview }) {
   const img = dv[field];
   const onFile = async (e) => {
     const f = e.target.files && e.target.files[0]; if (!f) return;
-    try { const url = await fileToScaledDataURL(f, 600); D.setDevLogo(dv.id, { [field]: url }); bump((x) => x + 1); }
-    catch (err) { console.error(err); }
+    await window.RevnuSupport.act(async () => { const url = await uploadScaled(f, 600, "developers/" + dv.id); await D.setDevLogo(dv.id, { [field]: url }); }, { pending: (window.I18N && window.I18N.isAR) ? "جارٍ رفع الشعار…" : "Uploading logo…" });
+    bump((x) => x + 1);
     e.target.value = "";
   };
-  const remove = () => { D.setDevLogo(dv.id, { [field]: "" }); bump((x) => x + 1); };
+  const remove = () => { window.RevnuSupport.act(() => D.setDevLogo(dv.id, { [field]: "" })).then(() => bump((x) => x + 1)); };
   return (
     <div>
       <div className="soft" style={{ fontSize: 10.5, marginBottom: 5 }}>{label}</div>
@@ -1751,17 +1720,15 @@ function DevLogoSlot({ dv, field, label, darkPreview }) {
 // Only the Revnu Super Admin may delete. Seed Revnu admins (no roleId) are owners.
 // Deletion is restricted to the Revnu Super Admin only.
 // (Seed Revnu admins have no roleId and are treated as the platform owner = super admin.)
-const CAN_DELETE = !!me && (me.roleId === "super_admin" || (me.role === "revnu_admin" && !me.roleId));
 
 function DelBtn({ kind, id, name, after }) {
-  if (!CAN_DELETE) return null;
+  if (!CAN_DELETE_FN()) return null;
   const AR = window.I18N && window.I18N.isAR;
   const onDel = (e) => {
     e.stopPropagation();
     const msg = AR ? ("حذف \"" + (name || "") + "\"؟ لا يمكن التراجع.") : ("Delete \"" + (name || "") + "\"? This cannot be undone.");
     if (!window.confirm(msg)) return;
-    window.REVNU_DATA.removeEntity(kind, id);
-    if (after) after(); else setTimeout(() => location.reload(), 50);
+    window.RevnuSupport.act(() => D.removeEntity(kind, id), { pending: AR ? "جارٍ الحذف…" : "Deleting…", done: AR ? "تم الحذف." : "Deleted." }).then((r) => { if (r && after) after(); });
   };
   return (
     <button className="btn btn-sm btn-ghost" title={AR ? "حذف" : "Delete"} onClick={onDel}
@@ -1783,8 +1750,8 @@ function FeatureRow({ project, opt }) {
   const [, force] = useState(0);
   const on = !!(project.features && project.features[opt.id]);
   const canSkip = !!(project.optional && project.optional[opt.id]);
-  const toggleOn = () => { D.setProjectFlags(project.id, { features: { [opt.id]: !on } }); force((x) => x + 1); };
-  const toggleSkip = () => { D.setProjectFlags(project.id, { optional: { [opt.id]: !canSkip } }); force((x) => x + 1); };
+  const toggleOn = () => { window.RevnuSupport.act(() => D.setProjectFlags(project.id, { features: { [opt.id]: !on } })).then(() => force((x) => x + 1)); };
+  const toggleSkip = () => { window.RevnuSupport.act(() => D.setProjectFlags(project.id, { optional: { [opt.id]: !canSkip } })).then(() => force((x) => x + 1)); };
   return (
     <div style={{ padding: "11px 12px", background: on ? "var(--bg-sunken)" : "var(--bg-card)", border: "1px solid var(--line)", borderRadius: "var(--r-sm)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
@@ -1928,12 +1895,12 @@ function WsDesigns({ T }) {
         {designs.length === 0 && <div className="card card-pad muted">No designs yet. Add one to get started.</div>}
       </div>
       {editing && <DesignDrawer design={editing} onClose={() => setEditing(null)} />}
-      {adding  && <DesignDrawer design={{ id: "new", name: "New design", mood: "", palette: ["#FFFFFF","#EEEEEF","#1D1D1F","#5EC4D4"], palettes: [{ id: "pal-1", name: "Palette 1", nameAr: "", colors: ["#EFE9DF","#C9B89A","#8C7A5E","#FFFFFF"] }], materials: [], images: [] }} onClose={() => setAdding(false)} />}
+      {adding  && <DesignDrawer projectId={T.project && T.project.id} design={{ id: "new", name: "New design", mood: "", palette: ["#FFFFFF","#EEEEEF","#1D1D1F","#5EC4D4"], palettes: [{ id: "pal-1", name: "Palette 1", nameAr: "", colors: ["#EFE9DF","#C9B89A","#8C7A5E","#FFFFFF"] }], materials: [], images: [] }} onClose={() => setAdding(false)} />}
     </>
   );
 }
 
-function DesignDrawer({ design, onClose }) {
+function DesignDrawer({ design, onClose, projectId }) {
   const [d, setD] = useState({ ...design, palettes: D.designPalettes(design).map((p) => ({ ...p, colors: [...p.colors] })), materials: [...(design.materials || [])], images: [...(design.images || [])] });
   const set = (patch) => setD((p) => ({ ...p, ...patch }));
   const AR = window.I18N && window.I18N.isAR;
@@ -1944,14 +1911,14 @@ function DesignDrawer({ design, onClose }) {
     setImgBusy(true);
     try {
       const added = [];
-      for (const f of files) { const url = await fileToScaledDataURL(f, 1400); added.push({ id: "i" + Date.now().toString(36) + added.length, label: f.name.replace(/\.[^.]+$/, ""), labelAr: "", src: url }); }
+      for (const f of files) { const url = await uploadScaled(f, 1400, "designs/" + (d.projectId || projectId || "misc")); added.push({ id: "i" + Date.now().toString(36) + added.length, label: f.name.replace(/\.[^.]+$/, ""), labelAr: "", src: url }); }
       set({ images: [...d.images, ...added] });
-    } catch (err) { console.error(err); }
+    } catch (err) { window.RevnuSupport.fail(err); }
     setImgBusy(false); e.target.value = "";
   };
   const onReplaceDesignImg = async (e, i) => {
     const f = e.target.files && e.target.files[0]; if (!f) return;
-    try { const url = await fileToScaledDataURL(f, 1400); set({ images: d.images.map((x, ix) => ix === i ? { ...x, src: url } : x) }); } catch (err) { console.error(err); }
+    try { const url = await uploadScaled(f, 1400, "designs/" + (d.projectId || projectId || "misc")); set({ images: d.images.map((x, ix) => ix === i ? { ...x, src: url } : x) }); } catch (err) { window.RevnuSupport.fail(err); }
     e.target.value = "";
   };
   const setPalettes = (fn) => setD((p) => ({ ...p, palettes: fn(p.palettes) }));
@@ -2054,7 +2021,7 @@ function DesignDrawer({ design, onClose }) {
           </div>
           <hr className="hr-thin" />
           <div className="row" style={{ gap: 8 }}>
-            <button className="btn btn-primary grow" onClick={() => { D.setContentField("design", d.id, { name: d.name, nameAr: d.nameAr, mood: d.mood, moodAr: d.moodAr, palettes: d.palettes, palette: firstColors, materials: d.materials, paletteNote: d.paletteNote || "", paletteNoteAr: d.paletteNoteAr || "" }); onClose(); }}>{window.I18N?window.I18N.t("Save design"):"Save design"}</button>
+            <button className="btn btn-primary grow" onClick={() => { const fields = { name: d.name, nameAr: d.nameAr, mood: d.mood, moodAr: d.moodAr, palettes: d.palettes, palette: firstColors, materials: d.materials, materialsAr: d.materialsAr || [], paletteNote: d.paletteNote || "", paletteNoteAr: d.paletteNoteAr || "", images: d.images }; window.RevnuSupport.act(() => d.id === "new" ? D.createContent("design", Object.assign({ id: newId(projectId, "design"), projectId }, fields)) : D.setContentField("design", d.id, fields), { done: (window.I18N && window.I18N.isAR) ? "تم حفظ التصميم." : "Design saved." }).then((r) => { if (r !== undefined) onClose(); }); }}>{window.I18N?window.I18N.t("Save design"):"Save design"}</button>
             <button className="btn btn-ghost" onClick={onClose}>{window.I18N?window.I18N.t("Cancel"):"Cancel"}</button>
           </div>
         </div>
@@ -2258,12 +2225,7 @@ function PackageDrawer({ pkg, unitTypes, projectId, onClose }) {
                                pieces: Number(p.pieces) || 0, warranty: Number(p.warranty) || 0, pricing: { ...p.pricing },
                                signature: !!p.signature, brandName: p.brandName || "", brandNameAr: p.brandNameAr || "", brandLogo: p.brandLogo || null,
                                fitout: p.fitout ? { ...p.fitout } : null };
-              if (p.id === "new") {
-                D.createPackage(Object.assign({ projectId, boq: p.boq || [] }, fields));
-              } else {
-                D.setContentField("package", p.id, fields);
-              }
-              onClose();
+              window.RevnuSupport.act(() => p.id === "new" ? D.createPackage(Object.assign({ projectId, boq: p.boq || [] }, fields)) : D.setContentField("package", p.id, fields), { done: (window.I18N && window.I18N.isAR) ? "تم حفظ الباقة." : "Package saved." }).then((r) => { if (r !== undefined) onClose(); });
             }}>{window.I18N?window.I18N.t("Save package"):"Save package"}</button>
             <button className="btn btn-ghost" onClick={onClose}>{window.I18N?window.I18N.t("Cancel"):"Cancel"}</button>
           </div>
@@ -2286,14 +2248,8 @@ function BoqDrawer({ pkg, onClose }) {
   const canSave = pkg.parent && pkg.parent.id && pkg.parent.id !== "new";
   const save = () => {
     if (!canSave) return;
-    if (pkg.field === "fitout") {
-      D.setContentField("package", pkg.parent.id, { fitout: Object.assign({}, pkg.parent.fitout, { boq }) });
-      if (pkg.parent.fitout) pkg.parent.fitout.boq = boq;
-    } else {
-      D.setContentField("package", pkg.parent.id, { boq });
-      pkg.parent.boq = boq;
-    }
-    setSaved(true);
+    const patch = pkg.field === "fitout" ? { fitout: Object.assign({}, pkg.parent.fitout, { boq }) } : { boq };
+    window.RevnuSupport.act(() => D.setContentField("package", pkg.parent.id, patch), { done: (window.I18N && window.I18N.isAR) ? "تم حفظ جدول الكميات." : "BOQ saved." }).then((r) => { if (r !== undefined) { if (pkg.field === "fitout") { if (pkg.parent.fitout) pkg.parent.fitout.boq = boq; } else pkg.parent.boq = boq; setSaved(true); } });
   };
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 200, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
@@ -2556,12 +2512,12 @@ function WsSmart({ T }) {
         {T.smart.length === 0 && <div className="card card-pad muted">No smart-home tiers configured for this project.</div>}
       </div>
       {editing && <SmartDrawer tier={editing} onClose={() => setEditing(null)} />}
-      {adding  && <SmartDrawer tier={{ id: "new", name: "", price: 12000, includes: [], images: [] }} onClose={() => setAdding(false)} />}
+      {adding  && <SmartDrawer projectId={T.project && T.project.id} tier={{ id: "new", name: "", price: 12000, includes: [], images: [] }} onClose={() => setAdding(false)} />}
     </>
   );
 }
 
-function SmartDrawer({ tier, onClose }) {
+function SmartDrawer({ tier, onClose, projectId }) {
   const [t, setT] = useState({ ...tier, includes: [...tier.includes], includesAr: [...(tier.includesAr || [])], images: [...(tier.images || [])] });
   const set = (patch) => setT((p) => ({ ...p, ...patch }));
   const [line, setLine] = useState("");
@@ -2571,8 +2527,8 @@ function SmartDrawer({ tier, onClose }) {
   const onUploadImg = async (e) => {
     const f = e.target.files && e.target.files[0]; if (!f) return;
     setBusy(true);
-    try { const url = await fileToScaledDataURL(f); set({ images: [...t.images, { id: "si" + Date.now().toString(36).slice(-5), label: "", src: url }] }); }
-    catch (err) { console.error(err); }
+    try { const url = await uploadScaled(f, 1400, "smart/" + (t.projectId || projectId || "misc")); set({ images: [...t.images, { id: "si" + Date.now().toString(36).slice(-5), label: "", src: url }] }); }
+    catch (err) { window.RevnuSupport.fail(err); }
     setBusy(false); e.target.value = "";
   };
   return (
@@ -2638,7 +2594,7 @@ function SmartDrawer({ tier, onClose }) {
           </div>
           <hr className="hr-thin" />
           <div className="row" style={{ gap: 8 }}>
-            <button className="btn btn-primary grow" onClick={() => { D.setContentField("smart", t.id, { name: t.name, nameAr: t.nameAr, price: Number(t.price) || 0, summary: t.summary || "", summaryAr: t.summaryAr || "", includes: t.includes, includesAr: t.includesAr, images: t.images }); onClose(); }}>{window.I18N?window.I18N.t("Save tier"):"Save tier"}</button>
+            <button className="btn btn-primary grow" onClick={() => { const fields = { name: t.name, nameAr: t.nameAr, price: Number(t.price) || 0, summary: t.summary || "", summaryAr: t.summaryAr || "", includes: t.includes, includesAr: t.includesAr || [], images: t.images }; window.RevnuSupport.act(() => t.id === "new" ? D.createContent("smart", Object.assign({ id: newId(projectId, "smart"), projectId, level: (D.SMART_HOME.filter((x) => x.projectId === projectId).length + 1) }, fields)) : D.setContentField("smart", t.id, fields), { done: (window.I18N && window.I18N.isAR) ? "تم حفظ الفئة." : "Tier saved." }).then((r) => { if (r !== undefined) onClose(); }); }}>{window.I18N?window.I18N.t("Save tier"):"Save tier"}</button>
             <button className="btn btn-ghost" onClick={onClose}>{window.I18N?window.I18N.t("Cancel"):"Cancel"}</button>
           </div>
         </div>
@@ -2689,12 +2645,12 @@ function WsOps({ T }) {
         ))}
       </div>
       {editing && <OpsDrawer model={editing} unitTypes={T.unitTypes} onClose={() => setEditing(null)} />}
-      {adding  && <OpsDrawer model={{ id: "new", name: "", kind: "daily", mgmtFee: 22, occLow: 60, occHigh: 80, summary: "", defaultRate: {} }} unitTypes={T.unitTypes} onClose={() => setAdding(false)} />}
+      {adding  && <OpsDrawer projectId={T.project && T.project.id} model={{ id: "new", name: "", kind: "daily", mgmtFee: 22, occLow: 60, occHigh: 80, summary: "", defaultRate: {} }} unitTypes={T.unitTypes} onClose={() => setAdding(false)} />}
     </>
   );
 }
 
-function OpsDrawer({ model, unitTypes, onClose }) {
+function OpsDrawer({ model, unitTypes, onClose, projectId }) {
   const [o, setO] = useState({ ...model, defaultRate: { ...model.defaultRate }, assume: JSON.parse(JSON.stringify(model.assume || {})) });
   const set = (patch) => setO((p) => ({ ...p, ...patch }));
   const setRate = (typeId, val) => setO((p) => ({ ...p, defaultRate: { ...p.defaultRate, [typeId]: Number(val) } }));
@@ -2702,12 +2658,10 @@ function OpsDrawer({ model, unitTypes, onClose }) {
   const midOcc = Math.round((o.occLow + o.occHigh) / 2);
   const defaultRisk = o.kind === "daily" ? "high" : /long/i.test(o.name) ? "low" : "medium";
   const save = () => {
-    unitTypes.forEach((t) => {
-      const a = o.assume[t.id];
-      if (a) D.setOpsAssumption(o.id, t.id, { occ: a.occ != null ? Number(a.occ) : midOcc, risk: a.risk || defaultRisk });
-    });
-    D.setContentField("ops", o.id, { name: o.name, nameAr: o.nameAr, summary: o.summary, summaryAr: o.summaryAr });
-    onClose();
+    const assume = {};
+    unitTypes.forEach((t) => { const a = o.assume[t.id]; if (a) assume[t.id] = { occ: a.occ != null ? Number(a.occ) : midOcc, risk: a.risk || defaultRisk }; });
+    const fields = { name: o.name, nameAr: o.nameAr, summary: o.summary, summaryAr: o.summaryAr, kind: o.kind, mgmtFee: Number(o.mgmtFee) || 0, occLow: Number(o.occLow) || 0, occHigh: Number(o.occHigh) || 0, defaultRate: o.defaultRate || {}, assume: Object.assign({}, o.assume || {}, assume) };
+    window.RevnuSupport.act(() => o.id === "new" ? D.createContent("ops", Object.assign({ id: newId(projectId, "ops"), projectId }, fields)) : D.setContentField("ops", o.id, fields), { done: (window.I18N && window.I18N.isAR) ? "تم حفظ نموذج التشغيل." : "Operating model saved." }).then((r) => { if (r !== undefined) onClose(); });
   };
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 200, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
@@ -2931,10 +2885,9 @@ function ContractEditDrawer({ tpl, onClose }) {
   };
   const save = () => {
     const payload = { name: (t.name || t.nameAr).trim(), nameAr: (t.nameAr || "").trim(), kind: t.kind, lang: t.lang, body: t.body || "", bodyAr: t.bodyAr || "", projectId: t.projectId };
-    if (t._new) D.createContract(payload); else D.setContract(t.id, payload);
-    onClose();
+    window.RevnuSupport.act(() => t._new ? D.createContract(payload) : D.setContract(t.id, payload), { done: TL("Template saved.", "تم حفظ النموذج.") }).then((r) => { if (r !== undefined) onClose(); });
   };
-  const del = () => { D.removeContract(t.id); onClose(); };
+  const del = () => { window.RevnuSupport.act(() => D.removeContract(t.id), { done: TL("Template deleted.", "حُذف النموذج.") }).then((r) => { if (r !== undefined) onClose(); }); };
   const showEn = t.lang !== "ar", showAr = t.lang !== "en";
   const VarChips = ({ field, refEl }) => (
     <div className="row" style={{ gap: 5, flexWrap: "wrap", margin: "6px 0 4px" }}>
@@ -3005,7 +2958,7 @@ function ContractEditDrawer({ tpl, onClose }) {
 
         <div className="row" style={{ gap: 8 }}>
           <button className="btn btn-primary grow" disabled={!valid} onClick={save}>{t._new ? TL("Create template", "إنشاء النموذج") : TL("Save", "حفظ")}</button>
-          {!t._new && t._created && CAN_DELETE && <button className="btn btn-ghost" onClick={del} style={{ color: "var(--negative, #c0492f)" }}>{TL("Remove", "إزالة")}</button>}
+          {!t._new && CAN_DELETE_FN() && <button className="btn btn-ghost" onClick={del} style={{ color: "var(--negative, #c0492f)" }}>{TL("Remove", "إزالة")}</button>}
           <button className="btn btn-ghost" onClick={onClose}>{TL("Cancel", "إلغاء")}</button>
         </div>
       </div>
@@ -3074,7 +3027,7 @@ function WsCommissions({ dv }) {
   const setLvl = (i, patch) => setLadder((ls) => ls.map((l, ix) => ix === i ? { ...l, ...patch } : l));
   const addLvl = () => setLadder((ls) => [...ls, { id: "lvl-" + Date.now().toString(36).slice(-5), name: "New level", nameAr: "", pct: 0, scope: "team" }]);
   const rmLvl = (i) => setLadder((ls) => ls.filter((_, ix) => ix !== i));
-  const saveLadder = () => { if (valid) { D.setCommissionLadder(dv.id, ladder); bump((x) => x + 1); } };
+  const saveLadder = () => { if (valid) window.RevnuSupport.act(() => D.setCommissionLadder(dv.id, ladder), { done: (window.I18N && window.I18N.isAR) ? "تم حفظ سلّم العمولة." : "Commission ladder saved." }).then(() => bump((x) => x + 1)); };
 
   // ---- payouts ----
   const lines = D.payoutLinesForDeveloper(dv.id);
@@ -3089,7 +3042,7 @@ function WsCommissions({ dv }) {
   const totalPayable = lines.filter((l) => l.payable).reduce((s, l) => s + l.amount, 0);
   const totalPaid    = lines.filter((l) => l.payable && l.paid).reduce((s, l) => s + l.amount, 0);
   const totalPending = totalPayable - totalPaid;
-  const markPaid = (l, paid) => { D.setPayoutStatus(l.orderId, l.userId, l.levelId, paid ? "paid" : "pending"); bump((x) => x + 1); };
+  const markPaid = (l, paid) => { window.RevnuSupport.act(() => D.setPayoutStatus(l.orderId, l.userId, l.levelId, paid ? "paid" : "pending")).then(() => bump((x) => x + 1)); };
   const [openPerson, setOpenPerson] = useState(null);
 
   return (
@@ -3269,10 +3222,15 @@ function WsTeamDrawer({ member, projects, onClose }) {
   const save = () => {
     const payload = { name: (m.name || m.nameAr).trim(), nameAr: (m.nameAr || "").trim(), email: m.email.trim(), role: (m.role || "").trim(), roleAr: (m.roleAr || "").trim(), perms: m.perms, developerId: member.developerId, assignedProjectIds: D.devHasPerm(m, "orders") ? m.assignedProjectIds : [],
       commissionLevelId: m.commissionLevelId || null, reportsTo: m.reportsTo || null, bank: m.bank || null };
-    if (m._new) D.createDevUser(payload); else D.setDevUser(m.id, payload);
-    onClose();
+    const RS = window.RevnuSupport;
+    if (m._new) {
+      RS.act(() => D.createDevUser(payload), { pending: TL("Creating the account…", "جارٍ إنشاء الحساب…") }).then((u) => { if (!u) return; onClose(); RS.showCredentials({ name: u.name, email: u.email, password: u._tempPassword }); });
+    } else {
+      RS.act(() => D.setDevUser(m.id, payload), { pending: TL("Saving…", "جارٍ الحفظ…"), done: TL("Saved.", "تم الحفظ.") }).then((u) => { if (u) onClose(); });
+    }
   };
-  const del = () => { D.removeDevUser(m.id); onClose(); };
+  const del = () => { window.RevnuSupport.act(() => D.removeDevUser(m.id), { done: TL("Removed.", "تمت الإزالة.") }).then((ok) => { if (ok) onClose(); }); };
+  const resetPw = () => { const RS = window.RevnuSupport; RS.act(() => D.resetUserPassword(m.id), { pending: TL("Issuing a temporary password…", "جارٍ إصدار كلمة مرور مؤقتة…") }).then((r) => { if (r) RS.showCredentials({ name: m.name || m.nameAr, email: r.email || m.email, password: r.tempPassword, reset: true }); }); };
   const perms = m.perms || [];
   const togglePerm = (p) => set({ perms: perms.includes(p) ? perms.filter((x) => x !== p) : [...perms, p] });
   const setBank = (patch) => set({ bank: Object.assign({}, m.bank, patch) });
@@ -3353,8 +3311,9 @@ function WsTeamDrawer({ member, projects, onClose }) {
             <input className="input" value={bank.accountName || ""} placeholder={TL("As printed on the bank account", "كما هو في الحساب البنكي")} onChange={(e) => setBank({ accountName: e.target.value })} />
           </div>
         <div className="row" style={{ gap: 8 }}>
-          <button className="btn btn-primary grow" disabled={!valid} onClick={save}>{m._new ? TL("Send invite", "إرسال الدعوة") : TL("Save", "حفظ")}</button>
-          {!m._new && CAN_DELETE && <button className="btn btn-ghost" onClick={() => { if (confirm(TL("Remove " + m.name + "? They will lose access immediately.", "إزالة " + (m.nameAr || m.name) + "؟ سيفقد الوصول فورًا.")) ) del(); }} style={{ color: "var(--negative, #c0492f)" }}>{TL("Remove", "إزالة")}</button>}
+          <button className="btn btn-primary grow" disabled={!valid} onClick={save}>{m._new ? TL("Create account", "إنشاء الحساب") : TL("Save", "حفظ")}</button>
+          {!m._new && <button className="btn btn-ghost" onClick={resetPw}>{TL("Reset password", "إعادة تعيين كلمة المرور")}</button>}
+          {!m._new && CAN_DELETE_FN() && <button className="btn btn-ghost" onClick={() => { if (confirm(TL("Remove " + m.name + "? They will lose access immediately.", "إزالة " + (m.nameAr || m.name) + "؟ سيفقد الوصول فورًا.")) ) del(); }} style={{ color: "var(--negative, #c0492f)" }}>{TL("Remove", "إزالة")}</button>}
           <button className="btn btn-ghost" onClick={onClose}>{TL("Cancel", "إلغاء")}</button>
         </div>
       </div>
@@ -3510,32 +3469,44 @@ function OrderDrawer({ order, onClose }) {
   const payable  = D.revnuPayableForOrder(order);
   const paidTotal = schedule.filter((m) => m.paid).reduce((a, m) => a + m.amount, 0);
   const outstanding = payable - paidTotal;
-  const togglePaid = (id) => {
-    if (paidIds.includes(id)) { if (!CAN_DELETE) return; const next = paidIds.filter((x) => x !== id); setPaidIds(next); D.setOrderPaid(order.id, next); return; }
+  const togglePaid = async (id) => {
+    const RS = window.RevnuSupport;
+    if (paidIds.includes(id)) {
+      if (!CAN_DELETE_FN()) return;
+      const next = paidIds.filter((x) => x !== id);
+      const r = await RS.act(() => D.setOrderPaid(order.id, next), { pending: AR ? "جارٍ التحديث…" : "Updating…" });
+      if (r !== undefined) setPaidIds(next);
+      return;
+    }
     // Marking a milestone as received requires the developer's proof of transfer.
-    if (!window.RevnuSupport) return;
-    window.RevnuSupport.pickFile(".pdf,image/*").then((f) => { if (!f) return; window.RevnuSupport.storeFile("revnu_dev_transfer_proofs", order.id + "|" + id, f); const next = [...paidIds, id]; setPaidIds(next); D.setOrderPaid(order.id, next); });
+    const doc = await RS.uploadFor(order, "transfer_proof", id, ".pdf,image/*");
+    if (!doc) return;
+    const next = [...paidIds, id];
+    const r = await RS.act(() => D.setOrderPaid(order.id, next, { [id]: doc.id }), { pending: AR ? "جارٍ تسجيل الدفعة…" : "Recording the payment…", done: AR ? "سُجّلت الدفعة مقابل إثبات التحويل." : "Payment recorded against the transfer proof." });
+    if (r !== undefined) setPaidIds(next);
   };
   const [, tick] = useState(0);
   const live = D.ORDERS.find((x) => x.id === order.id) || order;
   const FLOW = ["active", "issued", "signed", "paid"];
   const flowIdx = FLOW.indexOf(live.status === "draft" || live.status === "review" ? "active" : (live.status === "completed" ? "paid" : live.status));
-  const moveTo = (st) => {
-    const i = FLOW.indexOf(st); if (i !== flowIdx + 1) return;   // one step forward at a time
-    if (st === "signed" && !live.signedContractUrl) { window.RevnuSupport.pickFile(".pdf,image/*").then((f) => { if (!f) return; window.RevnuSupport.storeFile("revnu_signed_files", live.id, f); D.updateOrder(live.id, { signedContractUrl: f.name, signedAt: new Date().toISOString().slice(0, 10), status: "signed" }); tick((x) => x + 1); }); return; }
-    if (st === "paid" && !live.paymentProofUrl) { window.RevnuSupport.pickFile(".pdf,image/*").then((f) => { if (!f) return; window.RevnuSupport.storeFile("revnu_payment_proofs", live.id, f); D.updateOrder(live.id, { paymentProofUrl: f.name, paidAt: new Date().toISOString().slice(0, 10), status: "paid" }); tick((x) => x + 1); }); return; }
-    D.updateOrder(live.id, { status: st }); tick((x) => x + 1);
-  };
   const AR = window.I18N && window.I18N.isAR;
+  const moveTo = async (st) => {
+    const i = FLOW.indexOf(st); if (i !== flowIdx + 1) return;   // one step forward at a time
+    const RS = window.RevnuSupport;
+    if (st === "signed" && !D.documentFor(live.id, "signed_contract")) { const doc = await RS.uploadFor(live, "signed_contract", null, ".pdf,image/*,.doc,.docx"); if (!doc) return; }
+    if (st === "paid" && !D.documentFor(live.id, "payment_proof")) { const doc = await RS.uploadFor(live, "payment_proof", null, ".pdf,image/*"); if (!doc) return; }
+    await RS.act(() => D.transitionOrder(live.id, st), { pending: AR ? "جارٍ تحديث الطلب…" : "Updating the order…", done: AR ? "تم تحديث الطلب." : "Order updated." });
+    tick((x) => x + 1);
+  };
   const agreementHref = "/sales?dev=" + order.developerId + "&order=" + order.id;
   const RS = window.RevnuSupport;
-  const signedFile = RS ? RS.getFile("revnu_signed_files", live.id) : null;
-  const proofFile  = RS ? RS.getFile("revnu_payment_proofs", live.id) : null;
+  const signedFile = D.documentFor(live.id, "signed_contract");
+  const proofFile  = D.documentFor(live.id, "payment_proof");
   const docs = [
     { name: AR ? "اتفاقية الشراء والاستثمار (مع الملاحق أ · ب)" : "Purchase & Investment Agreement (with Schedules A · B)", sub: AR ? "النسخة المُصدَرة — عرض · Word · PDF" : "Issued copy — view · Word · PDF", ref: "AGR-" + live.id.replace(/\D/g, ""), href: agreementHref, ok: true },
     { name: AR ? "الاتفاقية الموقّعة" : "Signed agreement", sub: live.signedContractUrl ? live.signedContractUrl + (live.signedAt ? " · " + live.signedAt : "") : (AR ? "لم تُرفع بعد" : "not uploaded yet"), ref: live.signedContractUrl ? "✓" : "—", ok: !!live.signedContractUrl, file: signedFile },
     { name: AR ? "إثبات دفع العميل" : "Customer proof of payment", sub: live.paymentProofUrl ? live.paymentProofUrl + (live.paidAt ? " · " + live.paidAt : "") : (AR ? "لم يُرفع بعد" : "not uploaded yet"), ref: live.paymentProofUrl ? "✓" : "—", ok: !!live.paymentProofUrl, file: proofFile },
-  ].concat(schedule.filter((m) => m.paid).map((m) => { const pf = RS ? RS.getFile("revnu_dev_transfer_proofs", live.id + "|" + m.id) : null; return { name: (AR ? "إثبات تحويل المطوّر — " : "Developer transfer proof — ") + m.label, sub: pf ? pf.name : (AR ? "مُعلَّمة كمدفوعة" : "marked as paid"), ref: "✓", ok: true, file: pf }; }));
+  ].concat(schedule.filter((m) => m.paid).map((m) => { const pf = D.transferProofFor(live.id, m.id); return { name: (AR ? "إثبات تحويل المطوّر — " : "Developer transfer proof — ") + m.label, sub: pf ? pf.name : (AR ? "مُعلَّمة كمدفوعة" : "marked as paid"), ref: "✓", ok: true, file: pf }; }));
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 200, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
       <div style={{ width: 560, maxWidth: "100vw", background: "var(--bg-card)", height: "100vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
@@ -3643,11 +3614,11 @@ function OrderDrawer({ order, onClose }) {
               <strong style={{ color: "#c0492f" }}>{AR ? "مُلغى" : "Cancelled"}</strong> · {order.cancelReason || (AR ? "بدون سبب مسجّل" : "no reason recorded")}{order.cancelledBy ? " · " + order.cancelledBy : ""}
             </div>
           )}
-          {CAN_DELETE && (
+          {CAN_DELETE_FN() && (
             <div className="row" style={{ gap: 8, marginTop: 12, flexWrap: "wrap" }}>
               {order.status !== "cancelled"
-                ? <button className="btn btn-ghost btn-sm" style={{ color: "#c0492f" }} onClick={() => { const why = prompt(AR ? "سبب الإلغاء (إلزامي):" : "Reason for cancelling (required):"); if (why == null) return; if (!why.trim()) return alert(AR ? "السبب إلزامي." : "A reason is required."); D.cancelOrder(order.id, why.trim(), me && (me.name || me.email)); onClose(); }}>{AR ? "إلغاء الطلب" : "Cancel order"}</button>
-                : <button className="btn btn-ghost btn-sm" onClick={() => { if (!D.reinstateOrder(order.id)) alert(AR ? "لا يمكن الاستعادة — الوحدة في صفقة أخرى." : "Cannot reinstate — unit is in another live deal."); onClose(); }}>{AR ? "استعادة الطلب" : "Reinstate"}</button>}
+                ? <button className="btn btn-ghost btn-sm" style={{ color: "#c0492f" }} onClick={() => { const why = prompt(AR ? "سبب الإلغاء (إلزامي):" : "Reason for cancelling (required):"); if (why == null) return; if (!why.trim()) return alert(AR ? "السبب إلزامي." : "A reason is required."); window.RevnuSupport.act(() => D.cancelOrder(order.id, why.trim()), { pending: AR ? "جارٍ الإلغاء…" : "Cancelling…", done: AR ? "أُلغي الطلب." : "Order cancelled." }).then(() => onClose()); }}>{AR ? "إلغاء الطلب" : "Cancel order"}</button>
+                : <button className="btn btn-ghost btn-sm" onClick={async () => { const r = await window.RevnuSupport.act(() => D.reinstateOrder(order.id), { pending: AR ? "جارٍ الاستعادة…" : "Reinstating…" }); if (r === null) window.RevnuSupport.toast(AR ? "لا يمكن الاستعادة — الوحدة في صفقة أخرى." : "Cannot reinstate — unit is in another live deal.", "err"); onClose(); }}>{AR ? "استعادة الطلب" : "Reinstate"}</button>}
               <DelBtn kind="order" id={order.id} name={order.id} after={onClose} />
             </div>
           )}
@@ -3678,12 +3649,62 @@ function SecRow({ k, v }) {
 /* ============================================================
    Onboard Wizard — pop-over for adding a new developer tenant
 ============================================================ */
-function OnboardWizard({ onClose }) {
+function OnboardWizard({ onClose, onCreated }) {
+  const AR = window.I18N && window.I18N.isAR;
+  const TL = (en, ar) => (AR ? ar : en);
   const [step, setStep] = useState(0);
-  const STEPS = ["Company", "Brand", "Subdomain", "Confirm"];
+  const STEPS = [TL("Company", "الشركة"), TL("Brand", "الهوية"), TL("Subdomain", "النطاق الفرعي"), TL("Confirm", "تأكيد")];
+  const slugOf = (v) => String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+  const [f, setF] = useState({
+    name: "", nameAr: "", legalName: "", legalNameAr: "", crNumber: "", vat: "", city: "Riyadh",
+    primaryContact: "", primaryEmail: "",
+    primary: "#0E7C66", deep: "#085A4B", tagline: "", taglineAr: "", logoFile: null, logoPreview: null,
+    slug: "", slugTouched: false,
+    features: { furnishing: true, smartHome: true, operations: true },
+    inviteAdmin: true,
+  });
+  const set = (patch) => setF((x) => ({ ...x, ...patch }));
+  const slug = f.slugTouched ? f.slug : slugOf(f.name);
+  const emailOk = !f.primaryEmail || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.primaryEmail.trim());
+  const step0Ok = (f.name.trim() || f.nameAr.trim()) && (f.legalName.trim() || f.legalNameAr.trim()) && emailOk && (!f.inviteAdmin || (f.primaryEmail.trim() && f.primaryContact.trim()));
+  const slugOk = /^[a-z0-9][a-z0-9-]{1,39}$/.test(slug) && !D.DEVELOPERS.some((d) => d.id === slug);
+  const canContinue = step === 0 ? step0Ok : step === 2 ? slugOk : true;
+  const soft = (hex) => { const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || ""); return m ? `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},0.10)` : "rgba(74,143,231,0.10)"; };
+  const readable = (hex) => { const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || ""); if (!m) return "#FFFFFF"; const l = 0.299 * parseInt(m[1], 16) + 0.587 * parseInt(m[2], 16) + 0.114 * parseInt(m[3], 16); return l > 160 ? "#080B14" : "#FFFFFF"; };
+  const onLogo = (e) => { const file = e.target.files && e.target.files[0]; if (!file) return; set({ logoFile: file, logoPreview: URL.createObjectURL(file) }); e.target.value = ""; };
+
+  const provision = () => {
+    const RS = window.RevnuSupport;
+    const name = (f.name || f.nameAr).trim();
+    RS.act(async () => {
+      let logo = null;
+      if (f.logoFile) logo = await uploadScaled(f.logoFile, 600, "developers/" + slug);
+      const dev = await D.createDeveloper({
+        id: slug, name, nameAr: f.nameAr.trim() || null,
+        legalName: f.legalName.trim() || null, legalNameAr: f.legalNameAr.trim() || null,
+        initials: name.slice(0, 1).toUpperCase(), domain: slug + ".revnu.sa",
+        crNumber: f.crNumber.trim() || null, vat: f.vat.trim() || null, city: f.city.trim() || null,
+        primaryContact: f.primaryContact.trim() || null, primaryEmail: f.primaryEmail.trim().toLowerCase() || null,
+        brand: { primary: f.primary, deep: f.deep, soft: soft(f.primary), text: readable(f.primary) },
+        logo, logoDark: logo, tagline: f.tagline.trim() || null, taglineAr: f.taglineAr.trim() || null,
+        onboarded: new Date().toISOString().slice(0, 10),
+        masterAgreement: { defaultFeatures: { ...f.features, fitout: false } },
+      });
+      let admin = null;
+      if (f.inviteAdmin && f.primaryEmail.trim()) {
+        admin = await D.createDevUser({ name: f.primaryContact.trim(), email: f.primaryEmail.trim().toLowerCase(), role: "developer_admin", roleAr: "مدير المطوّر", perms: null, developerId: dev.id, assignedProjectIds: [] });
+      }
+      return { dev, admin };
+    }, { pending: TL("Provisioning the partner…", "جارٍ تجهيز حساب الشريك…"), done: TL("Partner created.", "أُنشئ حساب الشريك.") }).then((r) => {
+      if (!r) return;
+      if (r.admin) RS.showCredentials({ name: r.admin.name, email: r.admin.email, password: r.admin._tempPassword });
+      onCreated ? onCreated(r.dev.id) : onClose();
+    });
+  };
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.36)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: 560, maxWidth: "100vw", background: "var(--bg-card)", borderRadius: "var(--r-xl)", boxShadow: "var(--shadow-pop)", overflow: "hidden" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: 560, maxWidth: "100vw", maxHeight: "94vh", overflow: "auto", background: "var(--bg-card)", borderRadius: "var(--r-xl)", boxShadow: "var(--shadow-pop)" }}>
         <div style={{ padding: "20px 26px", borderBottom: "1px solid var(--line)" }}>
           <div className="eyebrow">{TT("// ONBOARD A NEW DEVELOPER")}</div>
           <div className="display-sm" style={{ marginTop: 2 }}>{STEPS[step]}</div>
@@ -3696,54 +3717,71 @@ function OnboardWizard({ onClose }) {
         <div style={{ padding: 26 }}>
           {step === 0 && (
             <div className="stack-md">
-              <BiField label={TT("LEGAL NAME")} en={""} ar={""} onEn={() => {}} onAr={() => {}}
-                placeholder="Aravan Real Estate" placeholderAr="أرافان العقارية" />
-              <Labeled label="CR Number"><input className="input mono" placeholder="CR 10xxxxxxxx" /></Labeled>
-              <Labeled label="VAT"><input className="input mono" placeholder="VAT 3xxxxxxxxxxxxxx" /></Labeled>
+              <BiField label={TL("BRAND / DISPLAY NAME", "الاسم التجاري")} en={f.name} ar={f.nameAr} onEn={(v) => set({ name: v })} onAr={(v) => set({ nameAr: v })} placeholder="Aravan" placeholderAr="أرافان" />
+              <BiField label={TT("LEGAL NAME")} en={f.legalName} ar={f.legalNameAr} onEn={(v) => set({ legalName: v })} onAr={(v) => set({ legalNameAr: v })} placeholder="Aravan Real Estate" placeholderAr="أرافان العقارية" />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <Labeled label="Primary contact"><input className="input" placeholder="Sami Al-Ghamdi" /></Labeled>
-                <Labeled label="Email"><input className="input" placeholder="sami@aravan.sa" /></Labeled>
+                <Labeled label={TL("CR Number", "رقم السجل التجاري")}><input className="input mono" placeholder="CR 10xxxxxxxx" value={f.crNumber} onChange={(e) => set({ crNumber: e.target.value })} /></Labeled>
+                <Labeled label={TL("VAT", "الرقم الضريبي")}><input className="input mono" placeholder="3xxxxxxxxxxxxxx" value={f.vat} onChange={(e) => set({ vat: e.target.value })} /></Labeled>
               </div>
+              <Labeled label={TL("City", "المدينة")}><input className="input" value={f.city} onChange={(e) => set({ city: e.target.value })} /></Labeled>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <Labeled label={TL("Primary contact", "جهة الاتصال الرئيسية")}><input className="input" placeholder="Sami Al-Ghamdi" value={f.primaryContact} onChange={(e) => set({ primaryContact: e.target.value })} /></Labeled>
+                <Labeled label={TL("Email", "البريد")}><input className="input" placeholder="sami@aravan.sa" value={f.primaryEmail} onChange={(e) => set({ primaryEmail: e.target.value })} style={{ direction: "ltr" }} /></Labeled>
+              </div>
+              <label className="row" style={{ gap: 8, fontSize: 13 }}><input type="checkbox" checked={f.inviteAdmin} onChange={(e) => set({ inviteAdmin: e.target.checked })} /> {TL("Create the primary contact's Developer Admin account now (you'll get a one-time temporary password to share).", "إنشاء حساب مدير المطوّر لجهة الاتصال الآن (ستحصل على كلمة مرور مؤقتة لمشاركتها).")}</label>
+              {!emailOk && <div className="soft" style={{ fontSize: 11.5, color: "#c0492f" }}>{TL("Enter a valid email.", "أدخل بريدًا صحيحًا.")}</div>}
             </div>
           )}
           {step === 1 && (
             <div className="stack-md">
-              <Labeled label="Brand primary color"><input className="input mono" defaultValue="#0E7C66" /></Labeled>
-              <Labeled label="Brand deep / hover"><input className="input mono" defaultValue="#085A4B" /></Labeled>
-              <Labeled label="Tagline"><input className="input" placeholder="A short brand line" /></Labeled>
-              <Labeled label="Logo">
-                <div style={{ padding: 18, border: "1px dashed var(--line-strong)", borderRadius: "var(--r-md)", textAlign: "center", color: "var(--text-soft)", fontSize: 12.5 }}>
-                  Drop SVG / PNG · <button className="btn btn-sm btn-secondary" style={{ marginLeft: 8 }}>Choose file</button>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <Labeled label={TL("Brand primary color", "اللون الأساسي")}><div className="row" style={{ gap: 8 }}><input type="color" value={f.primary} onChange={(e) => set({ primary: e.target.value })} style={{ width: 38, height: 38, border: "1px solid var(--line-strong)", borderRadius: 8, padding: 2, background: "transparent" }} /><input className="input mono" value={f.primary} onChange={(e) => set({ primary: e.target.value })} /></div></Labeled>
+                <Labeled label={TL("Brand deep / hover", "اللون الداكن")}><div className="row" style={{ gap: 8 }}><input type="color" value={f.deep} onChange={(e) => set({ deep: e.target.value })} style={{ width: 38, height: 38, border: "1px solid var(--line-strong)", borderRadius: 8, padding: 2, background: "transparent" }} /><input className="input mono" value={f.deep} onChange={(e) => set({ deep: e.target.value })} /></div></Labeled>
+              </div>
+              <BiField label={TL("TAGLINE", "الشعار النصي")} en={f.tagline} ar={f.taglineAr} onEn={(v) => set({ tagline: v })} onAr={(v) => set({ taglineAr: v })} placeholder="A short brand line" placeholderAr="عبارة قصيرة" />
+              <Labeled label={TL("Logo", "الشعار")}>
+                <div style={{ padding: 18, border: "1px dashed var(--line-strong)", borderRadius: "var(--r-md)", textAlign: "center", color: "var(--text-soft)", fontSize: 12.5, background: f.logoPreview ? f.primary : "transparent" }}>
+                  {f.logoPreview ? <img src={f.logoPreview} alt="" style={{ height: 34, display: "inline-block" }} /> : TL("SVG / PNG on a transparent background", "SVG / PNG بخلفية شفافة")}
+                  <label className="btn btn-sm btn-secondary" style={{ marginInlineStart: 8, cursor: "pointer" }}>{f.logoPreview ? TL("Replace", "استبدال") : TL("Choose file", "اختيار ملف")}<input type="file" accept="image/*" style={{ display: "none" }} onChange={onLogo} /></label>
                 </div>
               </Labeled>
+              <div className="card card-pad" style={{ background: f.primary, color: readable(f.primary), borderRadius: "var(--r-md)" }}>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: 18 }}>{f.name || f.nameAr || "Brand"}</div>
+                <div style={{ fontSize: 12, opacity: 0.8 }}>{f.tagline || TL("Preview of the sidebar accent and sign-in page", "معاينة لون الواجهة وصفحة الدخول")}</div>
+              </div>
             </div>
           )}
           {step === 2 && (
             <div className="stack-md">
-              <Labeled label="Subdomain">
-                <div className="row" style={{ gap: 0 }}>
-                  <input className="input mono" placeholder="aravan" style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }} />
-                  <span className="mono" style={{ padding: "0 12px", height: 38, display: "inline-flex", alignItems: "center", background: "var(--bg-tint)", border: "1px solid var(--line-strong)", borderLeft: 0, borderTopRightRadius: "var(--r-sm)", borderBottomRightRadius: "var(--r-sm)", fontSize: 13 }}>.revnu.sa</span>
+              <Labeled label={TL("Subdomain", "النطاق الفرعي")}>
+                <div className="row" style={{ gap: 0, direction: "ltr" }}>
+                  <input className="input mono" placeholder="aravan" value={slug} onChange={(e) => set({ slug: slugOf(e.target.value), slugTouched: true })} style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }} />
+                  <span className="mono" style={{ padding: "0 12px", height: 38, display: "inline-flex", alignItems: "center", background: "var(--bg-tint)", border: "1px solid var(--line-strong)", borderLeft: 0, borderTopRightRadius: "var(--r-sm)", borderBottomRightRadius: "var(--r-sm)", fontSize: 12 }}>.revnu.sa</span>
                 </div>
+                {!slugOk && <div className="soft" style={{ fontSize: 11.5, color: "#c0492f", marginTop: 6 }}>{D.DEVELOPERS.some((d) => d.id === slug) ? TL("This subdomain is already taken.", "هذا النطاق الفرعي مستخدم مسبقًا.") : TL("Letters, numbers and dashes only (2–40 characters).", "أحرف وأرقام وشرطات فقط (2–40 حرفًا).")}</div>}
               </Labeled>
-              <Labeled label="Default feature set">
+              <Labeled label={TL("Default feature set", "الميزات الافتراضية")}>
                 <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                  {["Furnishing","Smart home","Operations"].map((f) => (
-                    <label key={f} className="row" style={{ gap: 6, fontSize: 13 }}>
-                      <input type="checkbox" defaultChecked /> {f}
+                  {[["furnishing", TL("Furnishing", "التأثيث")], ["smartHome", TL("Smart home", "المنزل الذكي")], ["operations", TL("Operations", "التشغيل")]].map(([k, label]) => (
+                    <label key={k} className="row" style={{ gap: 6, fontSize: 13 }}>
+                      <input type="checkbox" checked={!!f.features[k]} onChange={(e) => set({ features: { ...f.features, [k]: e.target.checked } })} /> {label}
                     </label>
                   ))}
                 </div>
               </Labeled>
-              <p className="muted" style={{ fontSize: 12.5 }}>You can override these per project after onboarding.</p>
+              <p className="muted" style={{ fontSize: 12.5 }}>{TL("These become the defaults for the developer's new projects. You can override them per project after onboarding.", "تصبح هذه افتراضيات المشاريع الجديدة للمطوّر، ويمكن تعديلها لكل مشروع بعد التسجيل.")}</p>
             </div>
           )}
           {step === 3 && (
             <div className="stack-md">
-              <p style={{ margin: 0 }}>Once you confirm, the partner is created with empty designs / packages / payments / operations / contracts. Configure them inside the developer's workspace.</p>
+              <p style={{ margin: 0 }}>{TL("Once you confirm, the partner is created with empty designs / packages / payments / operations / contracts. Configure them inside the developer's workspace.", "بعد التأكيد يُنشأ الشريك بكتالوج فارغ (تصاميم / باقات / مدفوعات / تشغيل / عقود). جهّزها من مساحة عمل المطوّر.")}</p>
               <div className="card card-pad" style={{ background: "var(--bg-sunken)" }}>
                 <div className="eyebrow" style={{ marginBottom: 6 }}>{TT("READY TO PROVISION")}</div>
-                <div style={{ fontSize: 13.5 }}>A blank partner account, a working login at the subdomain, and a workspace populated with sensible defaults you can tune.</div>
+                <div style={{ fontSize: 13.5, lineHeight: 1.7 }}>
+                  <div><strong>{f.name || f.nameAr}</strong> · {f.legalName || f.legalNameAr}</div>
+                  <div className="mono" style={{ fontSize: 12 }}>{slug}.revnu.sa</div>
+                  {f.inviteAdmin && f.primaryEmail && <div>{TL("Developer Admin: ", "مدير المطوّر: ")}{f.primaryContact} · <span className="mono" style={{ fontSize: 12 }}>{f.primaryEmail}</span></div>}
+                </div>
               </div>
             </div>
           )}
@@ -3751,9 +3789,9 @@ function OnboardWizard({ onClose }) {
         <div className="row-between" style={{ padding: "14px 26px", borderTop: "1px solid var(--line)" }}>
           <button className="btn btn-ghost" onClick={onClose}>{window.I18N?window.I18N.t("Cancel"):"Cancel"}</button>
           <div className="row" style={{ gap: 8 }}>
-            {step > 0 && <button className="btn btn-secondary" onClick={() => setStep(step - 1)}>Back</button>}
-            {step < STEPS.length - 1 && <button className="btn btn-primary" onClick={() => setStep(step + 1)}>Continue →</button>}
-            {step === STEPS.length - 1 && <button className="btn btn-primary" onClick={onClose}>Provision partner</button>}
+            {step > 0 && <button className="btn btn-secondary" onClick={() => setStep(step - 1)}>{TL("Back", "رجوع")}</button>}
+            {step < STEPS.length - 1 && <button className="btn btn-primary" disabled={!canContinue} onClick={() => setStep(step + 1)}>{TL("Continue →", "متابعة ←")}</button>}
+            {step === STEPS.length - 1 && <button className="btn btn-primary" disabled={!slugOk} onClick={provision}>{TL("Provision partner", "إنشاء الشريك")}</button>}
           </div>
         </div>
       </div>
@@ -3842,7 +3880,7 @@ function PwSettings({ P, onSaved }) {
   const [saved, setSaved] = useState(true);
   const dirty = () => setSaved(false);
   const save = () => {
-    D.setProjectInfo(P.project.id, {
+    window.RevnuSupport.act(() => D.setProjectInfo(P.project.id, {
       name: name.trim() || P.project.name,
       nameAr: nameAr.trim(),
       city, delivery,
@@ -3853,7 +3891,7 @@ function PwSettings({ P, onSaved }) {
         salesCommission: { kind: salesKind, value: Number(salesVal) || 0 },
         contractMarkup: { kind: markKind, value: Number(markVal) || 0 },
       },
-    });
+    }), { done: (window.I18N && window.I18N.isAR) ? "تم حفظ إعدادات المشروع." : "Project settings saved." }).then((r) => { if (r !== undefined) { setSaved(true); onSaved && onSaved(); } });
     setSaved(true);
     onSaved && onSaved();
   };
@@ -3931,6 +3969,16 @@ function PwSettings({ P, onSaved }) {
   );
 }
 
+// Scale in the browser (as before), then store in the public media bucket instead of the row itself.
+async function uploadScaled(file, maxW, folder) {
+  const dataUrl = await fileToScaledDataURL(file, maxW);
+  const blob = await (await fetch(dataUrl)).blob();
+  const ext = blob.type === "image/png" ? "png" : "jpg";
+  const name = (file.name || "image").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9-_]/g, "-").slice(0, 40);
+  const path = folder + "/" + name + "-" + Date.now().toString(36) + "." + ext;
+  return D.uploadMedia(new File([blob], name + "." + ext, { type: blob.type }), path);
+}
+const newId = (projectId, kind) => (projectId || "x") + "-" + kind + "-" + Date.now().toString(36).slice(-5);
 function fileToScaledDataURL(file, maxW) {
   maxW = maxW || 1400;
   return new Promise((res, rej) => {
@@ -3962,12 +4010,12 @@ function TypeMediaSlot({ typeId, field, label, hint, img, onChange, ratio, fit }
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     setBusy(true);
-    try { const url = await fileToScaledDataURL(f); D.setTypeMedia(typeId, { [field]: url }); onChange(); }
-    catch (err) { console.error(err); }
+    await window.RevnuSupport.act(async () => { const url = await uploadScaled(f, 1600, "unit-types/" + typeId); await D.setTypeMedia(typeId, { [field]: url }); }, { pending: (window.I18N && window.I18N.isAR) ? "جارٍ رفع الصورة…" : "Uploading image…" });
+    onChange();
     setBusy(false);
     e.target.value = "";
   };
-  const remove = () => { D.setTypeMedia(typeId, { [field]: "" }); onChange(); };
+  const remove = () => { window.RevnuSupport.act(() => D.setTypeMedia(typeId, { [field]: "" })).then(() => onChange()); };
   return (
     <div>
       <div className="eyebrow" style={{ marginBottom: 6 }}>{label}</div>
@@ -4064,9 +4112,7 @@ function TypeEditDrawer({ type, onClose }) {
       area: Number(t.area) || 0, basePrice: Number(t.basePrice) || 0,
       projectId: t.projectId,
     };
-    if (t._new) D.createUnitType(payload);
-    else D.setUnitType(t.id, payload);
-    onClose();
+    window.RevnuSupport.act(() => t._new ? D.createUnitType(payload) : D.setUnitType(t.id, payload), { done: TL("Unit type saved.", "تم حفظ نوع الوحدة.") }).then((r) => { if (r !== undefined) onClose(); });
   };
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 200, display: "flex", justifyContent: "flex-start" }} onClick={onClose}>
@@ -4096,16 +4142,17 @@ function PwUnits({ P }) {
   const [units, setUnits] = useState(P.units);
   const [editing, setEditing] = useState(null);
   const [adding, setAdding]   = useState(false);
-  const setStatus = (number, status) => { D.setUnitStatus(number, status); setUnits((arr) => arr.map((u) => u.number === number ? { ...u, status } : u)); };
-  const saveEdit  = (next) => { D.updateUnit(next.number, next); setUnits((arr) => arr.map((u) => u.number === next.number ? { ...u, ...next } : u)); setEditing(null); };
-  const addUnit   = (u) => { const created = D.addUnit({ ...u, projectId: P.project.id, priceAdj: Number(u.priceAdj) || 0, floor: Number(u.floor) || 0 }); if (created) setUnits((arr) => [created, ...arr]); setAdding(false); };
+  const RS = window.RevnuSupport;
+  const setStatus = (number, status) => { RS.act(() => D.setUnitStatus(number, status)).then((r) => { if (r !== undefined) setUnits((arr) => arr.map((u) => u.number === number ? { ...u, status } : u)); }); };
+  const saveEdit  = (next) => { RS.act(() => D.updateUnit(next.number, next), { done: (window.I18N && window.I18N.isAR) ? "تم حفظ الوحدة." : "Unit saved." }).then((r) => { if (r) { setUnits((arr) => arr.map((u) => u.number === next.number ? { ...u, ...r } : u)); setEditing(null); } }); };
+  const addUnit   = (u) => { RS.act(() => D.addUnit({ ...u, projectId: P.project.id, priceAdj: Number(u.priceAdj) || 0, floor: Number(u.floor) || 0 }), { done: (window.I18N && window.I18N.isAR) ? "أُضيفت الوحدة." : "Unit added." }).then((created) => { if (created) { setUnits((arr) => [created, ...arr]); setAdding(false); } else if (created === null) RS.toast((window.I18N && window.I18N.isAR) ? "رقم الوحدة موجود مسبقًا." : "That unit number already exists.", "err"); }); };
 
   return (
     <>
       <WsCardHead eye="// UNITS" title={units.length + (window.I18N && window.I18N.isAR ? " وحدة" : " units")} sub={window.I18N && window.I18N.isAR ? "أضف وعدّل وغيّر الحالة. تظهر التغييرات مباشرةً لفريق مبيعات المطوّر. الوحدات المرتبطة بصفقة حيّة مقفلة." : "Add, edit, change status. Status changes show up live for the developer's sales team. Units in a live deal are locked."}
         action={<div className="row" style={{ gap: 8 }}>
           <button className="btn btn-secondary" onClick={() => D.downloadCSV("units-" + P.project.id + ".csv", units, [{ key: "number", label: "number" }, { key: "projectId", label: "projectId" }, { key: "typeId", label: "typeId" }, { key: "tower", label: "tower" }, { key: "floor", label: "floor" }, { key: "view", label: "view" }, { key: "priceAdj", label: "priceAdj" }, { key: "priceBen", label: "priceBen" }, { key: "status", label: "status" }])}>{TT("Export CSV")}</button>
-          <label className="btn btn-secondary" style={{ cursor: "pointer" }}>{window.I18N?window.I18N.t("Bulk upload CSV"):"Bulk upload CSV"}<input type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={(e) => { const f = e.target.files && e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { const rows = D.parseCSV(r.result); let ok = 0, skip = 0; rows.forEach((row) => { const c = row.number && D.addUnit({ number: row.number, projectId: P.project.id, typeId: row.typeId, tower: row.tower || "", floor: Number(row.floor) || 0, view: row.view || "", priceAdj: Number(row.priceAdj) || 0, priceBen: row.priceBen !== undefined && row.priceBen !== "" ? Number(row.priceBen) : undefined }); if (c) ok++; else skip++; }); alert((window.I18N && window.I18N.isAR) ? (ok + " وحدة أُضيفت · " + skip + " تم تجاوزها") : (ok + " units added · " + skip + " skipped (duplicate / missing number)")); setUnits(D.UNITS.filter((u) => u.projectId === P.project.id)); }; r.readAsText(f); e.target.value = ""; }} /></label>
+          <label className="btn btn-secondary" style={{ cursor: "pointer" }}>{window.I18N?window.I18N.t("Bulk upload CSV"):"Bulk upload CSV"}<input type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={(e) => { const f = e.target.files && e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { const rows = D.parseCSV(r.result); let skip = 0; const list = rows.filter((row) => { const ok = row.number && !D.UNITS.some((u) => u.number === row.number); if (!ok) skip++; return ok; }).map((row) => ({ number: row.number, projectId: P.project.id, typeId: row.typeId, tower: row.tower || "", floor: Number(row.floor) || 0, view: row.view || "", priceAdj: Number(row.priceAdj) || 0, priceBen: row.priceBen !== undefined && row.priceBen !== "" ? Number(row.priceBen) : undefined })); RS.act(() => D.addUnits(list), { pending: (window.I18N && window.I18N.isAR) ? "جارٍ إضافة الوحدات…" : "Adding units…" }).then((added) => { if (!added) return; RS.toast((window.I18N && window.I18N.isAR) ? (added.length + " وحدة أُضيفت · " + skip + " تم تجاوزها") : (added.length + " units added · " + skip + " skipped (duplicate / missing number)"), "ok"); setUnits(D.UNITS.filter((u) => u.projectId === P.project.id)); }); }; r.readAsText(f); e.target.value = ""; }} /></label>
           <button className="btn btn-primary" onClick={() => setAdding(true)}>{window.I18N?window.I18N.t("+ Add unit"):"+ Add unit"}</button>
         </div>} />
       <div className="card card-flush">
@@ -4219,3 +4266,13 @@ function PwUnitAddDrawer({ project, types, onClose, onAdd }) {
   );
 }
 
+/* =================================================================
+   Module entry — booted by components/PortalBoot after the server
+   verified the session and the store was hydrated.
+================================================================= */
+export default function RevnuPortal({ params: p }) {
+  const [ok] = useState(() => boot(p));
+  useStoreVersion();
+  if (!ok) return <div className="rv-fullscreen"><div className="rv-spinner" /></div>;
+  return <App />;
+}
