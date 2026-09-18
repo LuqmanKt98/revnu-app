@@ -5,7 +5,7 @@ export default function NoWorkspace({ email }: { email?: string }) {
   return (
     <div className="rv-fullscreen">
       <div className="card card-pad-lg">
-        <div className="eyebrow" style={{ marginBottom: 8 }}>// ACCOUNT</div>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>{"// ACCOUNT"}</div>
         <div className="display-sm" style={{ marginBottom: 8 }}>Your account isn&apos;t linked to a workspace yet</div>
         <p className="muted" style={{ fontSize: 13.5, lineHeight: 1.6 }}>
           {email ? <><strong>{email}</strong> can sign in, but no company or team has been assigned to it. </> : null}

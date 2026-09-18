@@ -913,7 +913,7 @@ function OrderDrawer({ order: orderProp, onClose }) {
                     <button className="btn btn-sm btn-primary" style={{ marginInlineStart: "auto" }}
                       disabled={needsUpload}
                       title={needsUpload ? (AR ? "ارفع العقد الموقّع أولاً" : "Upload the signed contract first") : ""}
-                      onClick={() => { window.__revnu_advanceStatus(order.id); onClose && onClose(); }}>
+                      onClick={async () => { await window.__revnu_advanceStatus(order.id); onClose && onClose(); }}>
                       {order.status === "signed" ? (AR ? "⬆ إثبات الدفع · تأكيد دفع العميل" : "⬆ Proof of payment · customer paid") : (AR ? (meta.nextAr || M[STATUS_INFO[order.status]?.next]?.ar) : (meta.nextEn || STATUS_INFO[order.status]?.nextLabel))} {AR ? "←" : "→"}
                     </button>
                   )}

@@ -10,7 +10,10 @@
     "db:export-seed": "node scripts/export-seed.mjs",
     "db:apply": "node scripts/db-apply.mjs",
     "db:seed": "node scripts/db-apply.mjs --seed",
-    "db:seed-users": "node scripts/seed-users.mjs"
+    "db:seed-users": "node scripts/seed-users.mjs",
+    "test:rls": "node scripts/rls-tests.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -22,6 +25,7 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

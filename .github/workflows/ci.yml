@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # Build-time placeholders only; the real values live in Vercel / .env.local.
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - name: Seed export stays in sync with the mappers
+        run: node -e "import('./lib/data/mappers.js').then(m => { if (!m.TABLES.orders) process.exit(1); })"
+
+  # Database policy tests run against the real project only when secrets are configured
+  # (RLS_TEST_* secrets). They are the regression suite for audit SEC-01/SEC-03/B-05.
+  rls:
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    needs: build
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      TEST_PASSWORD_msiyadi: ${{ secrets.TEST_PASSWORD_msiyadi }}
+      TEST_PASSWORD_nk_tarek: ${{ secrets.TEST_PASSWORD_nk_tarek }}
+      TEST_PASSWORD_nk_afnan: ${{ secrets.TEST_PASSWORD_nk_afnan }}
+      TEST_PASSWORD_nk_mohamed: ${{ secrets.TEST_PASSWORD_nk_mohamed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: RLS policy tests
+        if: ${{ env.NEXT_PUBLIC_SUPABASE_ANON_KEY != '' && env.TEST_PASSWORD_msiyadi != '' }}
+        run: npm run test:rls
