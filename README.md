@@ -6,6 +6,8 @@ The UI, copy, bilingual EN/AR + RTL system and business logic are ported 1:1 fro
 the foundation underneath is new: a real database with relations, server-enforced authorization
 (Row Level Security), real accounts, file storage, and a production build.
 
+**Live (staging):** https://revnu-app.vercel.app — Vercel default domain; the client's own
+domain is connected only at the final cut-over.
 Repository: https://github.com/LuqmanKt98/revnu-app · Docs: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/CUTOVER.md`](docs/CUTOVER.md)
 
 ## Stack
@@ -98,6 +100,18 @@ tests/e2e/      Playwright specs
 3. After the first deployment run `node scripts/configure-auth.mjs --site https://<deployment>.vercel.app`
    so password-reset links redirect to the right origin.
 4. Domain, DNS, Resend and Supabase SMTP are switched at the end — see [`docs/CUTOVER.md`](docs/CUTOVER.md).
+
+## Current state (21 September 2026)
+
+| Item | State |
+|---|---|
+| Database | Six migrations applied to the client's project; catalogue seeded (1 developer, 1 project, 5 unit types, **373 units**, 3 designs, 3 packages, 3 smart tiers, 3 operating models) |
+| Accounts | The five seeded people exist as real accounts, each with a one-time temporary password in `SEED-CREDENTIALS.local.txt` and a forced password change at first sign-in. **No e-mail was sent to anyone.** |
+| Policy tests | `npm run test:rls` — 46 assertions, all passing |
+| Port check | `npm run check:port` — every call site, RPC, table and column verified |
+| Verified end to end | rep signs in → 8-step wizard → order submitted (`issued`) → developer uploads the signed agreement (→ `signed`) → uploads proof of payment (→ `paid`) → invoice raised → Revnu HQ shows the 78,200 SAR receivable. Unit locked and released correctly throughout. |
+| E-mail | `MAIL_MODE=log`: notifications are queued and marked `logged`, nothing is sent. Flip to `resend` at cut-over. |
+| Test data | Removed after verification — the database is clean (0 orders, 0 documents, 0 leads, all 373 units available). |
 
 ## Not in this phase (by client decision)
 

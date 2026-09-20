@@ -37,6 +37,14 @@
   /* ---- topbar ---- */
   .topbar { padding: 0 12px; gap: 8px; }
   .topbar .row { flex-wrap: wrap; }
+  /* The brand mark and the action cluster (walkthrough · support · user menu) must be
+     allowed to shrink. Without this their intrinsic width pushes the whole page wider
+     than the screen, giving every portal a horizontal scrollbar on a phone. */
+  .topbar, .app-body, main, .page-body, .brand-mark, .topbar .row { min-width: 0; }
+  .brand-mark { overflow: hidden; }
+  .brand-mark .word, .brand-mark .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar .row { justify-content: flex-end; row-gap: 6px; }
+  .rs-btns .btn { padding: 0 9px; }
 
   /* ---- page chrome ---- */
   .page-body { padding: 18px 14px 90px; }
