@@ -37,8 +37,11 @@ a rollback.
 
 ## 4. Turn on the sweeper (optional)
 
-- [ ] Vercel → Settings → Cron Jobs: `GET /api/notifications/dispatch` every 15 minutes with header
-      `Authorization: Bearer <CRON_SECRET>` (`vercel.json` already declares the schedule; set `CRON_SECRET`).
+- [ ] `vercel.json` already declares a daily sweep of `GET /api/notifications/dispatch`
+      (03:00 UTC) and `CRON_SECRET` is set in Vercel. This is only a safety net: the
+      browser dispatches each notification immediately after an order transition.
+- [ ] Vercel's Hobby plan allows **daily** crons only. On Pro, change the schedule to
+      `*/15 * * * *` for a tighter retry window.
 
 ## 5. Retire the demo
 
