@@ -13,7 +13,8 @@
     "db:seed-users": "node scripts/seed-users.mjs",
     "test:rls": "node scripts/rls-tests.mjs",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "check:port": "node scripts/check-port.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

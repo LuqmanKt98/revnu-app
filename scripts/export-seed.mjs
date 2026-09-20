@@ -55,12 +55,14 @@ function lit(v, col) {
   if (typeof v === "number") return Number.isFinite(v) ? String(v) : "null";
   return q(v);
 }
+// Identifiers are always quoted: some column names are reserved words in Postgres (e.g. "when").
+const qId = (c) => '"' + String(c).replace(/"/g, '""') + '"';
 function upsert(table, rows, pk) {
   if (!rows.length) return `-- ${table}: nothing to seed\n`;
   const cols = [...new Set(rows.flatMap((r) => Object.keys(r)))];
   const vals = rows.map((r) => "(" + cols.map((c) => lit(r[c], c)).join(", ") + ")").join(",\n  ");
-  const upd = cols.filter((c) => !pk.includes(c)).map((c) => `${c} = excluded.${c}`).join(", ");
-  return `insert into public.${table} (${cols.join(", ")}) values\n  ${vals}\non conflict (${pk.join(", ")}) do update set ${upd || pk[0] + " = excluded." + pk[0]};\n`;
+  const upd = cols.filter((c) => !pk.includes(c)).map((c) => `${qId(c)} = excluded.${qId(c)}`).join(", ");
+  return `insert into public.${table} (${cols.map(qId).join(", ")}) values\n  ${vals}\non conflict (${pk.map(qId).join(", ")}) do update set ${upd || qId(pk[0]) + " = excluded." + qId(pk[0])};\n`;
 }
 
 // ---- build rows --------------------------------------------------------

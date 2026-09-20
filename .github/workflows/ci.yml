@@ -21,6 +21,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+      - run: npm run check:port
       - name: Seed export stays in sync with the mappers
         run: node -e "import('./lib/data/mappers.js').then(m => { if (!m.TABLES.orders) process.exit(1); })"
 

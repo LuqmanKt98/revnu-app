@@ -62,19 +62,30 @@ const expectRows = async (promise, n, cmp = "=") => {
   if (cmp === "=" && len !== n) throw new Error(`expected ${n} rows, got ${len}`);
   if (cmp === ">" && !(len > n)) throw new Error(`expected > ${n} rows, got ${len}`);
 };
+/** No access at all: either the grant is missing (permission denied) or RLS filters everything out.
+ *  Both are correct outcomes for a signed-out visitor; anything returned is a leak. */
+const expectNoAccess = async (promise) => {
+  const { data, error } = await promise;
+  if (error) return;
+  if ((data || []).length) throw new Error(`returned ${data.length} row(s) — data leak`);
+};
 
 async function main() {
   const anon = createClient(url, anonKey, { auth: { persistSession: false } });
   console.log("\nanon (signed out)");
-  await t("cannot read developers", () => expectRows(anon.from("developers").select("id"), 0));
-  await t("cannot read profiles", () => expectRows(anon.from("profiles").select("id"), 0));
-  await t("cannot read orders", () => expectRows(anon.from("orders").select("id"), 0));
-  await t("cannot read units", () => expectRows(anon.from("units").select("number"), 0));
+  for (const rel of ["developers", "profiles", "orders", "units", "documents", "leads", "support_tickets", "notifications", "profiles_v", "orders_v", "support_tickets_v"]) {
+    await t(`cannot read ${rel}`, () => expectNoAccess(anon.from(rel).select("*").limit(5)));
+  }
   await t("can read developers_public (brand only)", async () => {
     const rows = await expectOk(anon.from("developers_public").select("*").eq("id", "noor-khuzam"));
     if (!rows.length) throw new Error("no row"); if ("cr_number" in rows[0] || "primary_email" in rows[0]) throw new Error("confidential column exposed");
   });
   await t("cannot call create_order", () => expectErr(anon.rpc("create_order", { p: {} })));
+  // The public marketing form posts through /api/leads with the anon key: inserting must work,
+  // reading back must not, and the status cannot be forged.
+  const leadId = "L-RLS" + Date.now().toString(36).slice(-5).toUpperCase();
+  await t("can submit the public Interested form", () => expectOk(anon.from("leads").insert({ id: leadId, name: "RLS Test", email: "rls@example.com", status: "new" })));
+  await t("cannot submit a lead with a forged status", () => expectErr(anon.from("leads").insert({ id: leadId + "X", name: "x", email: "x@example.com", status: "onboarded" })));
 
   const rep = await signIn("nk-afnan");        // sales rep: perms [orders]
   const director = await signIn("nk-tarek");   // sales director: orders, inventory, financials, team, cancel
@@ -152,6 +163,7 @@ async function main() {
     const u = await expectOk(admin.from("units").select("status").eq("number", u1.number).single());
     if (u.status !== "available") throw new Error("unit still " + u.status);
     await admin.from("units").update({ view: "" }).eq("number", u2.number);
+    await admin.from("leads").delete().like("id", "L-RLS%");
   });
 
   console.log(`\n${pass} passed, ${fail} failed`);
