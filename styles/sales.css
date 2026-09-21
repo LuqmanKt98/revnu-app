@@ -1,0 +1,197 @@
+/* Sales portal — page styles ported verbatim from the prototype's sales.html <style> block
+   (layout shell, sticky progress strip and action bar, option cards, agreement paper, print rules).
+   Loaded only by app/sales/page.tsx, exactly as the prototype scoped it to sales.html. */
+/* sales-specific */
+.sales-shell { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }
+
+.sales-top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 26px;
+  background: rgba(255,255,255,0.82);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: saturate(180%) blur(20px);
+  position: sticky; top: 0; z-index: 40;
+}
+.sales-top .dev-mark {
+  display: inline-flex; align-items: center; gap: 12px;
+}
+.sales-top .dev-mark .glyph {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--brand); color: var(--brand-text);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-weight: 600; font-size: 15px;
+}
+
+/* Progress strip */
+.progress-strip {
+  display: flex; gap: 0;
+  padding: 12px 26px 0;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: 56px; z-index: 30;
+  overflow-x: auto;
+}
+.pstep {
+  flex: 1; min-width: 86px;
+  padding: 4px 10px 12px;
+  cursor: default;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.pstep .pn {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 11px; color: var(--text-soft); font-weight: 600; letter-spacing: 0.04em;
+}
+.pstep .pn .b {
+  width: 22px; height: 22px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg-tint); color: var(--text-muted);
+  font-size: 11px; font-weight: 600;
+  font-family: var(--font-mono);
+}
+.pstep .pt { font-size: 12.5px; font-weight: 500; color: var(--text-muted); }
+.pstep.done .b { background: var(--brand); color: #fff; }
+.pstep.done .pt { color: var(--text); }
+.pstep.active { border-bottom-color: var(--brand); }
+.pstep.active .b { background: var(--brand); color: #fff; }
+.pstep.active .pt { color: var(--text); font-weight: 600; }
+
+/* Persistent context bar — selected unit etc. */
+.ctx-bar {
+  padding: 10px 26px;
+  background: var(--bg-sunken);
+  border-bottom: 1px solid var(--line);
+  display: flex; gap: 14px; align-items: center;
+  font-size: 12.5px;
+}
+.ctx-tag {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 28px; padding: 4px 12px;
+  border-radius: var(--r-pill);
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  white-space: nowrap;
+  max-width: 280px;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.ctx-tag.brand { background: var(--brand-soft); border-color: transparent; color: var(--brand-deep); }
+.ctx-tag .k { color: var(--text-soft); font-weight: 500; flex-shrink: 0; }
+.ctx-tag .v { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+
+/* Main step area */
+.step-area { flex: 1; padding: 32px 26px 100px; max-width: 1180px; margin: 0 auto; width: 100%; }
+.step-eye { font-size: 12px; color: var(--brand); font-weight: 600; letter-spacing: 0.04em; margin-bottom: 8px; }
+.step-title { font-family: var(--font-display); font-size: 32px; font-weight: 700; letter-spacing: -0.022em; margin: 0; }
+.step-kicker { color: var(--text-muted); font-size: 15px; margin: 10px 0 24px; max-width: 700px; line-height: 1.5; }
+
+/* Bottom action bar */
+.action-bar {
+  position: sticky; bottom: 0;
+  background: rgba(255,255,255,0.92);
+  border-top: 1px solid var(--line);
+  padding: 12px 26px;
+  display: flex; justify-content: space-between; align-items: center;
+  backdrop-filter: saturate(180%) blur(16px);
+  z-index: 20;
+}
+.action-bar .progress-mini {
+  font-size: 12px; color: var(--text-soft);
+}
+
+/* Field grid for buyer form */
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 22px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field.full { grid-column: 1 / -1; }
+.field label { font-size: 11.5px; font-weight: 600; letter-spacing: 0.03em; color: var(--text-soft); text-transform: uppercase; }
+.field .help { font-size: 11.5px; color: var(--text-soft); }
+
+/* Cards selectable */
+.opt-grid { display: grid; gap: 14px; }
+.opt {
+  border: 1px solid var(--line);
+  background: var(--bg-card);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+  cursor: default;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.opt:hover { border-color: var(--line-strong); }
+.opt.selected { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+.opt-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.opt-head h3 { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: -0.012em; }
+.opt-head .price { font-family: var(--font-display); font-size: 18px; font-weight: 600; letter-spacing: -0.018em; white-space: nowrap; }
+.opt-head .price .u { font-size: 11px; color: var(--text-soft); font-weight: 400; margin-left: 3px; }
+.opt-body { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+.opt-meta { display: flex; gap: 14px; font-size: 11.5px; color: var(--text-soft); flex-wrap: wrap; }
+
+/* Calc */
+.calc-grid { display: grid; grid-template-columns: 1.7fr 1fr; gap: 18px; }
+.kv { display: flex; justify-content: space-between; font-size: 13px; padding: 6px 0; }
+.kv .k { color: var(--text-muted); }
+.kv .v { font-weight: 500; font-variant-numeric: tabular-nums; }
+
+/* Document preview */
+.doc-paper {
+  background: linear-gradient(180deg, var(--bg-tint), var(--bg-sunken));
+  padding: 32px 24px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+}
+.doc-page {
+  background: #fff;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 56px 64px;
+  border-radius: 4px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06);
+  font-size: 12.5px;
+  color: #1D1D1F;
+  line-height: 1.55;
+  min-height: 920px;
+}
+
+/* Arabic agreement: Almarai everywhere, including headings and figures */
+.ag-doc-wrap[dir="rtl"], .ag-doc-wrap[dir="rtl"] * { font-family: 'Almarai', 'Segoe UI', sans-serif !important; letter-spacing: 0 !important; }
+/* ---- Print: the agreement becomes a clean PDF ------------------------ */
+.print-doc { display: none; }
+@media print {
+  /* margin:0 removes the browser's own header (date/title) & footer (URL/page#) */
+  @page { size: A4 portrait; margin: 0; }
+  html, body { background: #fff !important; }
+  /* force ALL backgrounds/colors to print (browsers strip them by default) */
+  html, body, .print-doc, .print-doc * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* hide the live app (sibling of .print-doc, which is portaled to <body>) */
+  body > *:not(.print-doc) { display: none !important; }
+  .print-doc { display: block !important; width: 100%; background: #fff !important; }
+  /* neutralise BOTH on-screen tinted backdrops (agreement + KYC) so pages print clean */
+  .print-doc .ag-doc-wrap,
+  .print-doc .doc-paper { background: #fff !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; margin: 0 !important; }
+  /* every page: strip the on-screen card chrome, fill the sheet, one per physical page */
+  .print-doc .ag-page,
+  .print-doc .doc-page {
+    box-shadow: none !important; border: none !important; border-radius: 0 !important;
+    margin: 0 !important; width: 100% !important; max-width: 100% !important;
+    min-height: auto !important;
+    page-break-after: always; break-after: page;
+  }
+  .print-doc > *:last-child .ag-page,
+  .print-doc > *:last-child .doc-page,
+  .print-doc .ag-page:last-child { page-break-after: auto; break-after: auto; }
+  /* never split these across physical pages */
+  .print-doc tr, .print-doc img, .print-doc svg, .print-doc thead, .print-doc tfoot { break-inside: avoid; page-break-inside: avoid; }
+  .print-doc thead { display: table-header-group; }
+  .print-doc .ag-page { overflow: visible !important; }
+  .print-doc h1, .print-doc h2, .print-doc h4 { break-after: avoid-page; }
+}
+
+@media (max-width: 720px) {
+  .field-grid { grid-template-columns: 1fr; }
+  .calc-grid { grid-template-columns: 1fr; }
+  .step-area { padding: 24px 18px 100px; }
+  .doc-page { padding: 36px 24px; }
+}

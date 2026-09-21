@@ -1,6 +1,7 @@
 import { gate } from "@/lib/auth/gate";
 import PortalBoot from "@/components/PortalBoot";
 import NoWorkspace from "@/components/NoWorkspace";
+import "@/styles/sales.css";
 
 export const dynamic = "force-dynamic";
 type SP = Record<string, string | string[] | undefined>;
