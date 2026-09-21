@@ -33,8 +33,8 @@ const NAV = [
 ];
 
 const STATUS_CHIP = {
-  draft: "chip", review: "chip chip-warning", signed: "chip chip-brand",
-  active: "chip chip-positive", completed: "chip", cancelled: "chip chip-negative",
+  draft: "chip", review: "chip chip-warning", issued: "chip chip-warning", signed: "chip chip-brand",
+  active: "chip chip-positive", paid: "chip chip-positive", completed: "chip", cancelled: "chip chip-negative",
 };
 
 // ---- bootstrap: identity comes from the server-verified session (never from browser storage) ----
