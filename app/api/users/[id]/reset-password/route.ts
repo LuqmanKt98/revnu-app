@@ -11,6 +11,8 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   const { user, profile } = await currentSession();
   if (!user || !profile) return NextResponse.json({ code: "SESSION_EXPIRED" }, { status: 401 });
   if (!hasServiceRole()) return NextResponse.json({ code: "SERVICE_ROLE_MISSING" }, { status: 503 });
+  // An admin action on a colleague: nobody issues themselves a temporary password through this route.
+  if (id === user.id) return NextResponse.json({ code: "NOT_ALLOWED" }, { status: 403 });
 
   // May the caller manage this profile? Ask RLS by performing the flag update under their session.
   const sb = await supabaseServer();
