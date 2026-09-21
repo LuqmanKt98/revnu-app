@@ -4217,6 +4217,7 @@ function PwUnits({ P }) {
 }
 
 function PwUnitEditDrawer({ unit, onClose, onSave }) {
+  const TL = (en, ar) => (window.I18N && window.I18N.isAR ? ar : en);
   const [u, setU] = useState({ ...unit });
   const set = (patch) => setU((p) => ({ ...p, ...patch }));
   return (
@@ -4251,6 +4252,7 @@ function PwUnitEditDrawer({ unit, onClose, onSave }) {
 }
 
 function PwUnitAddDrawer({ project, types, onClose, onAdd }) {
+  const TL = (en, ar) => (window.I18N && window.I18N.isAR ? ar : en);
   const [u, setU] = useState({ number: "", projectId: project.id, typeId: types[0]?.id || "", tower: "", floor: 1, view: "", priceAdj: 0, status: "available" });
   const set = (patch) => setU((p) => ({ ...p, ...patch }));
   const valid = u.number.trim() && u.typeId && u.tower.trim();
