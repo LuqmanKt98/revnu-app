@@ -1418,8 +1418,20 @@ function WsBrand({ dv }) {
   const AR = window.I18N && window.I18N.isAR;
   const [legalName, setLegalName]     = useState(dv.legalName || "");
   const [legalNameAr, setLegalNameAr] = useState(dv.legalNameAr || "");
+  // QA: these fields were rendered but never saved (uncontrolled inputs); the colours were state only.
+  const [tagline, setTagline]   = useState(dv.tagline || "");
+  const [crNumber, setCrNumber] = useState(dv.crNumber || "");
+  const [vat, setVat]           = useState(dv.vat || "");
+  const [contact, setContact]   = useState(dv.primaryContact || "");
+  const [email, setEmail]       = useState(dv.primaryEmail || "");
+  const [domain, setDomain]     = useState(dv.domain || "");
+  const soft = (hex) => { const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || ""); return m ? `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},0.10)` : dv.brand.soft; };
   const saveName = () => {
-    window.RevnuSupport.act(() => D.patchDeveloper(dv.id, { name, nameAr, legalName: legalName.trim() || null, legalNameAr: legalNameAr.trim() || null, authorizedSigner: signer, authorizedSignerAr: signerAr, authorizedSignerTitle: signerTitle, authorizedSignerTitleAr: signerTitleAr }), { done: (window.I18N && window.I18N.isAR) ? "تم حفظ بيانات المطوّر." : "Developer details saved." });
+    const hexOk = (v) => /^#[0-9a-f]{6}$/i.test(v.trim());
+    const brand = { ...dv.brand, primary: hexOk(primary) ? primary.trim() : dv.brand.primary, deep: hexOk(deep) ? deep.trim() : dv.brand.deep };
+    brand.soft = soft(brand.primary);
+    window.RevnuSupport.act(() => D.patchDeveloper(dv.id, { name, nameAr, legalName: legalName.trim() || null, legalNameAr: legalNameAr.trim() || null, authorizedSigner: signer, authorizedSignerAr: signerAr, authorizedSignerTitle: signerTitle, authorizedSignerTitleAr: signerTitleAr,
+      tagline: tagline.trim() || null, crNumber: crNumber.trim() || null, vat: vat.trim() || null, primaryContact: contact.trim() || null, primaryEmail: email.trim().toLowerCase() || null, domain: domain.trim() || null, brand }), { done: (window.I18N && window.I18N.isAR) ? "تم حفظ بيانات المطوّر." : "Developer details saved." });
   };
   return (
     <>
@@ -1436,12 +1448,12 @@ function WsBrand({ dv }) {
           <BiField label={AR ? "المنصب / الصفة (يظهر تحت التوقيع)" : "Signatory title (appears under the signature)"} en={signerTitle} ar={signerTitleAr}
             onEn={setSignerTitle} onAr={setSignerTitleAr} placeholder="e.g. Chief Executive Officer" placeholderAr="مثال: الرئيس التنفيذي" />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Labeled label="Tagline"><input className="input" defaultValue={dv.tagline} /></Labeled>
-            <Labeled label="CR Number"><input className="input mono" defaultValue={dv.crNumber} /></Labeled>
-            <Labeled label="VAT"><input className="input mono" defaultValue={dv.vat} /></Labeled>
-            <Labeled label="Primary contact"><input className="input" defaultValue={dv.primaryContact} /></Labeled>
-            <Labeled label="Email"><input className="input" defaultValue={dv.primaryEmail} /></Labeled>
-            <Labeled label="Subdomain"><input className="input mono" defaultValue={dv.domain} /></Labeled>
+            <Labeled label="Tagline"><input className="input" value={tagline} onChange={(e) => setTagline(e.target.value)} /></Labeled>
+            <Labeled label="CR Number"><input className="input mono" value={crNumber} onChange={(e) => setCrNumber(e.target.value)} /></Labeled>
+            <Labeled label="VAT"><input className="input mono" value={vat} onChange={(e) => setVat(e.target.value)} /></Labeled>
+            <Labeled label="Primary contact"><input className="input" value={contact} onChange={(e) => setContact(e.target.value)} /></Labeled>
+            <Labeled label="Email"><input className="input" value={email} onChange={(e) => setEmail(e.target.value)} /></Labeled>
+            <Labeled label="Subdomain"><input className="input mono" value={domain} onChange={(e) => setDomain(e.target.value)} /></Labeled>
           </div>
           <div className="row" style={{ gap: 8, marginTop: 14 }}>
             <button className="btn btn-primary" onClick={saveName}>Save</button>
