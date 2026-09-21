@@ -52,6 +52,7 @@ export default function LoginClient({ dev, asDev, next, signedInAs, mode: initia
     if (e instanceof ApiError) {
       if (e.code === "BAD_CREDENTIALS") return L("That email and password don't match. Check them and try again, or reset your password.", "البريد وكلمة المرور غير متطابقين. تحقّق منهما وحاول مجددًا، أو أعد تعيين كلمة المرور.");
       if (e.code === "EMAIL_UNCONFIRMED") return L("This account isn't activated yet. Ask your admin to check the invitation.", "هذا الحساب غير مفعّل بعد. اطلب من مديرك مراجعة الدعوة.");
+      if (e.code === "ACCOUNT_DISABLED") return L("This account has been removed by your admin. Contact them if you think this is a mistake.", "أُزيل هذا الحساب بواسطة مديرك. تواصل معه إن كنت تعتقد أن ذلك خطأ.");
       return e.friendly(AR);
     }
     return L("Something went wrong. Please try again.", "حدث خطأ ما. حاول مرة أخرى.");
