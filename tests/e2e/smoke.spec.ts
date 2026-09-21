@@ -2,6 +2,7 @@ import { test, expect, haveCreds, signIn, setLang, USERS, PASSWORDS } from "./he
 
 test.describe("public surfaces", () => {
   test("marketing site is served at / with the 8-step copy (B-07)", async ({ page }) => {
+    await setLang(page, "en");   // the site defaults to Arabic; the English copy carries the "8 STEPS" stat
     await page.goto("/");
     await expect(page.locator("body")).toContainText("8 STEPS");
     await expect(page.locator("body")).not.toContainText("9 STEPS");
@@ -38,9 +39,10 @@ test.describe("public surfaces", () => {
     await setLang(page, "en");
     await page.goto("/login");
     await page.getByLabel("Work email").fill(USERS.rep.email);
-    await page.getByLabel("Password").fill("definitely-wrong-password");
+    await page.getByLabel("Password", { exact: true }).fill("definitely-wrong-password");
     await page.getByRole("button", { name: /Sign in/ }).click();
-    await expect(page.getByRole("alert")).toContainText("don't match");
+    // .form-err, not role=alert: Next.js renders its own route announcer with that role.
+    await expect(page.locator(".form-err")).toContainText("don't match");
   });
 });
 
@@ -84,10 +86,8 @@ test.describe("end-to-end sale", () => {
     // 1 Customer
     await page.locator("input").first().fill("E2E Buyer");
     await page.getByRole("button", { name: /Continue/ }).click();
-    // 2 Unit — first available unit card
-    await page.locator(".unit-card, [data-unit], .card.unit").first().click().catch(async () => {
-      await page.getByText(/^14\d{3}-/).first().click();
-    });
+    // 2 Unit — first available row of the live inventory table
+    await page.locator("table.tbl tbody tr").first().click();
     await page.getByRole("button", { name: /Continue/ }).click();
     // 3..7 — accept the first option on each step until Review & sign
     for (let i = 0; i < 6; i++) {

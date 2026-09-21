@@ -7,6 +7,9 @@ export default defineConfig({
   timeout: 90_000,
   expect: { timeout: 15_000 },
   retries: process.env.CI ? 1 : 0,
+  // One worker: the seeded accounts change their password on first sign-in and the helper keeps the new
+  // one in memory for the run, so tests must not sign in from parallel processes.
+  workers: 1,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: process.env.E2E_BASE_URL || "http://localhost:3000",
@@ -15,7 +18,7 @@ export default defineConfig({
     locale: "en-GB",
   },
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
+    { name: "desktop", use: { ...devices["Desktop Chrome"] }, grepInvert: /@mobile/ },
     { name: "mobile", use: { ...devices["Pixel 7"] }, grep: /@mobile/ },
   ],
   webServer: process.env.E2E_BASE_URL ? undefined : {

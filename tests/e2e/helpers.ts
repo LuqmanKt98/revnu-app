@@ -46,14 +46,19 @@ export async function signIn(page: Page, who: keyof typeof USERS) {
   const notYou = page.getByText("Not you? Sign out");
   if (await notYou.isVisible().catch(() => false)) await notYou.click();
   await page.getByLabel("Work email").fill(u.email);
-  await page.getByLabel("Password").fill(pw);
+  await page.getByLabel("Password", { exact: true }).fill(pw);
   await page.getByRole("button", { name: /Sign in/ }).click();
-  // First sign-in: choose a new password (we set the same one again so the file stays valid)
-  const newPw = page.getByLabel("New password");
+  // First sign-in: the person must choose a NEW password (Supabase refuses the temporary one again).
+  // We derive one from the temporary password and remember it for the rest of this run; afterwards the
+  // seeded file is consumed exactly as it would be by a real first sign-in — pass E2E_PASSWORD_<legacy_id>
+  // or re-run `npm run db:seed-users -- --reset` before the next run.
+  const newPw = page.getByLabel("New password", { exact: true });
   if (await newPw.isVisible({ timeout: 4000 }).catch(() => false)) {
-    await newPw.fill(pw);
-    await page.getByLabel("Repeat new password").fill(pw);
+    const chosen = pw + "-e2e";
+    await newPw.fill(chosen);
+    await page.getByLabel("Repeat new password").fill(chosen);
     await page.getByRole("button", { name: /Save/ }).click();
+    PASSWORDS[u.email] = chosen;
   }
   await expect(page).not.toHaveURL(/\/login/, { timeout: 20_000 });
 }
