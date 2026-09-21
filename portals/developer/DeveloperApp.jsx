@@ -179,7 +179,8 @@ function App() {
   const [page, setPage] = useState((isRep || (asRole === "rep" && canSell)) ? "mine" : "dash");
   const [selectedProject, setSelectedProject] = useState(null);
   const [orderVersion, setOrderVersion] = useState(0);
-  const orders = useMemo(() => D.ORDERS.filter((o) => o.developerId === developer.id), [orderVersion]);
+  const storeVersion = useStoreVersion();   // colleagues' changes arrive through the quiet re-fetch on focus; the list must follow
+  const orders = useMemo(() => D.ORDERS.filter((o) => o.developerId === developer.id), [orderVersion, storeVersion]);
   const myOrders = useMemo(() => orders.filter((o) => o.repId === me?.id), [orders, me?.id]);
   const advanceStatus = async (orderId) => {
     const RS = window.RevnuSupport;
