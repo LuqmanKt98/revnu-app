@@ -74,6 +74,11 @@
   /* ---- sales portal ---- */
   .sales-top { flex-wrap: nowrap; gap: 8px; padding: 8px 10px; }
   .sales-top .row { gap: 8px !important; flex-wrap: nowrap; }
+  /* Same shrink rule as the admin topbar (see above): the "← My deals · logo" and
+     "walkthrough · support · user" clusters must not push the wizard wider than the phone. */
+  .sales-top, .sales-top .row { min-width: 0; }
+  .sales-top .row:last-child { flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; }
+  .hide-mobile { display: none !important; }   /* the user's name/role beside the avatar (all portals) */
   .sales-top .powered, .sales-top .divider-v, .sales-top .chip-mono { display: none !important; }
   .sales-top .dev-mark .col span:last-child { display: none; }   /* domain subtitle */
   .sales-top .dev-mark .col span:first-child { padding: 5px 9px !important; }
