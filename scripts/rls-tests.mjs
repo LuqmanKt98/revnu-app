@@ -115,13 +115,24 @@ async function main() {
     const u = await expectOk(rep.from("units").select("status").eq("number", u1.number).single());
     if (u.status !== "sold") throw new Error("unit not locked: " + u.status);
   });
+  await t("create_order refuses a forged reference", async () => {
+    await expectErr(rep.rpc("create_order", { p: payload("HACK-1", u2.number) }), /invalid order reference/);
+    await expectErr(rep.rpc("create_order", { p: payload("REV-26-999999", u2.number) }), /invalid order reference/);
+  });
+  await t("create_order refuses negative amounts", () => expectErr(rep.rpc("create_order", { p: Object.assign(payload(null, u2.number), { unitPrice: -1 }) }), /negative/));
   await t("same unit cannot be sold twice (B-01)", async () => {
     const id = await expectOk(rep.rpc("reserve_order_id"));
     await expectErr(rep.rpc("create_order", { p: payload(id, u1.number) }), /UNIT_TAKEN/);
   });
   await t("issued → signed refused without a signed contract (B-05)", () => expectErr(rep.rpc("transition_order", { p_order: orderId, p_to: "signed" }), /NEEDS_SIGNED_CONTRACT/));
   await t("cannot skip a step (issued → paid)", () => expectErr(rep.rpc("transition_order", { p_order: orderId, p_to: "paid" }), /INVALID_TRANSITION/));
-  await t("attach_document indexes the signed contract", () => expectOk(rep.rpc("attach_document", { p_order: orderId, p_kind: "signed_contract", p_path: `noor-khuzam/${orderId}/signed_contract-test.pdf`, p_name: "signed.pdf" })));
+  await t("attach_document refuses a file that was never uploaded (B-05 via API)", () => expectErr(rep.rpc("attach_document", { p_order: orderId, p_kind: "signed_contract", p_path: `noor-khuzam/${orderId}/signed_contract-phantom.pdf`, p_name: "phantom.pdf" }), /DOCUMENT_MISSING/));
+  await t("attach_document refuses a path traversal", () => expectErr(rep.rpc("attach_document", { p_order: orderId, p_kind: "signed_contract", p_path: `noor-khuzam/${orderId}/../REV-26-1/x.pdf`, p_name: "x.pdf" }), /does not match|DOCUMENT_MISSING/));
+  await t("rep can upload under the order's folder, not another tenant's", async () => {
+    await expectOk(rep.storage.from("documents").upload(`noor-khuzam/${orderId}/signed_contract-test.pdf`, Buffer.from("%PDF-1.4 rls"), { contentType: "application/pdf" }));
+    await expectErr(rep.storage.from("documents").upload(`other-dev/${orderId}/x.pdf`, Buffer.from("%PDF-1.4 rls"), { contentType: "application/pdf" }));
+  });
+  await t("attach_document indexes the uploaded signed contract", () => expectOk(rep.rpc("attach_document", { p_order: orderId, p_kind: "signed_contract", p_path: `noor-khuzam/${orderId}/signed_contract-test.pdf`, p_name: "signed.pdf" })));
   await t("attach_document refuses a path outside the order folder", () => expectErr(rep.rpc("attach_document", { p_order: orderId, p_kind: "payment_proof", p_path: `other-dev/${orderId}/x.pdf`, p_name: "x.pdf" })));
   await t("issued → signed now allowed", () => expectOk(rep.rpc("transition_order", { p_order: orderId, p_to: "signed" })));
   await t("signed → paid refused without proof of payment", () => expectErr(rep.rpc("transition_order", { p_order: orderId, p_to: "paid" }), /NEEDS_PAYMENT_PROOF/));
@@ -164,6 +175,7 @@ async function main() {
     if (u.status !== "available") throw new Error("unit still " + u.status);
     await admin.from("units").update({ view: "" }).eq("number", u2.number);
     await admin.from("leads").delete().like("id", "L-RLS%");
+    await admin.storage.from("documents").remove([`noor-khuzam/${orderId}/signed_contract-test.pdf`]);
   });
 
   console.log(`\n${pass} passed, ${fail} failed`);
