@@ -249,7 +249,7 @@ function UserMenu() {
         <span style={{ width: 30, height: 30, borderRadius: "50%", background: "var(--brand-soft)", color: "var(--brand-deep)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700 }}>{initials}</span>
         <span className="col hide-mobile" style={{ lineHeight: 1.2, textAlign: "start" }}>
           <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap" }}>{me.name}</span>
-          <span style={{ display: "block", fontSize: 10.5, color: "var(--text-soft)", whiteSpace: "nowrap" }}>{me.role === "sales_rep" ? TL("Sales Rep", "مندوب مبيعات") : TL("Developer Admin", "مدير المطوّر")}</span>
+          <span style={{ display: "block", fontSize: 10.5, color: "var(--text-soft)", whiteSpace: "nowrap" }}>{me.role === "developer_admin" ? TL("Developer Admin", "مدير المطوّر") : me.role === "sales_rep" ? TL("Sales Rep", "مندوب مبيعات") : ((window.I18N && window.I18N.isAR ? me.roleAr : me.role) || me.role) || TL("Sales Rep", "مندوب مبيعات")}</span>
         </span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-soft)", transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}><path d="M6 9l6 6 6-6"/></svg>
       </button>
@@ -263,7 +263,7 @@ function UserMenu() {
             <div style={{ fontSize: 10.5, color: "var(--text-soft)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>{TL("Language", "اللغة")}</div>
             <LangToggle block />
           </div>
-          <a href={"/developer?dev=" + developer.id + "&as=rep" + (me.role === "sales_rep" ? "&u=" + me.id : "")}
+          <a href={"/developer?dev=" + developer.id + "&as=rep" + (D.devHasPerm(me, "orders") && !D.devHasPerm(me, "team") ? "&u=" + me.id : "")}
             style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "9px 10px", borderRadius: 8, background: "transparent", textDecoration: "none", color: "var(--text)", fontSize: 13, fontWeight: 500 }}
             onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-tint)"}
             onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
