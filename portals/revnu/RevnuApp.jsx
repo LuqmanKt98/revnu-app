@@ -2246,6 +2246,31 @@ function BoqDrawer({ pkg, onClose }) {
   const [saved, setSaved] = useState(true);
   React.useEffect(() => { setSaved(false); }, [boq]);
   const canSave = pkg.parent && pkg.parent.id && pkg.parent.id !== "new";
+  // Audit M1: these two buttons had no handler. CSV columns: room,item,qty,supplier,notes[,unitPrice] (same as the table).
+  const csvInput = React.useRef(null);
+  const onCsv = (e) => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const rows = D.parseCSV(reader.result);
+      const lines = rows.filter((r) => (r.item || "").trim()).map((r) => Object.assign({ room: r.room || "", item: r.item, qty: Number(r.qty) || 1, supplier: r.supplier || "", notes: r.notes || "" }, priced ? { unitPrice: Number(r.unitPrice) || 0 } : {}));
+      if (!lines.length) { window.RevnuSupport.toast((window.I18N && window.I18N.isAR) ? "لم يُعثر على أسطر — الأعمدة المطلوبة: room,item,qty,supplier,notes" : "No lines found — expected columns: room,item,qty,supplier,notes", "err"); return; }
+      setBoq((b) => [...b, ...lines]);
+      window.RevnuSupport.toast((window.I18N && window.I18N.isAR) ? (lines.length + " سطرًا أُضيف — اضغط حفظ.") : (lines.length + " lines added — press Save."), "ok");
+    };
+    reader.readAsText(f); e.target.value = "";
+  };
+  const printPdf = () => {
+    const w = window.open("", "_blank"); if (!w) return;
+    const esc = (v) => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    const head = (priced ? ["Scope", "Item", "Qty", "Unit price", "Total"] : ["Room", "Item", "Qty"]).concat(["Supplier", "Notes"]);
+    const rows = boq.map((l) => (priced ? [l.room, l.item, l.qty, D.fmtSAR(l.unitPrice || 0), D.fmtSAR((l.qty || 0) * (l.unitPrice || 0))] : [l.room, l.item, l.qty]).concat([l.supplier, l.notes]));
+    w.document.write('<html><head><meta charset="utf-8"><title>BOQ · ' + esc(pkg.name) + '</title><style>@page{margin:18mm}body{font-family:Georgia,serif;color:#1a1a1a;font-size:12px}h1{font-size:18px;margin:0 0 4px}table{border-collapse:collapse;width:100%;margin-top:14px}th,td{border-bottom:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top}th{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#666}tfoot td{font-weight:700;border-top:2px solid #999}</style></head><body>' +
+      '<h1>' + esc(pkg.name) + ' — ' + (priced ? 'Fit-out scope (Appendix F-2)' : 'Furnishing bill of quantities (Appendix F-1)') + '</h1><div style="color:#666">' + boq.length + ' lines' + (priced ? ' · ' + D.fmtSAR(grand) + ' SAR excl. VAT' : '') + '</div>' +
+      '<table><thead><tr>' + head.map((h) => '<th>' + esc(h) + '</th>').join('') + '</tr></thead><tbody>' + rows.map((r) => '<tr>' + r.map((c) => '<td>' + esc(c) + '</td>').join('') + '</tr>').join('') + '</tbody>' +
+      (priced ? '<tfoot><tr><td colspan="4">Fit-out total (excl. VAT)</td><td>' + D.fmtSAR(grand) + '</td><td colspan="2"></td></tr></tfoot>' : '') + '</table></body></html>');
+    w.document.close(); setTimeout(() => w.print(), 300);
+  };
   const save = () => {
     if (!canSave) return;
     const patch = pkg.field === "fitout" ? { fitout: Object.assign({}, pkg.parent.fitout, { boq }) } : { boq };
@@ -2261,8 +2286,9 @@ function BoqDrawer({ pkg, onClose }) {
             <div className="soft" style={{ fontSize: 11.5, marginTop: 4 }}>{priced ? "Priced fit-out scope — line totals sum to the fit-out add-on price. Prints as Appendix F-2." : "Lives as Appendix F-1 of the Furnishing Schedule — the buyer sees this list."}</div>
           </div>
           <div className="row" style={{ gap: 8 }}>
-            <button className="btn btn-secondary btn-sm">Upload CSV</button>
-            <button className="btn btn-secondary btn-sm">Download PDF</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => csvInput.current && csvInput.current.click()}>Upload CSV</button>
+            <input ref={csvInput} type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={onCsv} />
+            <button className="btn btn-secondary btn-sm" onClick={printPdf} disabled={!boq.length}>Download PDF</button>
             <button className="btn btn-secondary btn-sm" onClick={addLine}>+ Line</button>
             {canSave && <button className={"btn btn-sm " + (saved ? "btn-secondary" : "btn-primary")} onClick={save}>{saved ? (window.I18N && window.I18N.isAR ? "✓ محفوظ" : "✓ Saved") : (window.I18N && window.I18N.isAR ? "حفظ" : "Save")}</button>}
             <button className="btn btn-ghost btn-sm" onClick={() => { if (canSave && !saved) save(); onClose(); }}>Close ×</button>
