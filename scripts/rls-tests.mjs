@@ -174,7 +174,8 @@ async function main() {
     const u = await expectOk(admin.from("units").select("status").eq("number", u1.number).single());
     if (u.status !== "available") throw new Error("unit still " + u.status);
     await admin.from("units").update({ view: "" }).eq("number", u2.number);
-    await admin.from("leads").delete().like("id", "L-RLS%");
+    const { data: gone } = await admin.from("leads").delete().like("id", "L-RLS%").select("id");
+    if (!gone || !gone.length) throw new Error("test lead was not cleaned up (super admin cannot delete leads)");
     await admin.storage.from("documents").remove([`noor-khuzam/${orderId}/signed_contract-test.pdf`]);
   });
 
