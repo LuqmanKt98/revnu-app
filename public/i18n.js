@@ -73,7 +73,7 @@
     "Pick units": "اختر الوحدات", "Choose a design style": "اختر نمط التصميم",
     "Choose a package": "اختر الباقة", "Smart-home layer": "طبقة المنزل الذكي",
     "Choose how it'll be operated": "اختر طريقة التشغيل", "Investment calculator": "حاسبة الاستثمار",
-    "Review & sign the agreement": "مراجعة وتوقيع الاتفاقية",
+    "Review & sign the agreement": "مراجعة وتوقيع الاتفاقية", "Review & sign": "المراجعة والتوقيع",
     // misc labels
     "Project": "المشروع", "Projects": "المشاريع", "Orders": "الطلبات", "Order": "الطلب",
     "Developer": "المطوّر", "Developers": "المطوّرون", "Dashboard": "لوحة التحكم",

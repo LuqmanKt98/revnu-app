@@ -899,7 +899,7 @@ function OrderDrawer({ order: orderProp, onClose }) {
                     </React.Fragment>
                   ))}
                 </div>
-                <div className="soft" style={{ fontSize: 12, marginBottom: 10 }}>· {window.I18N ? window.I18N.t(STATUS_INFO[order.status]?.when || "") : STATUS_INFO[order.status]?.when}</div>
+                <div className="soft" style={{ fontSize: 12, marginBottom: 10 }}>· {AR ? (STATUS_INFO[order.status]?.whenAr || STATUS_INFO[order.status]?.when) : (window.I18N ? window.I18N.t(STATUS_INFO[order.status]?.when || "") : STATUS_INFO[order.status]?.when)}</div>
 
                 {/* Contract issue / signed upload */}
                 <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: order.status === "paid" || D.firstPaymentReceived(order) ? 10 : 0 }}>
@@ -1780,7 +1780,7 @@ function Milestones({ orders: allOrders }) {
             <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
               {terms.milestones.map((m) => (
                 <span key={m.id} className="chip" style={{ background: "var(--bg-card)" }}>
-                  <strong className="mono" style={{ marginRight: 6 }}>{m.pct}%</strong>{m.label}
+                  <strong className="mono" style={{ marginRight: 6 }}>{m.pct}%</strong>{(window.I18N && window.I18N.isAR && m.labelAr) ? m.labelAr : m.label}
                 </span>
               ))}
             </div>
