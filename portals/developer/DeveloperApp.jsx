@@ -83,11 +83,11 @@ const STATUS_INFO = {
 };
 const STATUS_FLOW = ["active", "issued", "signed", "paid"];
 const statusLabel = (st) => { const i = STATUS_INFO[st]; if (!i) return st; return (window.I18N && window.I18N.isAR) ? i.labelAr : i.label; };
-function canAdvance(role, from) {
+function canAdvance(isAdminish, from) {
   const info = STATUS_INFO[from];
   if (!info?.next) return false;
-  if (role === "sales_rep") return ["active", "issued", "signed"].includes(from); // reps drive active→issue→sign→paid
-  return true; // developer_admin & revnu_admin can advance any step
+  if (isAdminish) return true; // team/projects permission — can advance any step
+  return ["active", "issued", "signed"].includes(from); // reps drive active→issue→sign→paid
 }
 
 const STATUS_CHIP = {
@@ -187,7 +187,7 @@ function App() {
     const cur = D.ORDERS.find((o) => o.id === orderId)?.status;
     if (!cur) return;
     const next = STATUS_INFO[cur]?.next;
-    if (!next || !canAdvance(me?.role, cur)) return;
+    if (!next || !canAdvance(isAdminish, cur)) return;
     const o = D.ORDERS.find((x) => x.id === orderId);
     const AR = window.I18N && window.I18N.isAR;
     if (cur === "issued" && !D.documentFor(o.id, "signed_contract")) {
@@ -215,6 +215,7 @@ function App() {
   window.__revnu_bump = () => setOrderVersion((v) => v + 1);
   window.__revnu_role = me?.role;
   window.__revnu_isRep = isRep;
+  window.__revnu_isAdminish = isAdminish;
 
   const signOut = () => { D.signOut().finally(() => { location.href = "/login"; }); };
 
@@ -825,7 +826,7 @@ function Orders({ orders }) {
                   <td className="right">
                     <div className="row" style={{ gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
                       <span className={STATUS_CHIP[o.status]}>{statusLabel(o.status)}</span>
-                      {canAdvance(window.__revnu_role, o.status) && (
+                      {canAdvance(window.__revnu_isAdminish, o.status) && (
                         <button className="btn btn-sm btn-ghost" onClick={(e) => { e.stopPropagation(); if (o.status === "issued" && !o.signedContractUrl) setOpen(o); else window.__revnu_advanceStatus(o.id); }} title={STATUS_INFO[o.status]?.nextLabel} style={{ padding: "0 8px", height: 24, fontSize: 11 }}>
                           {o.status === "issued" && !o.signedContractUrl ? (window.I18N && window.I18N.isAR ? "⬆ رفع العقد الموقّع" : "⬆ Upload signed") : (window.I18N ? window.I18N.t(STATUS_INFO[o.status]?.nextLabel) : STATUS_INFO[o.status]?.nextLabel)} {window.I18N && window.I18N.isAR ? "←" : "→"}
                         </button>
@@ -909,7 +910,7 @@ function OrderDrawer({ order: orderProp, onClose }) {
                     ? <React.Fragment><span className="chip chip-positive">{AR ? "✓ العقد الموقّع: " : "✓ Signed: "}{order.signedContractUrl}</span>{signedDoc ? <button className="btn btn-sm btn-ghost" onClick={() => RS.openDocument(signedDoc)}>{AR ? "فتح الموقّع" : "Open signed"}</button> : null}</React.Fragment>
                     : <button className="btn btn-sm btn-ghost" onClick={uploadSigned}>{AR ? "رفع العقد الموقّع" : "Upload signed contract"}</button>}
                   {order.paymentProofUrl ? <span className="chip chip-positive">{AR ? "✓ إثبات الدفع: " : "✓ Proof of payment: "}{proofDoc ? <a href="#" onClick={(e) => { e.preventDefault(); RS.openDocument(proofDoc); }} style={{ color: "inherit", textDecoration: "underline" }}>{order.paymentProofUrl}</a> : order.paymentProofUrl}</span> : null}
-                  {canAdvance(window.__revnu_role, order.status) && (
+                  {canAdvance(window.__revnu_isAdminish, order.status) && (
                     <button className="btn btn-sm btn-primary" style={{ marginInlineStart: "auto" }}
                       disabled={needsUpload}
                       title={needsUpload ? (AR ? "ارفع العقد الموقّع أولاً" : "Upload the signed contract first") : ""}
@@ -1162,6 +1163,7 @@ function Inventory() {
 function UnitEditDrawer({ unit, onClose, onSave }) {
   const [u, setU] = useState({ ...unit });
   const set = (patch) => setU((prev) => ({ ...prev, ...patch }));
+  const valid = (D.unitTypeById(u.typeId)?.basePrice || 0) + (Number(u.priceAdj) || 0) >= 0;
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 200, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
       <div style={{ width: 440, background: "var(--bg-card)", height: "100vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
@@ -1186,9 +1188,10 @@ function UnitEditDrawer({ unit, onClose, onSave }) {
               <option value="sold">Sold</option>
             </select>
           </Labeled>
+          {!valid && <div className="soft" style={{ fontSize: 11, color: "var(--negative, #b91c1c)" }}>{window.I18N && window.I18N.isAR ? "لا يمكن أن يكون السعر سالبًا." : "The price can't be negative."}</div>}
           <hr className="hr-thin" />
           <div className="row" style={{ gap: 8 }}>
-            <button className="btn btn-primary grow" onClick={() => onSave(u)}>Save</button>
+            <button className="btn btn-primary grow" disabled={!valid} onClick={() => onSave(u)}>Save</button>
             <button className="btn btn-ghost" onClick={onClose}>{window.I18N?window.I18N.t("Cancel"):"Cancel"}</button>
           </div>
         </div>
@@ -1218,7 +1221,7 @@ function UnitAddDrawer({ projects, onClose, onAdd }) {
     }
     return next;
   });
-  const valid = u.number.trim() && u.projectId && u.typeId && u.tower.trim();
+  const valid = u.number.trim() && u.projectId && u.typeId && u.tower.trim() && (D.unitTypeById(u.typeId)?.basePrice || 0) + (Number(u.priceAdj) || 0) >= 0;
   const availTypes = D.UNIT_TYPES.filter((t) => t.projectId === u.projectId);
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 200, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
@@ -1255,12 +1258,12 @@ function UnitAddDrawer({ projects, onClose, onAdd }) {
               <option value="sold">Sold</option>
             </select>
           </Labeled>
+          {(D.unitTypeById(u.typeId)?.basePrice || 0) + (Number(u.priceAdj) || 0) < 0 && <div className="soft" style={{ fontSize: 11, color: "var(--negative, #b91c1c)" }}>{window.I18N && window.I18N.isAR ? "لا يمكن أن يكون السعر سالبًا." : "The price can't be negative."}</div>}
           <hr className="hr-thin" />
           <div className="row" style={{ gap: 8 }}>
             <button className="btn btn-primary grow" disabled={!valid} onClick={() => onAdd(u)}>Add unit</button>
             <button className="btn btn-ghost" onClick={onClose}>{window.I18N?window.I18N.t("Cancel"):"Cancel"}</button>
           </div>
-          <div className="muted" style={{ fontSize: 11.5 }}>Demo: the unit lives in this session only — no backend persistence yet.</div>
         </div>
       </div>
     </div>
