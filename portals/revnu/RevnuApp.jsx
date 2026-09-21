@@ -3603,6 +3603,7 @@ function OrderDrawer({ order, onClose }) {
                   <div className="mono soft" style={{ fontSize: 11 }}>{d.ref} · {d.sub}</div>
                 </div>
                 {d.href ? <a className="btn btn-sm btn-secondary" href={d.href}>{AR ? "عرض" : "Open"}</a>
+                  : d.file && d.file.storagePath ? <button className="btn btn-sm btn-secondary" onClick={() => RS.openDocument(d.file)}>{AR ? "فتح" : "Open"}</button>
                   : d.file && d.file.data ? <a className="btn btn-sm btn-secondary" href={d.file.data} download={d.file.name}>{AR ? "تنزيل" : "Download"}</a>
                   : d.ok ? <span className="chip chip-positive">{AR ? "مُسجَّل" : "on file"}</span> : <span className="chip">{AR ? "مفقود" : "missing"}</span>}
               </div>
