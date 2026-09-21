@@ -91,18 +91,37 @@ const apiSrc = read("lib/data/api.js");
 const apiBlock = apiSrc.slice(apiSrc.indexOf("export const api = {"));
 const apiGroups = new Map();
 {
-  let depth = 0, group = null;
+  let depth = 0, group = null, prev = "";   // prev = last significant character, for regex detection
   for (let i = apiBlock.indexOf("{"); i < apiBlock.length; i++) {
     const ch = apiBlock[i];
     // Skip comments FIRST — an apostrophe in prose ("the caller's session") must not
     // be mistaken for a string quote, which would swallow the rest of the file.
     if (ch === "/" && apiBlock[i + 1] === "/") { i = apiBlock.indexOf("\n", i); if (i < 0) break; continue; }
     if (ch === "/" && apiBlock[i + 1] === "*") { i = apiBlock.indexOf("*/", i) + 1; if (i < 1) break; continue; }
+    // Then regex literals: /"/g contains a quote that is NOT a string delimiter. A slash starts a
+    // regex (rather than division) when the previous significant character opens an expression.
+    if (ch === "/" && (prev === "" || "(,=:[!&|?{};+*%~^".includes(prev))) {
+      i++;
+      let inClass = false;
+      while (i < apiBlock.length) {
+        const c = apiBlock[i];
+        if (c === "\\") { i += 2; continue; }
+        if (c === "[") inClass = true;
+        else if (c === "]") inClass = false;
+        else if (c === "/" && !inClass) break;
+        else if (c === "\n") break;                                // unterminated — not a regex after all
+        i++;
+      }
+      prev = "/";
+      continue;
+    }
     if (ch === '"' || ch === "'" || ch === "`") {                 // skip string literals
       const q = ch; i++;
       while (i < apiBlock.length && apiBlock[i] !== q) { if (apiBlock[i] === "\\") i++; i++; }
+      prev = q;
       continue;
     }
+    if (!/\s/.test(ch)) prev = ch;
     if (ch === "{") { depth++; continue; }
     if (ch === "}") { depth--; if (depth <= 1) group = null; continue; }
     if (!/[A-Za-z_]/.test(ch)) continue;

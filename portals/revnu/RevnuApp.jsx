@@ -3566,7 +3566,7 @@ function OrderDrawer({ order, onClose }) {
               <React.Fragment key={st}>
                 <button type="button" onClick={() => moveTo(st)} disabled={i !== flowIdx + 1}
                   title={i === flowIdx + 1 ? (st === "signed" ? (AR ? "يلزم رفع العقد الموقّع" : "Requires the signed agreement") : st === "paid" ? (AR ? "يلزم إثبات الدفع" : "Requires proof of payment") : (AR ? "نقل الطلب إلى هذه المرحلة" : "Move the order to this stage")) : ""}
-                  style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 10px", borderRadius: 14, cursor: i === flowIdx + 1 ? "pointer" : "default", background: i <= flowIdx ? "var(--brand)" : "transparent", color: i <= flowIdx ? "var(--brand-text)" : (i === flowIdx + 1 ? "var(--brand-deep)" : "var(--text-muted)"), border: "1px solid " + (i <= flowIdx || i === flowIdx + 1 ? "var(--brand)" : "var(--line-strong)"), borderStyle: i === flowIdx + 1 ? "dashed" : "solid" }}>
+                  style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 10px", borderRadius: 14, cursor: i === flowIdx + 1 ? "pointer" : "default", background: i <= flowIdx ? "var(--brand)" : "transparent", color: i <= flowIdx ? "var(--brand-text)" : (i === flowIdx + 1 ? "var(--brand-deep)" : "var(--text-muted)"), borderWidth: 1, borderColor: (i <= flowIdx || i === flowIdx + 1 ? "var(--brand)" : "var(--line-strong)"), borderStyle: i === flowIdx + 1 ? "dashed" : "solid" }}>
                   {AR ? (D.ORDER_STATUS_META[st]?.ar || st) : (D.ORDER_STATUS_META[st]?.en || st)}
                 </button>
                 {i < FLOW.length - 1 && <span className="soft" style={{ fontSize: 11 }}>{AR ? "←" : "→"}</span>}
