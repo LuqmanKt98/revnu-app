@@ -168,7 +168,7 @@ function FullAgreement(ctx) {
           <div style={{ marginTop: 64, fontFamily: MONO, fontSize: 11, letterSpacing: "0.22em", textTransform: "uppercase", opacity: 0.78 }}>{L("Purchase & Investment Agreement","اتفاقية شراء واستثمار")}</div>
           <h1 style={{ fontFamily: SERIF, fontSize: 40, fontWeight: 600, letterSpacing: "-0.02em", margin: "12px 0 0", lineHeight: 1.05 }}>{project ? TXc(project, "name") : "—"}</h1>
           <div style={{ fontSize: 14, opacity: 0.85, marginTop: 10 }}>
-            {multi ? dealUnits.length + (AR ? " وحدات · " : " units · ") + TXc(project, "name") : (AR ? "وحدة " : "Unit ") + (unit ? unit.number : "—") + " · " + (unit ? TD(unit.tower) : "")}{!multi && unit ? "، " + (unit.floorSpan ? (AR ? "الطوابق " : "Floors ") + unit.floorSpan : (AR ? "الطابق " : "Floor ") + unit.floor) : ""} · {project ? project.city : ""}
+            {multi ? dealUnits.length + (AR ? " وحدات · " : " units · ") + TXc(project, "name") : (AR ? "وحدة " : "Unit ") + (unit ? unit.number : "—") + " · " + (unit ? TD(unit.tower) : "")}{!multi && unit ? (AR ? "، " : ", ") + (unit.floorSpan ? (AR ? "الطوابق " : "Floors ") + unit.floorSpan : (AR ? "الطابق " : "Floor ") + unit.floor) : ""} · {project ? project.city : ""}
           </div>
           <div style={{ marginTop: 40, display: "flex", gap: 0, borderRadius: 8, overflow: "hidden", height: 8 }}>
             {palette.map((hex, i) => <div key={i} style={{ flex: 1, background: hex }} />)}
