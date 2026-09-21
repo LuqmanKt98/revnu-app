@@ -199,13 +199,12 @@ function App() {
       const doc = await RS.uploadFor(o, "payment_proof", null, ".pdf,image/*");
       if (!doc) return;
     }
-    const r = await RS.act(() => D.transitionOrder(orderId, next), {
+    return RS.act(() => D.transitionOrder(orderId, next), {
       pending: AR ? "جارٍ تحديث الصفقة…" : "Updating the deal…",
       done: next === "paid" ? (AR ? "تم حفظ إثبات الدفع ونقل الصفقة إلى «دفع العميل»." : "Proof of payment saved — deal moved to Customer paid.")
           : next === "signed" ? (AR ? "تم حفظ العقد الموقّع ونقل الصفقة إلى «موقّع»." : "Signed agreement saved — deal moved to Signed.")
           : (AR ? "تم تحديث الصفقة." : "Deal updated."),
-    });
-    if (r) setOrderVersion((v) => v + 1);
+    }).then((r) => { if (r) setOrderVersion((v) => v + 1); return r; });
   };
   const [gOrder, setGOrder] = useState(null);
   window.__revnu_openOrder = (id) => setGOrder(D.ORDERS.find((x) => x.id === id) || null);
@@ -913,7 +912,7 @@ function OrderDrawer({ order: orderProp, onClose }) {
                     <button className="btn btn-sm btn-primary" style={{ marginInlineStart: "auto" }}
                       disabled={needsUpload}
                       title={needsUpload ? (AR ? "ارفع العقد الموقّع أولاً" : "Upload the signed contract first") : ""}
-                      onClick={async () => { await window.__revnu_advanceStatus(order.id); onClose && onClose(); }}>
+                      onClick={async () => { const r = await window.__revnu_advanceStatus(order.id); if (r && onClose) onClose(); }}>
                       {order.status === "signed" ? (AR ? "⬆ إثبات الدفع · تأكيد دفع العميل" : "⬆ Proof of payment · customer paid") : (AR ? (meta.nextAr || M[STATUS_INFO[order.status]?.next]?.ar) : (meta.nextEn || STATUS_INFO[order.status]?.nextLabel))} {AR ? "←" : "→"}
                     </button>
                   )}
