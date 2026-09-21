@@ -24,12 +24,12 @@ const NAV = [
   { id: "dash",     label: "Dashboard",     icon: ICONS.dash },
   { id: "tickets",  label: "Support tickets", icon: ICONS.team || ICONS.dash },
   { id: "leads",    label: "Interested",    icon: ICONS.leads,  badge: true },
-  { id: "orders",   label: "All orders",    icon: ICONS.orders },
-  { id: "receivables", label: "Developer payments", icon: ICONS.orders },
+  { id: "orders",   label: "All orders",    icon: ICONS.orders, requires: "orders" },
+  { id: "receivables", label: "Developer payments", icon: ICONS.orders, requires: "orders" },
   { section: "Partners" },
-  { id: "devs",     label: "Developers",    icon: ICONS.devs },
+  { id: "devs",     label: "Developers",    icon: ICONS.devs, requires: "developers" },
   { section: "Organisation" },
-  { id: "team",     label: "My team",       icon: ICONS.perf || ICONS.devs },
+  { id: "team",     label: "My team",       icon: ICONS.perf || ICONS.devs, requires: "team" },
 ];
 
 const STATUS_CHIP = {
@@ -48,6 +48,31 @@ function boot(p) {
   return true;
 }
 const CAN_DELETE_FN = () => !!me && (me.roleId === "super_admin" || (me.role === "revnu_admin" && !me.roleId));
+function revnuPerms() {
+  if (!me) return [];
+  if (me.perms) return me.perms;
+  const r = REVNU_ROLES.find((x) => x.id === me.roleId) || REVNU_ROLES[REVNU_ROLES.length - 1];
+  return r ? r.perms : [];
+}
+const revnuHasPerm = (perm) => revnuPerms().includes(perm);
+// NAV filtered to what this signed-in staff member's permissions unlock; drops a section header
+// entirely if every item under it is hidden.
+function visibleNav() {
+  const out = [];
+  for (let i = 0; i < NAV.length; i++) {
+    const n = NAV[i];
+    if (n.section) {
+      let hasVisible = false;
+      for (let j = i + 1; j < NAV.length && !NAV[j].section; j++) {
+        if (!NAV[j].requires || revnuHasPerm(NAV[j].requires)) { hasVisible = true; break; }
+      }
+      if (hasVisible) out.push(n);
+    } else if (!n.requires || revnuHasPerm(n.requires)) {
+      out.push(n);
+    }
+  }
+  return out;
+}
 
 function roleLabel(r) {
   const TT = (s) => (window.I18N ? window.I18N.t(s) : s);
@@ -208,7 +233,7 @@ function App() {
 
       <div className="app-body">
         <aside className="sidebar">
-          {NAV.map((n, i) => {
+          {visibleNav().map((n, i) => {
             if (n.section) return <div key={"s" + i} className="side-section">{TT(n.section)}</div>;
             const badge = n.id === "leads" ? D.getInterested().filter((l) => l.status === "new").length : null;
             return (
@@ -447,7 +472,7 @@ function RevnuTeam() {
           <h1 className="page-title">{TL("My team", "فريقي")}</h1>
           <p className="page-sub">{TL("Revnu staff who can access this platform. Assign each member a role and fine-tune their permissions.", "موظفو Revnu الذين يمكنهم الوصول إلى المنصّة. عيّن لكل عضو دوراً واضبط صلاحياته.")}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setEditing({ _new: true, name: "", email: "", roleId: "team" })}>{TL("+ Add member", "+ إضافة عضو")}</button>
+        {revnuHasPerm("team") && <button className="btn btn-primary" onClick={() => setEditing({ _new: true, name: "", email: "", roleId: "team" })}>{TL("+ Add member", "+ إضافة عضو")}</button>}
       </div>
 
       <div className="card card-flush">
@@ -568,7 +593,7 @@ function Developers({ onOpen }) {
           <h1 className="page-title">{TT("Developers")}</h1>
           <p className="page-sub">{window.I18N && window.I18N.isAR ? "مطوّرون بعلامتهم الخاصة على المنصّة. لكلٍّ مساحة عمل مستقلّة — الهوية والمشاريع والوحدات والتصاميم والباقات والتشغيل والمدفوعات والعقود." : "White-label tenants on the platform. Each has its own workspace — brand, projects, units, designs, packages, ops, payments and contracts, all isolated."}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setOnboarding(true)}>+ Onboard developer</button>
+        {revnuHasPerm("developers") && <button className="btn btn-primary" onClick={() => setOnboarding(true)}>+ Onboard developer</button>}
       </div>
 
       <div className="card card-flush">
@@ -1153,7 +1178,7 @@ function Interested() {
       </div>
 
       <p className="muted" style={{ fontSize: 11.5, marginTop: 14 }}>
-        New leads come from the request-access form on the marketing site. Status changes are stored client-side in this demo.
+        New leads come from the request-access form on the marketing site.
       </p>
     </>
   );
@@ -2241,7 +2266,6 @@ function PackageDrawer({ pkg, unitTypes, projectId, onClose }) {
             }}>{window.I18N?window.I18N.t("Save package"):"Save package"}</button>
             <button className="btn btn-ghost" onClick={onClose}>{window.I18N?window.I18N.t("Cancel"):"Cancel"}</button>
           </div>
-          <div className="muted" style={{ fontSize: 11.5 }}>{window.I18N && window.I18N.isAR ? "يُحفظ محلياً ويبقى بعد إعادة التحميل." : "Saved locally — persists across reloads."}</div>
         </div>
       </div>
     </div>
@@ -4232,6 +4256,8 @@ function PwUnitEditDrawer({ unit, onClose, onSave }) {
   const TL = (en, ar) => (window.I18N && window.I18N.isAR ? ar : en);
   const [u, setU] = useState({ ...unit });
   const set = (patch) => setU((p) => ({ ...p, ...patch }));
+  const marketPrice = (D.unitTypeById(u.typeId)?.basePrice || 0) + (u.priceAdj || 0);
+  const valid = marketPrice >= 0 && (u.priceBen == null || u.priceBen === "" || Number(u.priceBen) >= 0);
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 200, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
       <div style={{ width: 440, background: "var(--bg-card)", height: "100vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
@@ -4252,9 +4278,10 @@ function PwUnitEditDrawer({ unit, onClose, onSave }) {
               <option value="available">Available</option><option value="reserved">Reserved</option><option value="sold">Sold</option>
             </select>
           </Labeled>
+          {!valid && <div className="soft" style={{ fontSize: 11, color: "var(--negative, #b91c1c)" }}>{TL("Prices can't be negative.", "لا يمكن أن تكون الأسعار سالبة.")}</div>}
           <hr className="hr-thin" />
           <div className="row" style={{ gap: 8 }}>
-            <button className="btn btn-primary grow" onClick={() => onSave(u)}>Save</button>
+            <button className="btn btn-primary grow" disabled={!valid} onClick={() => onSave(u)}>Save</button>
             <button className="btn btn-ghost" onClick={onClose}>{window.I18N?window.I18N.t("Cancel"):"Cancel"}</button>
           </div>
         </div>
@@ -4267,7 +4294,8 @@ function PwUnitAddDrawer({ project, types, onClose, onAdd }) {
   const TL = (en, ar) => (window.I18N && window.I18N.isAR ? ar : en);
   const [u, setU] = useState({ number: "", projectId: project.id, typeId: types[0]?.id || "", tower: "", floor: 1, view: "", priceAdj: 0, status: "available" });
   const set = (patch) => setU((p) => ({ ...p, ...patch }));
-  const valid = u.number.trim() && u.typeId && u.tower.trim();
+  const marketPrice = (D.unitTypeById(u.typeId)?.basePrice || 0) + (u.priceAdj || 0);
+  const valid = u.number.trim() && u.typeId && u.tower.trim() && marketPrice >= 0 && (u.priceBen == null || u.priceBen === "" || Number(u.priceBen) >= 0);
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 200, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
       <div style={{ width: 460, background: "var(--bg-card)", height: "100vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
@@ -4296,6 +4324,7 @@ function PwUnitAddDrawer({ project, types, onClose, onAdd }) {
               <option value="available">Available</option><option value="reserved">Reserved</option><option value="sold">Sold</option>
             </select>
           </Labeled>
+          {(marketPrice < 0 || (u.priceBen != null && u.priceBen !== "" && Number(u.priceBen) < 0)) && <div className="soft" style={{ fontSize: 11, color: "var(--negative, #b91c1c)" }}>{TL("Prices can't be negative.", "لا يمكن أن تكون الأسعار سالبة.")}</div>}
           <hr className="hr-thin" />
           <div className="row" style={{ gap: 8 }}>
             <button className="btn btn-primary grow" disabled={!valid} onClick={() => onAdd(u)}>Add unit</button>
