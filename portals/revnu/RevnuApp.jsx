@@ -212,7 +212,7 @@ function App() {
             if (n.section) return <div key={"s" + i} className="side-section">{TT(n.section)}</div>;
             const badge = n.id === "leads" ? D.getInterested().filter((l) => l.status === "new").length : null;
             return (
-              <div key={n.id} className={"side-link " + (page === n.id ? "active" : "")} onClick={() => setPage(n.id)}>
+              <div key={n.id} className={"side-link " + (page === n.id ? "active" : "")} onClick={() => { setWorkspace(null); setPage(n.id); }}>
                 {n.icon}<span>{TT(n.label)}</span>
                 {badge ? <span className="chip chip-cyan" style={{ marginLeft: "auto", height: 18, fontSize: 10 }}>{badge}</span> : null}
               </div>
