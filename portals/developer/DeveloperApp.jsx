@@ -157,6 +157,13 @@ function UserMenu({ me, roleLabel, onSignOut, canSwitch, inSales, onSales, onAdm
             <div style={{ fontSize: 10.5, color: "var(--text-soft)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>{TL("Language", "اللغة")}</div>
             <LangToggle block />
           </div>
+          <a href={"/login?set-password=1&next=" + encodeURIComponent(location.pathname + location.search)}
+            style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "9px 10px", borderRadius: 8, color: "var(--text)", fontSize: 13, fontWeight: 500, textDecoration: "none" }}
+            onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-tint)"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+            {TL("Change password", "تغيير كلمة المرور")}
+          </a>
           <button type="button" onClick={onSignOut}
             style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "9px 10px", border: "none", borderRadius: 8, background: "transparent", cursor: "pointer", color: "var(--text)", fontSize: 13, fontWeight: 500, textAlign: "start" }}
             onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-tint)"}

@@ -83,8 +83,10 @@ export default function LoginClient({ dev, asDev, next, signedInAs, mode: initia
     if (pw1 !== pw2) return setErr(L("The two passwords don't match.", "كلمتا المرور غير متطابقتين."));
     setBusy(true);
     try {
+      const wasForced = !!(profile && profile.mustChangePassword);
       await api.auth.setPassword(pw1);
       const p = profile || (await api.auth.myProfile());
+      if (!wasForced && p) { setProfile({ ...p, mustChangePassword: false }); setMode("pw-changed"); return; }
       location.href = p ? landing(p) : "/login";
     } catch (ex) { setErr(friendly(ex)); }
     finally { setBusy(false); }
@@ -102,13 +104,20 @@ export default function LoginClient({ dev, asDev, next, signedInAs, mode: initia
 
   async function signOut() { setBusy(true); await api.auth.signOut(); setProfile(null); setMode("signin"); setBusy(false); }
 
-  const title = mode === "setpw" ? L("Choose a new password", "اختر كلمة مرور جديدة")
+  // A voluntary change (from "Change password" in the portal menu) vs the forced first-sign-in step.
+  const forcedPw = !!(profile && profile.mustChangePassword);
+
+  const title = mode === "setpw" ? (forcedPw ? L("Choose a new password", "اختر كلمة مرور جديدة") : L("Change your password", "تغيير كلمة المرور"))
+              : mode === "pw-changed" ? L("Password changed", "تم تغيير كلمة المرور")
               : mode === "forgot" || mode === "forgot-sent" ? L("Reset your password", "إعادة تعيين كلمة المرور")
               : mode === "welcome" ? L("Welcome back", "أهلاً بعودتك")
               : dev ? L("Sign in to ", "تسجيل الدخول إلى ") + (AR && dev.nameAr ? dev.nameAr : dev.name)
               : asDev ? L("Sign in to your workspace", "سجّل الدخول إلى مساحتك")
               : L("Sign in", "تسجيل الدخول");
-  const sub = mode === "setpw" ? L("This is your first sign-in (or your password was reset). Pick a password only you know — at least 8 characters.", "هذا أول تسجيل دخول لك (أو أُعيد تعيين كلمة مرورك). اختر كلمة مرور لا يعرفها غيرك — 8 أحرف على الأقل.")
+  const sub = mode === "setpw" ? (forcedPw
+                ? L("This is your first sign-in (or your password was reset). Pick a password only you know — at least 8 characters.", "هذا أول تسجيل دخول لك (أو أُعيد تعيين كلمة مرورك). اختر كلمة مرور لا يعرفها غيرك — 8 أحرف على الأقل.")
+                : L("Pick a new password — at least 8 characters. You'll use it from your next sign-in.", "اختر كلمة مرور جديدة — 8 أحرف على الأقل. ستستخدمها من تسجيل دخولك القادم."))
+            : mode === "pw-changed" ? L("Your new password is saved. Use it the next time you sign in.", "حُفظت كلمة المرور الجديدة. استخدمها في تسجيل الدخول القادم.")
             : mode === "forgot" ? L("Enter your work email and we'll send you a link to choose a new password.", "أدخل بريدك المهني وسنرسل لك رابطًا لاختيار كلمة مرور جديدة.")
             : mode === "forgot-sent" ? L("If an account exists for that email, a reset link is on its way. It expires in 1 hour. If nothing arrives, your admin can reset your password from Users & roles.", "إذا كان هناك حساب بهذا البريد، فرابط إعادة التعيين في طريقه إليك ويصلح لمدة ساعة. إن لم يصلك شيء، يمكن لمديرك إعادة تعيين كلمة مرورك من صفحة المستخدمين.")
             : mode === "welcome" ? L("You're already signed in.", "أنت مسجّل الدخول بالفعل.")
@@ -179,6 +188,12 @@ export default function LoginClient({ dev, asDev, next, signedInAs, mode: initia
 
           {mode === "setpw" && (
             <form onSubmit={setNewPassword} noValidate>
+              {profile && profile.email && (
+                <div className="field">
+                  <label htmlFor="pw-account">{L("Account", "الحساب")}</label>
+                  <input className="input" id="pw-account" type="email" autoComplete="username" value={profile.email} readOnly tabIndex={-1} style={{ opacity: 0.75 }} />
+                </div>
+              )}
               <div className="field">
                 <label htmlFor="pw1">{L("New password", "كلمة المرور الجديدة")}</label>
                 <div className="pw-wrap">
@@ -193,8 +208,19 @@ export default function LoginClient({ dev, asDev, next, signedInAs, mode: initia
               </div>
               <button className={"sign-btn" + (busy ? " is-busy" : "")} disabled={busy} type="submit">{busy ? L("Saving…", "جارٍ الحفظ…") : L("Save & continue →", "حفظ ومتابعة ←")}</button>
               {err && <div className="form-err" role="alert">{err}</div>}
-              <div className="links"><a href="#" onClick={(e) => { e.preventDefault(); signOut(); }}>{L("Cancel & sign out", "إلغاء وتسجيل الخروج")}</a><a href="mailto:support@revnu.sa">{L("Need help?", "تحتاج مساعدة؟")}</a></div>
+              <div className="links">
+                {forcedPw
+                  ? <a href="#" onClick={(e) => { e.preventDefault(); signOut(); }}>{L("Cancel & sign out", "إلغاء وتسجيل الخروج")}</a>
+                  : <a href={profile ? landing(profile) : "/login"}>{L("Cancel", "إلغاء")}</a>}
+                <a href="mailto:support@revnu.sa">{L("Need help?", "تحتاج مساعدة؟")}</a>
+              </div>
             </form>
+          )}
+
+          {mode === "pw-changed" && (
+            <div>
+              <a className="sign-btn" href={profile ? landing(profile) : "/login"} style={{ display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>{L("Back to my workspace →", "العودة إلى مساحتي ←")}</a>
+            </div>
           )}
 
           {mode === "forgot" && (

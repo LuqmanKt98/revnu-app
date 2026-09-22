@@ -270,6 +270,13 @@ function UserMenu() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 0 0 1 1h3m10-11l2 2m-2-2v10a1 1 0 0 1-1 1h-3m-6 0a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1m-6 0h6"/></svg>
             {TL("My deals", "صفقاتي")}
           </a>
+          <a href={"/login?set-password=1&next=" + encodeURIComponent(location.pathname + location.search)}
+            style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "9px 10px", borderRadius: 8, background: "transparent", textDecoration: "none", color: "var(--text)", fontSize: 13, fontWeight: 500 }}
+            onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-tint)"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+            {TL("Change password", "تغيير كلمة المرور")}
+          </a>
           <button type="button" onClick={signOut}
             style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "9px 10px", border: "none", borderRadius: 8, background: "transparent", cursor: "pointer", color: "var(--text)", fontSize: 13, fontWeight: 500, textAlign: "start" }}
             onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-tint)"}
