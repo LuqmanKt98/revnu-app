@@ -2155,6 +2155,10 @@ function PackageDrawer({ pkg, unitTypes, projectId, onClose }) {
   const toggleFitout = () => setP((x) => x.fitout ? { ...x, fitout: null } : { ...x, fitout: { ...FITOUT_DEFAULT } });
   const setFitout = (patch) => setP((x) => ({ ...x, fitout: { ...(x.fitout || FITOUT_DEFAULT), ...patch } }));
   const setFitoutPrice = (typeId, val) => setP((x) => ({ ...x, fitout: { ...(x.fitout || FITOUT_DEFAULT), pricing: { ...((x.fitout && x.fitout.pricing) || {}), [typeId]: Number(val) || 0 } } }));
+  const nameOk = (p.name || "").trim() || (p.nameAr || "").trim();
+  const pricingOk = Object.values(p.pricing || {}).every((v) => (Number(v) || 0) >= 0)
+    && (!p.fitout || Object.values(p.fitout.pricing || {}).every((v) => (Number(v) || 0) >= 0));
+  const pkgValid = nameOk && pricingOk;
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 200, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
       <div style={{ width: 560, maxWidth: "100vw", background: "var(--bg-card)", height: "100vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
@@ -2167,6 +2171,7 @@ function PackageDrawer({ pkg, unitTypes, projectId, onClose }) {
             <Labeled label="Name (English)"><input className="input" value={p.name} onChange={(e) => set({ name: e.target.value })} /></Labeled>
             <Labeled label="الاسم (عربي)"><input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={p.nameAr || ""} onChange={(e) => set({ nameAr: e.target.value })} placeholder="اسم الباقة" /></Labeled>
           </div>
+          {!nameOk && <div className="soft" style={{ fontSize: 11, color: "var(--negative, #b91c1c)", marginTop: -6 }}>{window.I18N && window.I18N.isAR ? "الاسم مطلوب (إنجليزي أو عربي)." : "A name is required (English or Arabic)."}</div>}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Labeled label="Tier (free text — any number of tiers)"><input className="input" list="tier-suggestions" value={p.tier || ""} onChange={(e) => set({ tier: e.target.value })} placeholder="e.g. Tier IV · Penthouse Collection" /></Labeled>
             <Labeled label="الفئة (عربي)"><input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={p.tierAr || ""} onChange={(e) => set({ tierAr: e.target.value })} placeholder="مثال: الفئة الرابعة" /></Labeled>
@@ -2226,6 +2231,7 @@ function PackageDrawer({ pkg, unitTypes, projectId, onClose }) {
                 </div>
               ))}
             </div>
+            {!pricingOk && <div className="soft" style={{ fontSize: 11, color: "var(--negative, #b91c1c)", marginTop: 8 }}>{window.I18N && window.I18N.isAR ? "لا يمكن أن تكون الأسعار سالبة." : "Prices can't be negative."}</div>}
           </div>
           <hr className="hr-thin" />
           <div>
@@ -2257,7 +2263,7 @@ function PackageDrawer({ pkg, unitTypes, projectId, onClose }) {
           </div>
           <hr className="hr-thin" />
           <div className="row" style={{ gap: 8 }}>
-            <button className="btn btn-primary grow" onClick={() => {
+            <button className="btn btn-primary grow" disabled={!pkgValid} onClick={() => {
               const fields = { name: p.name, nameAr: p.nameAr, tier: p.tier, tierAr: p.tierAr, summary: p.summary, summaryAr: p.summaryAr,
                                pieces: Number(p.pieces) || 0, warranty: Number(p.warranty) || 0, pricing: { ...p.pricing },
                                signature: !!p.signature, brandName: p.brandName || "", brandNameAr: p.brandNameAr || "", brandLogo: p.brandLogo || null,
@@ -2586,6 +2592,9 @@ function SmartDrawer({ tier, onClose, projectId }) {
   const imgInput = React.useRef(null);
   const [busy, setBusy] = useState(false);
   const AR = window.I18N && window.I18N.isAR;
+  const nameOk = (t.name || "").trim() || (t.nameAr || "").trim();
+  const priceOk = (Number(t.price) || 0) >= 0;
+  const tierValid = nameOk && priceOk;
   const onUploadImg = async (e) => {
     const f = e.target.files && e.target.files[0]; if (!f) return;
     setBusy(true);
@@ -2606,10 +2615,12 @@ function SmartDrawer({ tier, onClose, projectId }) {
           <Labeled label="Set price (SAR)">
             <div className="row" style={{ gap: 6 }}>
               <span className="muted">+</span>
-              <input className="input mono" type="number" step="500" value={t.price || 0} onChange={(e) => set({ price: Number(e.target.value) || 0 })} />
+              <input className="input mono" type="number" step="500" min="0" value={t.price || 0} onChange={(e) => set({ price: Number(e.target.value) || 0 })} />
               <span className="muted">SAR</span>
             </div>
           </Labeled>
+          {!nameOk && <div className="soft" style={{ fontSize: 11, color: "var(--negative, #b91c1c)", marginTop: -6 }}>{AR ? "الاسم مطلوب (إنجليزي أو عربي)." : "A name is required (English or Arabic)."}</div>}
+          {!priceOk && <div className="soft" style={{ fontSize: 11, color: "var(--negative, #b91c1c)", marginTop: -6 }}>{AR ? "لا يمكن أن يكون السعر سالبًا." : "Price can't be negative."}</div>}
           <Labeled label={AR ? "الوصف (إنجليزي)" : "Summary (English)"}><input className="input" value={t.summary || ""} onChange={(e) => set({ summary: e.target.value })} placeholder="One line shown under the tier name" /></Labeled>
           <Labeled label="الوصف (عربي)"><input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={t.summaryAr || ""} onChange={(e) => set({ summaryAr: e.target.value })} placeholder="سطر واحد يظهر تحت اسم الباقة" /></Labeled>
           <Labeled label={AR ? "المحتويات (إنجليزي · عربي)" : "Includes (English · Arabic)"}>
@@ -2656,7 +2667,7 @@ function SmartDrawer({ tier, onClose, projectId }) {
           </div>
           <hr className="hr-thin" />
           <div className="row" style={{ gap: 8 }}>
-            <button className="btn btn-primary grow" onClick={() => { const fields = { name: t.name, nameAr: t.nameAr, price: Number(t.price) || 0, summary: t.summary || "", summaryAr: t.summaryAr || "", includes: t.includes, includesAr: t.includesAr || [], images: t.images }; window.RevnuSupport.act(() => t.id === "new" ? D.createContent("smart", Object.assign({ id: newId(projectId, "smart"), projectId, level: (D.SMART_HOME.filter((x) => x.projectId === projectId).length + 1) }, fields)) : D.setContentField("smart", t.id, fields), { done: (window.I18N && window.I18N.isAR) ? "تم حفظ الفئة." : "Tier saved." }).then((r) => { if (r !== undefined) onClose(); }); }}>{window.I18N?window.I18N.t("Save tier"):"Save tier"}</button>
+            <button className="btn btn-primary grow" disabled={!tierValid} onClick={() => { const fields = { name: t.name, nameAr: t.nameAr, price: Number(t.price) || 0, summary: t.summary || "", summaryAr: t.summaryAr || "", includes: t.includes, includesAr: t.includesAr || [], images: t.images }; window.RevnuSupport.act(() => t.id === "new" ? D.createContent("smart", Object.assign({ id: newId(projectId, "smart"), projectId, level: (D.SMART_HOME.filter((x) => x.projectId === projectId).length + 1) }, fields)) : D.setContentField("smart", t.id, fields), { done: (window.I18N && window.I18N.isAR) ? "تم حفظ الفئة." : "Tier saved." }).then((r) => { if (r !== undefined) onClose(); }); }}>{window.I18N?window.I18N.t("Save tier"):"Save tier"}</button>
             <button className="btn btn-ghost" onClick={onClose}>{window.I18N?window.I18N.t("Cancel"):"Cancel"}</button>
           </div>
         </div>
@@ -2719,6 +2730,9 @@ function OpsDrawer({ model, unitTypes, onClose, projectId }) {
   const setAssume = (typeId, patch) => setO((p) => ({ ...p, assume: { ...p.assume, [typeId]: { ...(p.assume[typeId] || {}), ...patch } } }));
   const midOcc = Math.round((o.occLow + o.occHigh) / 2);
   const defaultRisk = o.kind === "daily" ? "high" : /long/i.test(o.name) ? "low" : "medium";
+  const nameOk = (o.name || "").trim() || (o.nameAr || "").trim();
+  const ratesOk = (Number(o.mgmtFee) || 0) >= 0 && Object.values(o.defaultRate || {}).every((v) => (Number(v) || 0) >= 0);
+  const modelValid = nameOk && ratesOk;
   const save = () => {
     const assume = {};
     unitTypes.forEach((t) => { const a = o.assume[t.id]; if (a) assume[t.id] = { occ: a.occ != null ? Number(a.occ) : midOcc, risk: a.risk || defaultRisk }; });
@@ -2735,6 +2749,7 @@ function OpsDrawer({ model, unitTypes, onClose, projectId }) {
         <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12 }}>
           <Labeled label="Name (English)"><input className="input" value={o.name} onChange={(e) => set({ name: e.target.value })} placeholder="Daily / Monthly Rental / Long Lease" /></Labeled>
           <Labeled label="الاسم (عربي)"><input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={o.nameAr || ""} onChange={(e) => set({ nameAr: e.target.value })} placeholder="يومي / إيجار شهري / إيجار طويل" /></Labeled>
+          {!nameOk && <div className="soft" style={{ fontSize: 11, color: "var(--negative, #b91c1c)" }}>{window.I18N && window.I18N.isAR ? "الاسم مطلوب (إنجليزي أو عربي)." : "A name is required (English or Arabic)."}</div>}
           <Labeled label="الوصف (عربي)"><textarea className="textarea" rows={2} dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={o.summaryAr || ""} onChange={(e) => set({ summaryAr: e.target.value })} placeholder="وصف نموذج التشغيل بالعربية" /></Labeled>
           <Labeled label="Kind">
             <div className="tabs">
@@ -2745,7 +2760,7 @@ function OpsDrawer({ model, unitTypes, onClose, projectId }) {
           <Labeled label="Summary"><textarea className="textarea" rows={2} value={o.summary} onChange={(e) => set({ summary: e.target.value })} /></Labeled>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
             <Labeled label="Operator fee %">
-              <div className="row" style={{ gap: 6 }}><input className="input mono" type="number" step="0.5" value={o.mgmtFee} onChange={(e) => set({ mgmtFee: Number(e.target.value) })} /><span className="muted">%</span></div>
+              <div className="row" style={{ gap: 6 }}><input className="input mono" type="number" step="0.5" min="0" value={o.mgmtFee} onChange={(e) => set({ mgmtFee: Number(e.target.value) })} /><span className="muted">%</span></div>
             </Labeled>
             <Labeled label="Occupancy low %">
               <div className="row" style={{ gap: 6 }}><input className="input mono" type="number" value={o.occLow} onChange={(e) => set({ occLow: Number(e.target.value) })} /><span className="muted">%</span></div>
@@ -2804,16 +2819,17 @@ function OpsDrawer({ model, unitTypes, onClose, projectId }) {
                 <div key={t.id} className="row-between" style={{ padding: "8px 10px", background: "var(--bg-sunken)", borderRadius: "var(--r-sm)" }}>
                   <div style={{ fontSize: 13 }}>{t.name}</div>
                   <div className="row" style={{ gap: 6 }}>
-                    <input className="input mono" style={{ width: 110, height: 30 }} type="number" value={o.defaultRate[t.id] || 0} onChange={(e) => setRate(t.id, e.target.value)} />
+                    <input className="input mono" style={{ width: 110, height: 30 }} type="number" min="0" value={o.defaultRate[t.id] || 0} onChange={(e) => setRate(t.id, e.target.value)} />
                     <span className="muted" style={{ fontSize: 11 }}>{o.kind === "daily" ? (window.I18N && window.I18N.isAR ? "ريال/ليلة" : "SAR/nt") : (window.I18N && window.I18N.isAR ? "ريال/شهر" : "SAR/mo")}</span>
                   </div>
                 </div>
               ))}
             </div>
+            {!ratesOk && <div className="soft" style={{ fontSize: 11, color: "var(--negative, #b91c1c)", marginTop: 8 }}>{window.I18N && window.I18N.isAR ? "لا يمكن أن تكون الرسوم أو الأسعار سالبة." : "Fees and rates can't be negative."}</div>}
           </div>
           <hr className="hr-thin" />
           <div className="row" style={{ gap: 8 }}>
-            <button className="btn btn-primary grow" onClick={save}>{window.I18N?window.I18N.t("Save model"):"Save model"}</button>
+            <button className="btn btn-primary grow" disabled={!modelValid} onClick={save}>{window.I18N?window.I18N.t("Save model"):"Save model"}</button>
             <button className="btn btn-ghost" onClick={onClose}>{window.I18N?window.I18N.t("Cancel"):"Cancel"}</button>
           </div>
         </div>
@@ -3020,7 +3036,7 @@ function ContractEditDrawer({ tpl, onClose }) {
 
         <div className="row" style={{ gap: 8 }}>
           <button className="btn btn-primary grow" disabled={!valid} onClick={save}>{t._new ? TL("Create template", "إنشاء النموذج") : TL("Save", "حفظ")}</button>
-          {!t._new && CAN_DELETE_FN() && <button className="btn btn-ghost" onClick={del} style={{ color: "var(--negative, #c0492f)" }}>{TL("Remove", "إزالة")}</button>}
+          {!t._new && CAN_DELETE_FN() && <button className="btn btn-ghost" onClick={() => { if (confirm(TL("Delete \"" + (t.name || t.nameAr || "") + "\"? This cannot be undone.", "حذف \"" + (t.nameAr || t.name || "") + "\"؟ لا يمكن التراجع."))) del(); }} style={{ color: "var(--negative, #c0492f)" }}>{TL("Remove", "إزالة")}</button>}
           <button className="btn btn-ghost" onClick={onClose}>{TL("Cancel", "إلغاء")}</button>
         </div>
       </div>
@@ -4167,7 +4183,8 @@ function TypeEditDrawer({ type, onClose }) {
   const TL = (en, ar) => (AR ? ar : en);
   const [t, setT] = useState({ ...type });
   const set = (patch) => setT((x) => ({ ...x, ...patch }));
-  const valid = (t.name || "").trim() || (t.nameAr || "").trim();
+  const priceOk = (Number(t.basePrice) || 0) >= 0;
+  const valid = ((t.name || "").trim() || (t.nameAr || "").trim()) && priceOk;
   const save = () => {
     const payload = {
       name: t.name || t.nameAr, nameAr: t.nameAr || "",
@@ -4191,6 +4208,7 @@ function TypeEditDrawer({ type, onClose }) {
           <Labeled label={TL("Area (m²)", "المساحة (م²)")}><input className="input mono" type="number" min="0" value={t.area} onChange={(e) => set({ area: e.target.value })} /></Labeled>
           <Labeled label={TL("Base price (SAR)", "السعر الأساسي (ريال)")}><input className="input mono" type="number" min="0" value={t.basePrice} onChange={(e) => set({ basePrice: e.target.value })} /></Labeled>
         </div>
+        {!priceOk && <div className="soft" style={{ fontSize: 11, color: "var(--negative, #b91c1c)" }}>{TL("Prices can't be negative.", "لا يمكن أن تكون الأسعار سالبة.")}</div>}
         <div className="soft" style={{ fontSize: 11.5, margin: "8px 0 18px", lineHeight: 1.5 }}>{TL("Units of this type inherit the base price; each unit can add a price adjustment. Floor plan, 3D render and masterplan are uploaded per type on the cards.", "ترث وحدات هذا النوع السعر الأساسي، ويمكن لكل وحدة إضافة تعديل سعري. تُرفع المخططات والصور لكل نوع من البطاقات.")}</div>
         <div className="row" style={{ gap: 8 }}>
           <button className="btn btn-primary grow" disabled={!valid} onClick={save}>{t._new ? TL("Create type", "إنشاء النوع") : TL("Save", "حفظ")}</button>
