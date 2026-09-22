@@ -350,7 +350,7 @@ function Dashboard({ orders, onOpenProject }) {
                   <td className="mono" style={{ fontSize: 12 }}>{o.id}</td>
                   <td>{o.customerName}</td>
                   <td className="mono">{(o.unitNumbers && o.unitNumbers.length ? o.unitNumbers : [o.unitNumber]).join(" · ")}</td>
-                  <td style={{ fontSize: 12.5 }}>{D.opsById(o.opsId)?.name || <span className="soft">—</span>}</td>
+                  <td style={{ fontSize: 12.5 }}>{D.opsById(o.opsId) ? window.I18N.tx(D.opsById(o.opsId), "name") : <span className="soft">—</span>}</td>
                   <td><span className={STATUS_CHIP[o.status]}>{statusLabel(o.status)}</span></td>
                   <td className="right mono">{D.fmtSAR(o.furnishCost)}</td>
                 </tr>
@@ -818,8 +818,8 @@ function Orders({ orders }) {
                     <div className="mono" style={{ fontWeight: 600 }}>{(o.unitNumbers && o.unitNumbers.length ? o.unitNumbers : [o.unitNumber]).join(" · ")}</div>
                     <div className="soft" style={{ fontSize: 11 }}>{(o.unitNumbers || []).length > 1 ? ((o.unitNumbers.length) + (window.I18N && window.I18N.isAR ? " وحدات" : " units")) : (window.I18N ? window.I18N.tx(u?.type, "name") : u?.type?.name)}</div>
                   </td>
-                  <td>{D.pkgById(o.packageId)?.name}</td>
-                  <td>{D.opsById(o.opsId)?.name}</td>
+                  <td>{window.I18N.tx(D.pkgById(o.packageId), "name")}</td>
+                  <td>{window.I18N.tx(D.opsById(o.opsId), "name")}</td>
                   <td>{D.userById(o.repId)?.name}</td>
                   <td className="mono" style={{ fontSize: 12 }}>{D.fmtDate(o.createdAt)}</td>
                   <td className="right mono">{D.fmtSAR(o.furnishCost)}</td>
@@ -1670,7 +1670,7 @@ function Money({ orders }) {
                 <tr key={o.id}>
                   <td className="mono" style={{ fontWeight: 600 }}>{o.unitNumber}</td>
                   <td>{o.customerName}</td>
-                  <td>{D.opsById(o.opsId)?.name}</td>
+                  <td>{window.I18N.tx(D.opsById(o.opsId), "name")}</td>
                   <td className="right mono" style={{ fontWeight: 600 }}>{devPct}% {window.I18N && window.I18N.isAR ? "من رسوم التشغيل" : "of op. fee"}</td>
                 </tr>
               );
