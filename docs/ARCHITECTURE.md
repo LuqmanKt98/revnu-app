@@ -34,6 +34,11 @@ re-fetches everything when it regains focus, so colleagues see each other's chan
 | `0003_rpc.sql` | `reserve_order_id`, `create_order`, `transition_order` (gates: issued→signed needs a `signed_contract` document, signed→paid needs `payment_proof` → B-05), `attach_document`, `cancel_order`, `reinstate_order`, `delete_order`, `set_receivable_paid`, `set_payout_status`, `clear_must_change_password` |
 | `0004_storage.sql` | buckets `documents` (private, path `{developer}/{order}/{kind}-{uuid}`) and `media` (public) with object policies |
 | `0005_views.sql` | `profiles_v` (assigned projects + effective perms), `orders_v` (unit numbers), `support_tickets_v` (replies) |
+| `…010_v2_catalogue.sql` | v2 catalogues: `flooring_finishes`, `flooring_zones`, `kitchens`, `ac_systems`, `cooling_points`, `layout_options`; order fields for them + the agreement snapshot; `create_order_core()` shared by the office wizard and remote Accept (deadline gates); 59 contract variables |
+| `…011_v2_seed.sql` | the client's v2 catalogue rows (insert-only), project deadlines/rates, developer plan + signatory, Arabic text normalised |
+| `…012_v2_remote_esign.sql` | `sale_links` (units / shortlist / public type links, single or round-robin routing), `sale_leads`, `submissions`, `signing_links`, `signatures`, `inbox_notifications`; rep RPCs (`sale_link_create/set`, `submission_accept/decline/assign_units`, `signing_link_create`, `update_order_customer`, `set_signatory`, `inbox_mark_read`); anon RPCs keyed by the 6-character code (`public_link_view/status/submit`, `public_lead_start/update`, `public_signing_view/read/sign`); `orders.contract_hash` = SHA-256 deal fingerprint |
+| `…013_v2_agreement_billing.sql` | `agreement_layouts` (Revnu master + per developer) and `agreement_versions`; `billing_settings` (price book) and `platform_invoices` (paid / reference / note only — invoices are derived in the app) |
+| `…014`–`…017` | lead dismiss, suspension (blocks new orders/links), signing evidence, clean-up policies |
 
 IDs: text keys are kept where the UI shows or builds them (`REV-26-231`, `14094-A-5-1-101`, `NK-S`,
 `noor-khuzam`); people are `uuid = auth.users.id`. Bilingual fields keep the `_ar` suffix. `jsonb` is used
@@ -53,6 +58,9 @@ anonymous reads only `developers_public`. This mirrors the prototype's page-leve
 | profiles / profile_projects | own row (name, bank); same-developer rows with `team`; any row with Revnu `developers`; Revnu staff rows with Revnu `team`. Triggers block org changes / self-escalation. Account creation goes through `/api/users` |
 | support_tickets / replies | any signed-in user raises; Revnu handles |
 | leads | `/api/leads` inserts; Revnu reads/updates |
+| sale_links, submissions, sale_leads, signing_links, signatures, inbox_notifications | RPCs only. Read: Revnu staff; a member with `orders` sees their own rows (rep, creator or routing pool); `team` / `financials` see the developer's; signing links / signatures follow the order; inbox = owner. Anon: only through the `public_*` functions |
+| agreement_layouts / agreement_versions | Revnu `developers` via `save_agreement_layout` / `reset_agreement_layout`; the master is readable by every signed-in user, a developer's layout by its team; history is Revnu-only |
+| billing_settings, platform_invoices | Revnu `financials` via `set_billing_price_book` / `set_platform_invoice`; the developer reads its own invoices; the plan lives on `developers.plan` (Revnu `developers`) |
 
 Permission source: `profiles.perms` when set, else the role's defaults from `dev_roles` / `revnu_roles`
 (same as the prototype's `devPermsFor()`). `scripts/rls-tests.mjs` is the regression suite.
@@ -89,9 +97,28 @@ Sign-in never depends on e-mail; password-reset links do (Supabase Auth SMTP →
   server renders `<html dir lang>` correctly on first paint.
 * `/` serves `public/home.html` (the marketing site) verbatim via a rewrite; the lead form posts to `/api/leads`.
 * Error boundaries wrap every portal (audit §10); the production React build replaces CDN React + in-browser Babel.
+* v2 phone-first sale: `portals/shared/mobile-wizard.jsx` is the client's wizard (rep and buyer), `portals/shared/sign.jsx`
+  the read-and-sign page; `lib/data/remote.js` is the prototype's `REVNU_REMOTE` API on Supabase (sync reads from the
+  store, server functions for writes). Buyer pages: `/order/<slug>-<CODE>` and `/sign/<slug>-<CODE>` (no sign-in; the
+  store is hydrated from `public_link_view` / `public_signing_view`, which return only what that link may show).
+
+## 7a. Remote ordering and e-signature (v2)
+
+1. A rep creates a share link (fixed units, a shortlist, or a public type-only link routed to one rep or round robin)
+   and sends it by WhatsApp (`wa.me` pre-filled message) or QR. Nothing is held.
+2. The buyer opens it on the phone, configures, enters their details and submits (a public link first records a lead).
+3. The rep accepts with one tap: `submission_accept()` creates the order through `create_order_core()` (the unit is
+   locked), issues it with the pinned agreement snapshot, opens a signing link and auto-declines competing submissions.
+4. The buyer reads every page (read log per page) and signs with a finger or typed name; `public_signing_sign()` records
+   the signature, consent, IP (from the gateway headers), device and the SHA-256 fingerprint, and moves the order to
+   `signed`. The developer block is pre-signed (signature + stamp on the developer).
+5. The rep confirms the first payment by attaching the transfer receipt (mandatory) — `transition_order()` → `paid`.
 
 ## 8. Known deliberate limitations
 
-* Payment gateway and e-signature are out of scope (client decision).
+* Payment gateway is out of scope (client decision). The e-signature is a finger signature + certificate on the buyer's
+  phone (no Nafath / qualified e-signature provider).
+* The agreement shows the developer's current signatory images; earlier issued agreements are not re-stamped with a
+  frozen copy (same as the prototype).
 * Bulk CSV unit import runs on the client and inserts in one request (fine for hundreds of rows).
 * Order read scope for developer members is tenant-wide (client chose to mirror the prototype).
