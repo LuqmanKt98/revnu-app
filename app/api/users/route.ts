@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     role: developerId ? (body.role || "sales_rep") : "revnu_admin", roleAr: body.roleAr || null,
     roleId: developerId ? null : (body.roleId || "team"),
     perms: body.perms || null, commissionLevelId: body.commissionLevelId || null, reportsTo: body.reportsTo || null,
-    bank: body.bank || null, mustChangePassword: true,
+    bank: body.bank || null, mobile: String(body.mobile || "").replace(/[^\d+]/g, "").slice(0, 16) || null, mustChangePassword: true,
   });
   const { data: inserted, error: insErr } = existing
     ? await sb.from("profiles").update(row).eq("id", authId).select().single()

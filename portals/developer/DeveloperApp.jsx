@@ -1572,7 +1572,7 @@ function DevTeamDrawer({ member, projects, onClose }) {
   const valid = ((m.name || "").trim() || (m.nameAr || "").trim()) && /@/.test(m.email || "");
   const save = () => {
     const payload = { name: (m.name || m.nameAr).trim(), nameAr: (m.nameAr || "").trim(), email: m.email.trim(), role: (m.role || "").trim(), roleAr: (m.roleAr || "").trim(), perms: m.perms, developerId: member.developerId, assignedProjectIds: m.assignedProjectIds,
-      commissionLevelId: m.commissionLevelId || null, reportsTo: m.reportsTo || null, bank: m.bank || null };
+      commissionLevelId: m.commissionLevelId || null, reportsTo: m.reportsTo || null, bank: m.bank || null, mobile: String(m.mobile || "").replace(/[^\d+]/g, "") || null };
     const RS = window.RevnuSupport;
     if (m._new) {
       RS.act(() => D.createDevUser(payload), { pending: TL("Creating the account…", "جارٍ إنشاء الحساب…") }).then((u) => { if (!u) return; onClose(); RS.showCredentials({ name: u.name, email: u.email, password: u._tempPassword }); });
@@ -1602,6 +1602,10 @@ function DevTeamDrawer({ member, projects, onClose }) {
 
         <label className="field-label">{TL("Email", "البريد الإلكتروني")}</label>
         <input className="input" type="email" value={m.email || ""} onChange={(e) => set({ email: e.target.value })} placeholder="name@developer.sa" style={{ marginBottom: 16, direction: "ltr", textAlign: AR ? "right" : "left" }} />
+
+        <label className="field-label">{TL("Mobile (WhatsApp)", "الجوال (واتساب)")}</label>
+        <div className="soft" style={{ fontSize: 11, margin: "2px 0 8px" }}>{TL("Shown to buyers on share links and signing pages so they can call or WhatsApp this person. International format, e.g. +966501234567.", "يظهر للمشترين في روابط الطلب وصفحات التوقيع ليتمكنوا من الاتصال أو المراسلة عبر واتساب. بالصيغة الدولية، مثال: ‎+966501234567.")}</div>
+        <input className="input" type="tel" inputMode="tel" value={m.mobile || ""} onChange={(e) => set({ mobile: e.target.value })} placeholder="+966 5x xxx xxxx" style={{ marginBottom: 16, direction: "ltr", textAlign: AR ? "right" : "left" }} />
 
         <label className="field-label">{TL("Role / title", "الدور / المسمى")}</label>
         <div className="soft" style={{ fontSize: 11, margin: "2px 0 8px" }}>{TL("Free text — a label only. What this person can actually access is set by the permissions below.", "نص حر — مجرد مسمى. ما يستطيع هذا الشخص الوصول إليه تحدده الصلاحيات أدناه.")}</div>
