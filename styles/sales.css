@@ -157,36 +157,20 @@
 /* ---- Print: the agreement becomes a clean PDF ------------------------ */
 .print-doc { display: none; }
 @media print {
-  /* margin:0 removes the browser's own header (date/title) & footer (URL/page#) */
   @page { size: A4 portrait; margin: 0; }
-  html, body { background: #fff !important; }
-  /* force ALL backgrounds/colors to print (browsers strip them by default) */
-  html, body, .print-doc, .print-doc * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
+  html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
   /* hide the live app (sibling of .print-doc, which is portaled to <body>) */
   body > *:not(.print-doc) { display: none !important; }
   .print-doc { display: block !important; width: 100%; background: #fff !important; }
-  /* neutralise BOTH on-screen tinted backdrops (agreement + KYC) so pages print clean */
-  .print-doc .ag-doc-wrap,
-  .print-doc .doc-paper { background: #fff !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; margin: 0 !important; }
-  /* every page: strip the on-screen card chrome, fill the sheet, one per physical page */
-  .print-doc .ag-page,
-  .print-doc .doc-page {
-    box-shadow: none !important; border: none !important; border-radius: 0 !important;
-    margin: 0 !important; width: 100% !important; max-width: 100% !important;
-    min-height: auto !important;
-    page-break-after: always; break-after: page;
-  }
-  .print-doc > *:last-child .ag-page,
-  .print-doc > *:last-child .doc-page,
-  .print-doc .ag-page:last-child { page-break-after: auto; break-after: auto; }
-  /* never split these across physical pages */
-  .print-doc tr, .print-doc img, .print-doc svg, .print-doc thead, .print-doc tfoot { break-inside: avoid; page-break-inside: avoid; }
-  .print-doc thead { display: table-header-group; }
-  .print-doc .ag-page { overflow: visible !important; }
-  .print-doc h1, .print-doc h2, .print-doc h4 { break-after: avoid-page; }
+  .print-doc .ag-doc-wrap, .print-doc .doc-paper { background: #fff !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; margin: 0 !important; }
+  .print-doc .ag-fit { height: auto !important; width: auto !important; max-width: none !important; overflow: visible !important; margin: 0 !important; }
+  .print-doc .ag-fit-inner { position: static !important; transform: none !important; width: 210mm !important; margin: 0 !important; }
+  .print-doc .ag-sheets { gap: 0 !important; display: block !important; }
+  .print-doc .ag-sheet { box-shadow: none !important; border-radius: 0 !important; width: 210mm !important; height: 297mm !important; page-break-after: always; break-after: page; margin: 0 !important; }
+  .print-doc .ag-sheet:last-child { page-break-after: auto; break-after: auto; }
+  .print-doc .doc-page { box-shadow: none !important; border: none !important; border-radius: 0 !important; margin: 0 !important; width: 210mm !important; max-width: 210mm !important; min-height: 297mm; box-sizing: border-box; page-break-after: always; break-after: page; }
+  .print-doc > *:last-child .doc-page { page-break-after: auto; break-after: auto; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
 @media (max-width: 720px) {

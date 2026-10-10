@@ -1,0 +1,22 @@
+/* Buyer pages (/order, /sign) — the agreement as a phone document + clean A4 print.
+   Verbatim from the prototype's order.html / sign.html <style> block. */
+/* Arabic agreement: Almarai everywhere */
+.ag-doc-wrap[dir="rtl"], .ag-doc-wrap[dir="rtl"] * { font-family: 'Almarai', 'Segoe UI', sans-serif !important; letter-spacing: 0 !important; }
+.doc-page { background: #fff; color: #1D1D1F; line-height: 1.55; font-size: 12.5px; }
+/* ---- Print: the signed agreement becomes a clean PDF (the live page is hidden; .print-doc is portaled to <body>) ---- */
+.print-doc { display: none; }
+@media print {
+  @page { size: A4 portrait; margin: 0; }
+  html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+  body > *:not(.print-doc) { display: none !important; }
+  .print-doc { display: block !important; width: 100%; background: #fff !important; }
+  .print-doc .ag-doc-wrap, .print-doc .doc-paper { background: #fff !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; margin: 0 !important; }
+  .print-doc .ag-fit { height: auto !important; width: auto !important; max-width: none !important; overflow: visible !important; margin: 0 !important; }
+  .print-doc .ag-fit-inner { position: static !important; transform: none !important; width: 210mm !important; margin: 0 !important; }
+  .print-doc .ag-sheets { gap: 0 !important; display: block !important; }
+  .print-doc .ag-sheet { box-shadow: none !important; border-radius: 0 !important; width: 210mm !important; height: 297mm !important; page-break-after: always; break-after: page; margin: 0 !important; }
+  .print-doc .ag-sheet:last-child { page-break-after: auto; break-after: auto; }
+  .print-doc .doc-page { box-shadow: none !important; border: none !important; border-radius: 0 !important; margin: 0 !important; width: 210mm !important; max-width: 210mm !important; min-height: 297mm; box-sizing: border-box; page-break-after: always; break-after: page; }
+  .print-doc > *:last-child .doc-page { page-break-after: auto; break-after: auto; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

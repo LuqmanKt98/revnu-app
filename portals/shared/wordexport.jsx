@@ -368,7 +368,11 @@ function buildBody(ctx, assets) {
   H += pageBreak();
   H += letterhead(developer, brand, ref, today, logo);
   H += sectionHead("A", "Schedule A — Furnishing & Interior", pkg ? pkg.tier + " · " + pkg.name : "", brand);
-  H += term("A.1", "Scope", `The Seller shall supply and install the furnishing package “${pkg ? pkg.tier : ""} — ${pkg ? pkg.name : ""}” (${pkg ? pkg.pieces : 0} items) executed in the “${design ? design.name : ""}” design${smart ? ", with the “" + smart.name + "” smart-home layer" : ""}${fitoutOn ? ", together with the interior fit-out itemised below" : ""}. The bills of quantities below form part of this Schedule.`);
+  const flRows = (ctx.perUnitRows || []).filter((r) => r.unit && r.flooringUp && r.flooringUp.length);
+  const flT = flRows.reduce((a, r) => a + (r.flooringPrice || 0), 0);
+  const layRows = (ctx.perUnitRows || []).filter((r) => r.unit && r.layout && r.layout.length);
+  const layT = layRows.reduce((a, r) => a + (r.layoutPrice || 0), 0);
+  H += term("A.1", "Scope", `The Seller shall supply and install the furnishing package “${pkg ? pkg.tier : ""} — ${pkg ? pkg.name : ""}” (${pkg ? pkg.pieces : 0} items) executed in the “${design ? design.name : ""}” design${smart ? ", with the “" + smart.name + "” smart-home layer" : ""}${flRows.length ? ", with upgraded flooring per Appendix F-5" : ""}${layRows.length ? ", with the internal layout modifications per Appendix F-6" : ""}${fitoutOn ? ", together with the interior fit-out itemised below" : ""}. The bills of quantities below form part of this Schedule.`);
   // F-1
   H += `<p style="font-family:${SANS};font-size:10pt;font-weight:bold;margin:18px 0 5px;">Appendix F-1 · Furnishing bill of quantities <span style="font-family:${MONO};font-size:8.5pt;font-weight:normal;color:${SOFT};">${furnBoq.length} LINES</span></p>`;
   H += `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
@@ -385,13 +389,37 @@ function buildBody(ctx, assets) {
       <tr style="border-top:1.5px solid ${INK};"><td colspan="4" style="padding:6px 0;font-family:${SANS};font-size:10pt;font-weight:bold;">Fit-out total (excl. VAT)</td><td style="text-align:right;font-family:${MONO};font-weight:bold;color:${brand};">${esc(D.fmtSAR(fitoutBoqTotal))}</td></tr>
     </table>`;
   }
+  // F-5 · Flooring upgrades — one table per unit with upgraded zones
+  flRows.forEach((r, n) => {
+    const net = r.flooringUp.reduce((a, l) => a + l.amount, 0);
+    H += `<p style="font-family:${SANS};font-size:10pt;font-weight:bold;margin:20px 0 5px;">Appendix F-5${flRows.length > 1 ? "." + (n + 1) : ""} · Flooring upgrades <span style="font-family:${MONO};font-size:8.5pt;font-weight:normal;color:${SOFT};">${esc(r.unit.number)} · PRICED PER m²</span></p>`;
+    H += `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
+      <tr style="border-bottom:1px solid ${INK};">${[["ZONE", "l"], ["STANDARD (INCLUDED)", "l"], ["SELECTED FINISH · SIZE", "l"], ["AREA", "r"], ["RATE / m²", "r"], ["AMOUNT (EXCL. VAT)", "r"]].map(h => `<td style="font-family:${MONO};font-size:8pt;color:${SOFT};padding-bottom:5px;text-align:${h[1] === "r" ? "right" : "left"};">${h[0]}</td>`).join("")}</tr>
+      ${r.flooring.map(l => `<tr style="border-bottom:1px solid #EFEDE7;"><td style="padding:4px 0;font-family:${SANS};font-size:9pt;${l.finish ? "font-weight:bold;" : "color:" + SOFT + ";"}">${esc(l.meta.en)}</td><td style="padding:4px 0;font-family:${SANS};font-size:9pt;color:${MUT};">${esc(l.standard ? l.standard.name : "—")}</td><td style="padding:4px 0;font-family:${SANS};font-size:9pt;${l.finish ? "font-weight:bold;" : "color:" + SOFT + ";"}">${esc(l.finish ? l.finish.name + (l.size ? " · " + l.size.label : "") : "As standard")}</td><td style="padding:4px 0;text-align:right;font-family:${MONO};font-size:9pt;">${esc(l.area)} m²</td><td style="padding:4px 0;text-align:right;font-family:${MONO};font-size:9pt;">${l.finish ? esc(D.fmtSAR(l.rate)) : "—"}</td><td style="padding:4px 0;text-align:right;font-family:${MONO};font-size:9pt;">${l.finish ? esc(D.fmtSAR(l.amount)) : "included"}</td></tr>`).join("")}
+      <tr style="border-top:1px solid ${LINE};"><td colspan="5" style="padding:5px 0;font-family:${SANS};font-size:9pt;color:${MUT};">Flooring upgrade · net</td><td style="text-align:right;font-family:${MONO};font-size:9pt;">${esc(D.fmtSAR(net))}</td></tr>
+      <tr style="border-top:1.5px solid ${INK};"><td colspan="5" style="padding:6px 0;font-family:${SANS};font-size:10pt;font-weight:bold;">Flooring total · ${esc(r.unit.number)} <span style="color:${SOFT};font-size:8pt;font-weight:normal;">incl. VAT</span></td><td style="text-align:right;font-family:${MONO};font-weight:bold;color:${brand};">${esc(D.fmtSAR(r.flooringPrice || 0))} SAR</td></tr>
+    </table>
+    <p style="font-family:${SANS};font-size:8pt;color:${SOFT};margin-top:6px;line-height:1.5;">Zones marked “as standard” are delivered in the project's standard finish at no cost. Areas are nominal per unit type; natural stone and timber vary in tone and veining.</p>`;
+  });
+  // F-6 · Layout modifications — one table per unit with changes
+  layRows.forEach((r, n) => {
+    H += `<p style="font-family:${SANS};font-size:10pt;font-weight:bold;margin:20px 0 5px;">Appendix F-6${layRows.length > 1 ? "." + (n + 1) : ""} · Layout modifications <span style="font-family:${MONO};font-size:8.5pt;font-weight:normal;color:${SOFT};">${esc(r.unit.number)} · PRE-APPROVED</span></p>`;
+    H += `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
+      <tr style="border-bottom:1px solid ${INK};">${[["AREA", "l"], ["AS DESIGNED → SELECTED", "l"], ["WORKS INCLUDED", "l"], ["ROOMS AFTER", "l"], ["PRICE (EXCL. VAT)", "r"]].map(h => `<td style="font-family:${MONO};font-size:8pt;color:${SOFT};padding-bottom:5px;text-align:${h[1] === "r" ? "right" : "left"};">${h[0]}</td>`).join("")}</tr>
+      ${r.layout.map(o => { const price = D.layoutPrice(o, project); return `<tr style="border-bottom:1px solid #EFEDE7;"><td style="padding:4px 0;font-family:${SANS};font-size:9pt;font-weight:bold;vertical-align:top;">${esc(o.areaName || "")}</td><td style="padding:4px 0;font-family:${SANS};font-size:9pt;vertical-align:top;"><span style="color:${MUT};">${esc(o.asDesigned || "As designed")}</span> → ${esc(o.name)}</td><td style="padding:4px 0;font-family:${SANS};font-size:9pt;color:${MUT};vertical-align:top;">${esc((o.works || []).join(" · "))}</td><td style="padding:4px 0;font-family:${SANS};font-size:9pt;vertical-align:top;">${esc(o.roomsAfter || "—")}</td><td style="padding:4px 0;text-align:right;font-family:${MONO};font-size:9pt;vertical-align:top;">${price ? esc(D.fmtSAR(price)) : "no charge"}</td></tr>`; }).join("")}
+      <tr style="border-top:1.5px solid ${INK};"><td colspan="4" style="padding:6px 0;font-family:${SANS};font-size:10pt;font-weight:bold;">Layout total · ${esc(r.unit.number)} <span style="color:${SOFT};font-size:8pt;font-weight:normal;">incl. VAT</span></td><td style="text-align:right;font-family:${MONO};font-weight:bold;color:${brand};">${esc(D.fmtSAR(r.layoutPrice || 0))} SAR</td></tr>
+    </table>
+    <p style="font-family:${SANS};font-size:8pt;color:${SOFT};margin-top:6px;line-height:1.5;">Pre-approved modifications to non-load-bearing partitions and doors; the registered area and external envelope are unchanged. Where a modification changes the number or use of rooms, this appendix prevails over the room count in the unit description.</p>`;
+  });
   H += term("A.2", "Procurement & installation", `Procurement occurs T-9 to T-7 months and installation T-4 to T-1 months before handover${fitoutOn ? "; the fit-out completes before furniture installation" : ""}. A joint walkthrough is held T-1 month with the Buyer present.`);
   H += term("A.3", "Title & risk in the goods", "Title to the furnishing items passes to the Buyer on full payment of the package value; risk passes on installation and handover of the Unit. Items are new, unused and supplied to the specification in the bills of quantities.");
   H += term("A.4", "Warranty & defects", `The Seller warrants the furniture and finishes for ${pkg ? pkg.warranty : 5} years${fitoutOn && pkg && pkg.fitout && pkg.fitout.warranty ? ", and the fit-out finishes for " + pkg.fitout.warranty + " years" : ""} from handover, fair wear and tear excepted. Defects reported within the 30-day snagging window are remedied at no cost to the Buyer.`);
   H += `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;margin-top:14px;background:#FAF8F3;border:1px solid ${LINE};"><tr><td style="padding:12px 14px;">
     <div style="font-family:${MONO};font-size:8pt;letter-spacing:1px;color:${SOFT};text-transform:uppercase;margin-bottom:4px;">A.5 · Commercial value</div>
     ${moneyTable([
-      { k: "Furnishing", sub: "incl. VAT", v: fmt(fitoutOn ? furnishOnlyTotal : furnishTotal) },
+      { k: "Furnishing", sub: "incl. VAT", v: fmt((fitoutOn ? furnishOnlyTotal : furnishTotal) - flT - layT) },
+      ...(layT > 0 ? [{ k: "Layout changes", sub: "incl. VAT · F-6", v: fmt(layT) }] : []),
+      ...(flT > 0 ? [{ k: "Flooring upgrade", sub: "incl. VAT · F-5", v: fmt(flT) }] : []),
       ...(fitoutOn ? [{ k: "Fit-out", sub: "incl. VAT", v: fmt(fitoutTotal) }] : []),
       { k: "Package value", total: true, brand: brand, v: fmt(furnishTotal) },
     ])}
@@ -434,25 +462,27 @@ function buildBody(ctx, assets) {
     </td></tr></table>`;
   }
 
-  /* ===== §6 GENERAL TERMS ===== */
-  H += pageBreak();
-  H += letterhead(developer, brand, ref, today, logo);
-  H += sectionHead("6", "General Terms & Conditions", "", brand);
-  const terms = [
-    ["6.1", "Definitions", `“Seller” means ${legal}; “Buyer” means the party named in §1; “Unit” means the property described in §2; “Works” means the furnishing, fit-out and smart-home scope in §3. Words importing the singular include the plural and vice versa.`],
-    ["6.2", "Sale & transfer of title", `The Seller agrees to sell and the Buyer agrees to purchase the Unit free of encumbrance. Title transfers to the Buyer upon receipt of the full Total Contract Value and completion of registration with the competent authority, expected on or about ${project ? project.delivery : "the target delivery date"}.`],
-    ["6.3", "Price, VAT & RETT", `The furnishing, smart-home and fit-out works are services subject to value-added tax at the prevailing rate (currently 15%), shown explicitly in §5. The Unit itself is a sale of residential real estate: it is exempt from VAT and instead subject to the 5% Real Estate Transaction Tax (RETT), being ${D.fmtSAR(_wUnitsSum * 0.05)} SAR, together with any government registration fees — settled with the competent authority on registration. All taxes and fees are payable as set out in §4 and §5.`],
-    ["6.4", "Payment", "The Total Consideration in §5 \u2014 the unit price together with the furnishing and interior addendum \u2014 is payable by the Buyer to the Seller under the Buyer\u2019s Unit Purchase Agreement, on the instalments and construction milestones set out in that agreement. No separate furnishing payment schedule applies; late payment and default are governed by the Unit Purchase Agreement."],
-    ["6.5", "Furnishing, fit-out & operations", `The furnishing and fit-out works are supplied, sequenced and warranted under Schedule A (with the bills of quantities at Appendices F-1${fitoutOn ? " and F-2" : ""})${ops ? "; rental management is provided under Schedule B" : ""}. Those Schedules form part of this Agreement and are incorporated by reference.`],
-    ["6.6", "Handover & snagging", "At handover the Buyer is given a snagging period of thirty (30) days to report defects in the Unit or the Works. The Seller shall remedy verified defects within forty-five (45) days at no cost to the Buyer."],
-    ["6.7", "Warranties", `The Seller warrants the Unit against structural defects for ten (10) years and the Works (furniture and finishes) for ${pkg ? pkg.warranty : 5} years${fitoutOn && pkg && pkg.fitout && pkg.fitout.warranty ? ", and the fit-out finishes for " + pkg.fitout.warranty + " years" : ""} from handover, fair wear and tear excepted.`],
-    ["6.8", "Default & termination", "Either party may terminate on thirty (30) days' written notice for material breach left uncured. On Buyer default, the Seller may retain liquidated damages of up to 10% of the Total Contract Value; on Seller default, sums paid are refunded with profit at the prevailing SAIBOR."],
-    ["6.9", "Force majeure", "Neither party is liable for delay or failure caused by events beyond reasonable control. Delivery dates extend by the period of the event."],
-    ["6.10", "Data protection", "The Buyer's personal data is processed under the Saudi Personal Data Protection Law (PDPL) solely for KYC, contract execution and ongoing service, as acknowledged in the KYC & PDPL appendix to this pack."],
-    ["6.11", "Governing law & disputes", `This Agreement is governed by the laws of the Kingdom of Saudi Arabia. Disputes are referred to the competent courts of ${project ? project.city : "the Seller's city"}, save that the parties shall first attempt amicable settlement within thirty (30) days.`],
-    ["6.12", "Entire agreement", "This Agreement, with its Schedules and Appendices, constitutes the entire agreement between the parties and supersedes prior discussions. Amendments must be in writing and signed by both parties."],
-  ];
-  H += terms.map(t => term(t[0], t[1], t[2])).join("");
+  /* ===== CLAUSES — from the developer's agreement layout (pinned on the order when issued) ===== */
+  {
+    const lay = ctx.layout || (order && order.agreement && order.agreement.blocks ? order.agreement : D.agreementLayoutFor(developer.id));
+    const rows = ctx.perUnitRows || [];
+    const fl = { furnishing: !!(pkg || fitoutOn || ctx.kitchen || rows.some((r) => r.pkg || r.kitchen || r.fitout)), smart: !!(smart || rows.some((r) => r.smart)), kitchen: !!(ctx.kitchen || rows.some((r) => r.kitchen)), fitout: !!fitoutOn, ops: !!(ops || rows.some((r) => r.ops)), multi: (ctx.units || []).length > 1 };
+    const okW = (x) => !x || x === "always" || !!fl[x];
+    const clauses = (lay.blocks || []).filter((b) => b.kind === "clause" && b.enabled !== false && okW(b.showWhen));
+    const fx = { vals: { sec_parties: "1", sec_property: "2", sec_investment: "4", sec_payment: "5", developer_legal_name: legal, warranty_years: String(pkg ? (pkg.warranty || 2) : 2), fitout_warranty_years: (pkg && pkg.fitout && pkg.fitout.warranty) ? String(pkg.fitout.warranty) : "", agreement_ref: ref, addendum_value: D.fmtSAR(furnishTotal) + " SAR", total_price: D.fmtSAR(totalPrice) + " SAR" },
+                 flags: { has_ops: fl.ops, has_smart: fl.smart, has_kitchen: fl.kitchen, has_fitout: fl.fitout, has_furnishing: fl.furnishing, has_multi: fl.multi } };
+    if (clauses.length) {
+      H += pageBreak();
+      H += letterhead(developer, brand, ref, today, logo);
+      let sec = null, secNo = 5, k = 0;
+      clauses.forEach((b) => {
+        const st = b.section || b.sectionAr || "Terms & Conditions";
+        if (st !== sec) { sec = st; secNo++; k = 0; H += sectionHead(String(secNo), st, "", brand); }
+        k++;
+        H += term(secNo + "." + k, b.title || b.titleAr || "", D.fillContract(b.body || b.bodyAr || "", order, false, fx).replace(/\n{2,}/g, "\n\n"));
+      });
+    }
+  }
 
   /* ===== §7 EXECUTION ===== */
   H += pageBreak();
@@ -460,7 +490,7 @@ function buildBody(ctx, assets) {
   H += sectionHead("7", "Execution", "SIGNED BY THE PARTIES", brand);
   H += `<p style="font-family:${SANS};font-size:10pt;color:${MUT};line-height:1.55;margin:0 0 18px;">By signing below, the Buyer and ${esc(legal)} agree to be bound by this Agreement together with its Schedules and Appendices — the floor plan (Appendix A), the furnishing and fit-out bills of quantities (Schedule A, Appendices F-1${fitoutOn ? " & F-2" : ""})${ops ? ", the operating terms (Schedule B)" : ""} and the KYC &amp; PDPL acknowledgement.</p>`;
   H += sigTable(developer, c);
-  H += `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;margin-top:28px;border-top:1px solid ${LINE};padding-top:10px;"><tr><td style="font-family:${MONO};font-size:8pt;color:${SOFT};">${esc(ref)} · ${esc(project ? project.name : "")}</td><td style="text-align:right;font-family:${MONO};font-size:8pt;color:${SOFT};letter-spacing:1px;">PREPARED ON REVNU</td></tr></table>`;
+  H += `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;margin-top:28px;border-top:1px solid ${LINE};padding-top:10px;"><tr><td style="font-family:${MONO};font-size:8pt;color:${SOFT};">${esc(ref)} · ${esc(project ? project.name : "")}</td><td style="text-align:right;font-family:${MONO};font-size:8pt;color:${SOFT};letter-spacing:1px;">Revnu.sa</td></tr></table>`;
 
   /* ===== KYC APPENDIX ===== */
   H += pageBreak();

@@ -18,7 +18,7 @@ const LIGHT = "#F4F1EA", LIGHTK = "#ECE7DC", LIGHTB = "#E4EDEE", HALL = "#F0EDE6
 function arLabel(label) {
   if (!(window.I18N && window.I18N.isAR)) return label;
   const M = { "Living / Dining": "معيشة / طعام", "Kitchen": "مطبخ", "Entry": "مدخل", "Stair": "درج",
-    "Master Bedroom": "غرفة النوم الرئيسية", "Ensuite": "حمّام خاص", "Bath": "حمّام", "Balcony": "شرفة",
+    "Master Bedroom": "غرفة النوم الرئيسية", "Ensuite": "حمام خاص", "Bath": "حمام", "Balcony": "شرفة",
     "Terrace": "تراس", "Guest Bedroom": "غرفة ضيوف", "Powder / Study": "ضيوف / مكتب", "Lounge": "جلوس",
     "Powder": "دورة مياه", "Family": "عائلية" };
   if (M[label]) return M[label];

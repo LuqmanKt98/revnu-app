@@ -3,6 +3,7 @@ import Script from "next/script";
 import { cookies } from "next/headers";
 import "@/styles/styles.css";
 import "@/styles/mobile.css";
+import "@/styles/phone.css";
 import "./globals.css";
 
 export const metadata: Metadata = {

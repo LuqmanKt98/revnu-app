@@ -106,6 +106,5 @@
   .field-grid { grid-template-columns: 1fr !important; }
 
   /* agreement pages shrink-to-fit */
-  .ag-page { padding: 26px 18px !important; }
   .ag-doc-wrap { padding: 14px 6px !important; }
 }

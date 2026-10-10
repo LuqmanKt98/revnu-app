@@ -20,7 +20,7 @@ export default class ErrorBoundary extends React.Component {
           </p>
           <div className="row" style={{ gap: 8, justifyContent: "center", marginTop: 16 }}>
             <button className="btn btn-primary" onClick={() => location.reload()}>{AR ? "إعادة التحميل" : "Reload"}</button>
-            <a className="btn btn-secondary" href="/login">{AR ? "تسجيل الدخول" : "Sign in"}</a>
+            {!this.props.publicPage && <a className="btn btn-secondary" href="/login">{AR ? "تسجيل الدخول" : "Sign in"}</a>}
           </div>
         </div>
       </div>
