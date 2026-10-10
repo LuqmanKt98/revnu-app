@@ -179,6 +179,73 @@ async function main() {
     await admin.storage.from("documents").remove([`noor-khuzam/${orderId}/signed_contract-test.pdf`]);
   });
 
+  // ---------------------------------------------------------------------
+  // v2: remote ordering, phone e-signature, agreement composer, billing
+  // ---------------------------------------------------------------------
+  console.log("\nv2 · signed-out buyer");
+  for (const rel of ["sale_links", "submissions", "sale_leads", "signing_links", "signatures", "inbox_notifications", "agreement_versions", "platform_invoices", "billing_settings"]) {
+    await t(`cannot read ${rel}`, () => expectNoAccess(anon.from(rel).select("*").limit(5)));
+  }
+  await t("an unknown link code shows nothing", async () => { const v = await expectOk(anon.rpc("public_link_view", { p_code: "ZZZZZZ", p_open: false })); if (v.status !== "not_found") throw new Error("status " + v.status); });
+  await t("cannot create a share link", () => expectErr(anon.rpc("sale_link_create", { p: {} })));
+  await t("cannot save an agreement layout", () => expectErr(anon.rpc("save_agreement_layout", { p: { blocks: [] } })));
+
+  console.log("\nv2 · rep → buyer → rep → buyer");
+  const free = await expectOk(rep.from("units").select("number").eq("status", "available").eq("project_id", "nk-noor-khuzam").limit(1));
+  let link = null, sub = null, acc = null, remoteOrder = null;
+  await t("rep creates a share link", async () => { link = await expectOk(rep.rpc("sale_link_create", { p: { projectId: "nk-noor-khuzam", mode: "units", unitNumbers: [free[0].number], customerHint: { name: "RLS Buyer" } } })); });
+  await t("the buyer's view hides HQ commercials and the routing", async () => {
+    const v = await expectOk(anon.rpc("public_link_view", { p_code: link.slug + "-" + link.code, p_open: false }));
+    if (v.status !== "live") throw new Error("status " + v.status);
+    if ("commercials" in v.project || "plan" in v.developer || "routing" in v.link) throw new Error("internal data exposed");
+  });
+  await t("the buyer cannot submit without consent", () => expectErr(anon.rpc("public_link_submit", { p_code: link.code, p: { customer: { fullName: "RLS Buyer", nationalId: "1000000000" } } }), /CONSENT_REQUIRED/));
+  await t("the buyer cannot submit an invalid national ID", () => expectErr(anon.rpc("public_link_submit", { p_code: link.code, p: { consent: true, customer: { fullName: "RLS Buyer", nationalId: "3000000000" } } }), /INVALID_NATIONAL_ID/));
+  await t("the buyer submits", async () => { const r = await expectOk(anon.rpc("public_link_submit", { p_code: link.code, p: { consent: true, customer: { fullName: "RLS Buyer", nationalId: "1000000000", mobile: "0500000000" } } })); sub = r.submission; });
+  await t("a second submission on the same link is refused", () => expectErr(anon.rpc("public_link_submit", { p_code: link.code, p: { consent: true, customer: { fullName: "Other", nationalId: "1000000001" } } }), /LINK_CLOSED/));
+  await t("the rep sees the submission; Revnu staff see it too", async () => {
+    await expectRows(rep.from("submissions").select("id").eq("id", sub.id), 1);
+    await expectRows(admin.from("submissions").select("id").eq("id", sub.id), 1);
+  });
+  await t("the rep accepts: order issued + signing link", async () => {
+    acc = await expectOk(rep.rpc("submission_accept", { p_id: sub.id, p: { unitPrice: 100000, furnishCost: 0 } }));
+    remoteOrder = acc.orderId;
+    const o = await expectOk(rep.from("orders").select("status, source, sale_link_code").eq("id", remoteOrder).single());
+    if (o.status !== "issued" || o.source !== "remote" || o.sale_link_code !== link.code) throw new Error(JSON.stringify(o));
+  });
+  await t("the signing page masks the national ID", async () => {
+    const v = await expectOk(anon.rpc("public_signing_view", { p_code: acc.signingCode, p_open: false }));
+    if (!/^•+0000$/.test(v.order.customer_national_id)) throw new Error("ID not masked: " + v.order.customer_national_id);
+  });
+  await t("signing is refused before every page is read", () => expectErr(anon.rpc("public_signing_sign", { p_code: acc.signingCode, p: { consent: true, typedName: "RLS Buyer" } }), /READ_ALL/));
+  await t("after reading every page the buyer signs", async () => {
+    await expectOk(anon.rpc("public_signing_read", { p_code: acc.signingCode, p_section: null, p_sections: ["p1", "p2"] }));
+    await expectOk(anon.rpc("public_signing_read", { p_code: acc.signingCode, p_section: "p1" }));
+    await expectOk(anon.rpc("public_signing_read", { p_code: acc.signingCode, p_section: "p2" }));
+    await expectOk(anon.rpc("public_signing_sign", { p_code: acc.signingCode, p: { consent: true, typedName: "RLS Buyer" } }));
+    const o = await expectOk(rep.from("orders").select("status, contract_hash").eq("id", remoteOrder).single());
+    if (o.status !== "signed" || !o.contract_hash) throw new Error(JSON.stringify(o));
+  });
+  await t("the rep sees the signature; the buyer cannot read it back", async () => {
+    await expectRows(rep.from("signatures").select("id").eq("order_id", remoteOrder), 1);
+    await expectNoAccess(anon.from("signatures").select("*").eq("order_id", remoteOrder));
+  });
+  await t("buyer details are locked after signing", () => expectErr(rep.rpc("update_order_customer", { p_order: remoteOrder, p: { fullName: "Changed" } }), /BUYER_LOCKED/));
+
+  console.log("\nv2 · HQ-only functions");
+  await t("a rep cannot save agreement layouts", () => expectErr(rep.rpc("save_agreement_layout", { p: { blocks: [] } }), /not allowed/i));
+  await t("a rep cannot change the price book", () => expectErr(rep.rpc("set_billing_price_book", { p: { onboardingFee: 1 } }), /not allowed/i));
+  await t("developer finance cannot mark platform invoices paid", () => expectErr(finance.rpc("set_platform_invoice", { p_id: "PF-N-Y1", p_dev: "noor-khuzam", p: { status: "paid" } }), /not allowed/i));
+  await t("a rep cannot change the signatory (no contracts perm)", () => expectErr(rep.rpc("set_signatory", { p_dev: "noor-khuzam", p: { authorizedSigner: "x" } }), /not allowed/i));
+  await t("the master agreement is readable by the developer team", () => expectRows(rep.from("agreement_layouts").select("key").eq("key", "master"), 1));
+  await t("a developer cannot read the agreement history", () => expectRows(director.from("agreement_versions").select("id"), 0));
+  await t("clean-up: the remote test order and link are removed", async () => {
+    await expectOk(admin.rpc("delete_order", { p_order: remoteOrder }));
+    await expectRows(admin.from("sale_links").delete().eq("code", link.code).select("code"), 1);
+    // inbox rows are private to their owner (a delete must also pass the read rule), so the rep clears her own
+    await expectOk(rep.from("inbox_notifications").delete().gte("created_at", new Date(Date.now() - 15 * 60e3).toISOString()).in("kind", ["submission", "accepted", "signed"]).select("id"));
+  });
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }

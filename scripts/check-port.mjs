@@ -43,6 +43,12 @@ for (const m of sql.matchAll(/create table (?:if not exists )?(?:public|private)
   }
   tables.set(name, cols);
 }
+// Columns added later: alter table public.x add column [if not exists] y …, add column … (comma-separated clauses)
+for (const m of sql.replace(/--[^\n]*/g, "").matchAll(/alter table (?:if exists )?public\.(\w+)\s+([\s\S]*?);/g)) {   // comments may contain ";"
+  const [, name, body] = m;
+  if (!tables.has(name)) continue;
+  for (const c of body.matchAll(/add column (?:if not exists )?"?(\w+)"?/g)) tables.get(name).add(c[1]);
+}
 
 // A view body contains no ";" until its end, so this is unambiguous.
 const views = new Map();
@@ -76,6 +82,7 @@ for (const m of exportBlock.matchAll(/(?:^|[\s,{])([A-Za-z_][A-Za-z0-9_]*)\s*(?:
 const portalFiles = [
   "portals/sales/SalesApp.jsx", "portals/developer/DeveloperApp.jsx", "portals/revnu/RevnuApp.jsx",
   "portals/shared/contract.jsx", "portals/shared/wordexport.jsx", "lib/data/support.js",
+  "portals/shared/mobile-wizard.jsx", "portals/shared/sign.jsx", "lib/data/remote.js",
 ];
 for (const f of portalFiles) {
   const src = read(f);
@@ -133,7 +140,7 @@ const apiGroups = new Map();
     i += key[0].length - 1;
   }
 }
-for (const f of ["lib/data/store.js", "lib/data/support.js"]) {
+for (const f of ["lib/data/store.js", "lib/data/support.js", "lib/data/remote.js"]) {
   const src = read(f);
   for (const m of src.matchAll(/\bapi\.(\w+)\.(\w+)\(/g)) {
     const [, group, method] = m;
@@ -174,6 +181,12 @@ const MAPPER_RELATION = {
   receivablePaid: "receivable_paid", payouts: "payouts", notifications: "notifications", supportTickets: "support_tickets_v",
   leads: "leads", devPerms: "dev_perms", devRoles: "dev_roles", revnuPerms: "revnu_perms", revnuRoles: "revnu_roles",
   contractVars: "contract_vars",
+  // v2
+  flooringFinishes: "flooring_finishes", flooringZones: "flooring_zones", kitchens: "kitchens", acSystems: "ac_systems",
+  coolingPoints: "cooling_points", layoutOptions: "layout_options", saleLinks: "sale_links", saleLeads: "sale_leads",
+  submissions: "submissions", signingLinks: "signing_links", signatures: "signatures", inbox: "inbox_notifications",
+  agreementLayouts: "agreement_layouts", agreementVersions: "agreement_versions", billingSettings: "billing_settings",
+  platformInvoices: "platform_invoices",
 };
 for (const [mapperName, relation] of Object.entries(MAPPER_RELATION)) {
   const m = mappers[mapperName];
@@ -191,7 +204,7 @@ for (const [mapperName, relation] of Object.entries(MAPPER_RELATION)) {
 for (const f of [...portalFiles, "lib/data/store.js", "app/login/LoginClient.jsx"]) {
   const src = read(f);
   for (const [re, msg] of [
-    [/localStorage\.(get|set|remove)Item\(\s*["']revnu_(?!lang|tour)/, "still reads/writes prototype data in localStorage"],
+    [/localStorage\.(get|set|remove)Item\(\s*["']revnu_(?!lang|tour|deals_layout)/, "still reads/writes prototype data in localStorage"],
     [/sessionStorage\.(get|set|remove)Item\(\s*["']revnu_session/, "still uses the forgeable sessionStorage session (audit SEC-01)"],
     [/f\.size\s*<\s*2500000/, "still contains the silent 2.5 MB file drop (audit B-06)"],
     [/9 STEPS/, "still claims a 9-step flow (audit B-07)"],

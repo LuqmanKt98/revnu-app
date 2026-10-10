@@ -797,7 +797,7 @@ function MobileSaleApp({ developer, me, projects, homeHref }) {
   if (view === "lead" && leadRow) { const fresh = leadRow.kind === "lead" ? (() => { const x = R.leadById(leadRow.lead.id); return x ? { ...leadRow, lead: x } : null; })() : leadRow.kind === "sub" ? (() => { const s = R.submissions().find((y) => y.id === leadRow.s.id); return s && s.status === "pending" ? { ...leadRow, s, units: unitsOf(s) } : null; })() : (() => { const l = R.getLink(leadRow.l.code); return l ? { ...leadRow, l } : null; })();
     if (fresh) return <div className="pw"><LeadPage row={fresh} me={me} developer={developer} project={D.projById(fresh.kind === "lead" ? fresh.lead.projectId : fresh.kind === "sub" ? fresh.s.projectId : fresh.l.projectId) || project} refresh={refresh} onBack={() => { setLeadRow(null); setView("home"); }} actions={actionsFor(fresh, false)} />
       {assign && <AssignSheet sub={assign} me={me} onClose={() => setAssign(null)} onDone={() => { setAssign(null); refresh(); }} />}</div>;
-    setTimeout(() => { setLeadRow(null); setView("home"); }, 0); }
+    setTimeout(() => { setLeadRow(null); setView((v) => (v === "lead" ? "home" : v)); }, 0); }   // async writes: never override a view chosen meanwhile (e.g. "done" after Approve)
 
   const arNote = (n) => { if (!AR) return [n.title, n.body]; let t = n.title, b = n.body || "";
     t = t.replace(/^(.+?) started the journey$/, "$1 بدأ اختيار وحدته").replace(/^(.+?) signed (\S+)$/, "وقع $1 العقد $2").replace(/^(\S+) created for (.+)$/, "تم إنشاء الطلب $1 للعميل $2").replace(/^(.+?) submitted an inquiry · (.+)$/, "$1 أرسل طلب اهتمام · $2").replace(/^(.+?) submitted (.+)$/, "$1 أرسل طلبا على $2").replace(/^(.+?) was assigned to you$/, "تم تحويل $1 إليك");
