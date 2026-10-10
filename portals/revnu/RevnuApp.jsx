@@ -6,6 +6,7 @@
 import React, { useState, useMemo } from "react";
 import D from "@/lib/data/store";
 import { useStoreVersion } from "@/lib/data/useStore";
+import "@/portals/shared/contract";   // window.FullAgreement / agreementCtxFromOrder for the agreement composer preview
 
 const ICONS = {
   dash:     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7.5" height="9" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="5" rx="1.5"/><rect x="13.5" y="11" width="7.5" height="10" rx="1.5"/><rect x="3" y="14" width="7.5" height="7" rx="1.5"/></svg>,
@@ -26,6 +27,7 @@ const NAV = [
   { id: "leads",    label: "Interested",    icon: ICONS.leads,  badge: true },
   { id: "orders",   label: "All orders",    icon: ICONS.orders, requires: "orders" },
   { id: "receivables", label: "Developer payments", icon: ICONS.orders, requires: "orders" },
+  { id: "billing",  label: "Subscriptions & fees", icon: ICONS.orders, requires: "financials" },
   { section: "Partners" },
   { id: "devs",     label: "Developers",    icon: ICONS.devs, requires: "developers" },
   { section: "Organisation" },
@@ -172,11 +174,11 @@ function Tickets() {
       <div className="page-head">
         <div>
           <h1 className="page-title">{AR ? "تذاكر الدعم" : "Support tickets"}</h1>
-          <p className="page-sub">{AR ? "كل ما يبلّغ عنه المطوّرون وفرق المبيعات من داخل بواباتهم. ردّ وغيّر الحالة هنا." : "Everything developers and sales teams report from inside their portals. Reply and change the status here."}</p>
+          <p className="page-sub">{AR ? "كل ما يبلغ عنه المطورون وفرق المبيعات من داخل بواباتهم. رد وغير الحالة هنا." : "Everything developers and sales teams report from inside their portals. Reply and change the status here."}</p>
         </div>
         <span className="chip">{list.filter((t) => t.status !== "resolved").length} {AR ? "مفتوحة" : "open"}</span>
       </div>
-      {list.length === 0 && <div className="card card-pad-lg muted" style={{ textAlign: "center" }}>{AR ? "لا توجد تذاكر بعد — يظهر هنا كل بلاغ يُرسل من زر «الدعم» في بوابات المطوّرين والمبيعات." : "No tickets yet — anything sent from the “Support” button in the developer and sales portals appears here."}</div>}
+      {list.length === 0 && <div className="card card-pad-lg muted" style={{ textAlign: "center" }}>{AR ? "لا توجد تذاكر بعد — يظهر هنا كل بلاغ يرسل من زر «الدعم» في بوابات المطورين والمبيعات." : "No tickets yet — anything sent from the “Support” button in the developer and sales portals appears here."}</div>}
       <div className="stack-md">
         {list.map((t) => (
           <div key={t.id} className="card card-pad-lg">
@@ -199,8 +201,8 @@ function Tickets() {
               </div>
             )}
             <div className="row" style={{ gap: 8, marginTop: 12 }}>
-              <input className="input" placeholder={AR ? "اكتب ردًّا…" : "Write a reply…"} value={reply[t.id] || ""} onChange={(e) => setReply({ ...reply, [t.id]: e.target.value })} />
-              <button className="btn btn-secondary" onClick={() => { if (!(reply[t.id] || "").trim()) return; const txt = reply[t.id].trim(); RS.act(() => RS.addReply(t.id, txt), { pending: AR ? "جارٍ الإرسال…" : "Sending…", done: AR ? "أُرسل الرد." : "Reply sent." }).then(() => { setReply({ ...reply, [t.id]: "" }); tick((x) => x + 1); }); }}>{AR ? "ردّ" : "Reply"}</button>
+              <input className="input" placeholder={AR ? "اكتب ردا…" : "Write a reply…"} value={reply[t.id] || ""} onChange={(e) => setReply({ ...reply, [t.id]: e.target.value })} />
+              <button className="btn btn-secondary" onClick={() => { if (!(reply[t.id] || "").trim()) return; const txt = reply[t.id].trim(); RS.act(() => RS.addReply(t.id, txt), { pending: AR ? "جار الإرسال…" : "Sending…", done: AR ? "أرسل الرد." : "Reply sent." }).then(() => { setReply({ ...reply, [t.id]: "" }); tick((x) => x + 1); }); }}>{AR ? "رد" : "Reply"}</button>
             </div>
           </div>
         ))}
@@ -244,7 +246,7 @@ function App() {
             if (n.section) return <div key={"s" + i} className="side-section">{TT(n.section)}</div>;
             const badge = n.id === "leads" ? D.getInterested().filter((l) => l.status === "new").length : null;
             return (
-              <div key={n.id} className={"side-link " + (page === n.id ? "active" : "")} onClick={() => { setWorkspace(null); setPage(n.id); }}>
+              <div key={n.id} className={"side-link " + (page === n.id && (!workspace || n.id === "devs") ? "active" : "")} onClick={() => { setWorkspace(null); setPage(n.id); }}>
                 {n.icon}<span>{TT(n.label)}</span>
                 {badge ? <span className="chip chip-cyan" style={{ marginLeft: "auto", height: 18, fontSize: 10 }}>{badge}</span> : null}
               </div>
@@ -262,6 +264,7 @@ function App() {
               {page === "leads"  && <Interested />}
               {page === "orders" && <AllOrders />}
               {page === "receivables" && <Receivables />}
+              {page === "billing" && <Billing onOpenDev={(id) => { setWorkspace(id); setPage("devs"); }} />}
               {page === "devs"   && <Developers onOpen={setWorkspace} />}
               {page === "team"   && <RevnuTeam />}
             </>)}
@@ -316,7 +319,7 @@ function Dashboard() {
       <div className="page-head">
         <div>
           <h1 className="page-title">{TT("Dashboard")}</h1>
-          <p className="page-sub">{window.I18N && window.I18N.isAR ? "صحّة المنصّة عبر جميع المطوّرين." : "Cross-developer platform health."}</p>
+          <p className="page-sub">{window.I18N && window.I18N.isAR ? "صحة المنصة عبر جميع المطورين." : "Cross-developer platform health."}</p>
         </div>
       </div>
 
@@ -324,7 +327,7 @@ function Dashboard() {
         <Stat label="Developers"          value={D.DEVELOPERS.length} />
         <Stat label="Projects"            value={D.PROJECTS.length}   />
         <Stat label="Units in inventory"  value={D.UNITS.length} />
-        <Stat label={window.I18N && window.I18N.isAR ? "صفقات قيد التنفيذ" : "Deals in progress"} value={active.length} delta={window.I18N && window.I18N.isAR ? (closed.length + " دفع عميلها · " + orders.length + " إجمالاً") : `${closed.length} customer-paid · ${orders.length} total`} />
+        <Stat label={window.I18N && window.I18N.isAR ? "صفقات قيد التنفيذ" : "Deals in progress"} value={active.length} delta={window.I18N && window.I18N.isAR ? (closed.length + " دفع عميلها · " + orders.length + " إجمالا") : `${closed.length} customer-paid · ${orders.length} total`} />
       </div>
 
       {/* ============== Revnu money flow ============== */}
@@ -332,7 +335,7 @@ function Dashboard() {
         <div className="row-between" style={{ marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
           <div>
             <div className="eyebrow">{TT("// REVNU MONEY FLOW")}</div>
-            <div className="display-sm" style={{ marginTop: 2 }}>{window.I18N && window.I18N.isAR ? "دخلنا — ما يدفعه لنا المطوّرون" : "Our income — what developers pay us"}</div>
+            <div className="display-sm" style={{ marginTop: 2 }}>{window.I18N && window.I18N.isAR ? "دخلنا — ما يدفعه لنا المطورون" : "Our income — what developers pay us"}</div>
           </div>
           <span className="soft" style={{ fontSize: 11.5 }}>{window.I18N && window.I18N.isAR ? (closed.length + " صفقة مغلقة · " + active.length + " وحدة نشطة") : (closed.length + " closed deal" + (closed.length === 1 ? "" : "s") + " · " + active.length + " active unit" + (active.length === 1 ? "" : "s"))}</span>
         </div>
@@ -341,22 +344,22 @@ function Dashboard() {
           {/* Income (what developers pay Revnu) */}
           <div className="card card-pad" style={{ background: "var(--bg-card)" }}>
             <div className="row-between" style={{ marginBottom: 12 }}>
-              <strong style={{ fontSize: 14 }}>{window.I18N && window.I18N.isAR ? "دخلنا من المطوّرين" : "Income from developers"}</strong>
+              <strong style={{ fontSize: 14 }}>{window.I18N && window.I18N.isAR ? "دخلنا من المطورين" : "Income from developers"}</strong>
               <span className="chip">{window.I18N && window.I18N.isAR ? "تأثيث + منزل ذكي" : "furnishing + smart"}</span>
             </div>
-            <FlowRow k={window.I18N && window.I18N.isAR ? "المُحصّل حتى الآن" : "Collected so far"} v={D.fmtSAR(incomeCollected)} sub={window.I18N && window.I18N.isAR ? "دفعات المطوّرين المستلمة" : "developer payments received"} positive />
-            <FlowRow k={window.I18N && window.I18N.isAR ? "المتبقّي" : "Outstanding"} v={D.fmtSAR(incomeOutstanding)} sub={window.I18N && window.I18N.isAR ? "مستحق على المطوّرين" : "due from developers"} emphasized />
-            <div className="soft" style={{ fontSize: 10.5, marginTop: 8, lineHeight: 1.5 }}>{window.I18N && window.I18N.isAR ? "هذا دخلنا — وليس الربح. نُسدّد منه لشركات التأثيث والمنزل الذكي (الهوامش خارج النظام)." : "This is income, not profit — we pay the furnishing & smart-home suppliers out of it (margins handled off-system)."}</div>
+            <FlowRow k={window.I18N && window.I18N.isAR ? "المحصل حتى الآن" : "Collected so far"} v={D.fmtSAR(incomeCollected)} sub={window.I18N && window.I18N.isAR ? "دفعات المطورين المستلمة" : "developer payments received"} positive />
+            <FlowRow k={window.I18N && window.I18N.isAR ? "المتبقي" : "Outstanding"} v={D.fmtSAR(incomeOutstanding)} sub={window.I18N && window.I18N.isAR ? "مستحق على المطورين" : "due from developers"} emphasized />
+            <div className="soft" style={{ fontSize: 10.5, marginTop: 8, lineHeight: 1.5 }}>{window.I18N && window.I18N.isAR ? "هذا دخلنا — وليس الربح. نسدد منه لشركات التأثيث والمنزل الذكي (الهوامش خارج النظام)." : "This is income, not profit — we pay the furnishing & smart-home suppliers out of it (margins handled off-system)."}</div>
           </div>
 
           {/* Operations — locked units only (no income tracked here) */}
           <div className="card card-pad" style={{ background: "var(--bg-card)" }}>
             <div className="row-between" style={{ marginBottom: 12 }}>
-              <strong style={{ fontSize: 14 }}>{window.I18N && window.I18N.isAR ? "التشغيل — وحدات مُسجّلة" : "Operations — locked units"}</strong>
-              <span className="chip">{window.I18N && window.I18N.isAR ? "يُدار خارج النظام" : "tracked off-system"}</span>
+              <strong style={{ fontSize: 14 }}>{window.I18N && window.I18N.isAR ? "التشغيل — وحدات مسجلة" : "Operations — locked units"}</strong>
+              <span className="chip">{window.I18N && window.I18N.isAR ? "يدار خارج النظام" : "tracked off-system"}</span>
             </div>
-            <FlowRow k={window.I18N && window.I18N.isAR ? "وحدات مرتبطة بالتشغيل" : "Units locked for operations"} v={String(opsLocked)} unit={window.I18N && window.I18N.isAR ? "وحدة" : "units"} sub={window.I18N && window.I18N.isAR ? "أُبلغت شركة التشغيل بها" : "operator company notified"} positive />
-            <div className="soft" style={{ fontSize: 10.5, marginTop: 8, lineHeight: 1.5 }}>{window.I18N && window.I18N.isAR ? "لا نتتبّع دخل التشغيل هنا — فقط الوحدات المُسجّلة. يرى المطوّر رقم الوحدة ونسبته المتفق عليها فقط." : "We don't track operating income here — only which units are locked in. The developer sees just the unit and their agreed % cut."}</div>
+            <FlowRow k={window.I18N && window.I18N.isAR ? "وحدات مرتبطة بالتشغيل" : "Units locked for operations"} v={String(opsLocked)} unit={window.I18N && window.I18N.isAR ? "وحدة" : "units"} sub={window.I18N && window.I18N.isAR ? "أبلغت شركة التشغيل بها" : "operator company notified"} positive />
+            <div className="soft" style={{ fontSize: 10.5, marginTop: 8, lineHeight: 1.5 }}>{window.I18N && window.I18N.isAR ? "لا نتتبع دخل التشغيل هنا — فقط الوحدات المسجلة. يرى المطور رقم الوحدة ونسبته المتفق عليها فقط." : "We don't track operating income here — only which units are locked in. The developer sees just the unit and their agreed % cut."}</div>
           </div>
         </div>
       </div>
@@ -364,8 +367,8 @@ function Dashboard() {
       <div className="card">
         <div className="row-between" style={{ padding: "16px 20px 8px" }}>
           <div>
-            <div className="eyebrow">{window.I18N && window.I18N.isAR ? "المطوّرون" : "Developers"}</div>
-            <div className="display-sm" style={{ marginTop: 2 }}>{window.I18N && window.I18N.isAR ? "النشاط حسب المطوّر" : "Activity by developer"}</div>
+            <div className="eyebrow">{window.I18N && window.I18N.isAR ? "المطورون" : "Developers"}</div>
+            <div className="display-sm" style={{ marginTop: 2 }}>{window.I18N && window.I18N.isAR ? "النشاط حسب المطور" : "Activity by developer"}</div>
           </div>
         </div>
         <table className="tbl tbl-flush">
@@ -441,11 +444,11 @@ const REVNU_ROLES = [
   { id: "team",        en: "Team",        ar: "عضو فريق",     perms: ["orders"] },
 ];
 const REVNU_PERMS = [
-  { id: "developers", en: "Manage developers",   ar: "إدارة المطوّرين" },
+  { id: "developers", en: "Manage developers",   ar: "إدارة المطورين" },
   { id: "orders",     en: "View orders & payments", ar: "عرض الطلبات والمدفوعات" },
   { id: "financials", en: "View financials",     ar: "عرض البيانات المالية" },
   { id: "team",       en: "Manage team",         ar: "إدارة الفريق" },
-  { id: "settings",   en: "Platform settings",   ar: "إعدادات المنصّة" },
+  { id: "settings",   en: "Platform settings",   ar: "إعدادات المنصة" },
 ];
 function loadRevnuTeam() {
   return D.USERS.filter((u) => u.role === "revnu_admin").map((u) => ({ id: u.id, name: u.name, nameAr: u.nameAr || "", email: u.email, roleId: u.roleId || "team", perms: u.perms || null }));
@@ -477,7 +480,7 @@ function RevnuTeam() {
       <div className="page-head">
         <div>
           <h1 className="page-title">{TL("My team", "فريقي")}</h1>
-          <p className="page-sub">{TL("Revnu staff who can access this platform. Assign each member a role and fine-tune their permissions.", "موظفو Revnu الذين يمكنهم الوصول إلى المنصّة. عيّن لكل عضو دوراً واضبط صلاحياته.")}</p>
+          <p className="page-sub">{TL("Revnu staff who can access this platform. Assign each member a role and fine-tune their permissions.", "موظفو Revnu الذين يمكنهم الوصول إلى المنصة. عين لكل عضو دورا واضبط صلاحياته.")}</p>
         </div>
         {revnuHasPerm("team") && <button className="btn btn-primary" onClick={() => setEditing({ _new: true, name: "", email: "", roleId: "team" })}>{TL("+ Add member", "+ إضافة عضو")}</button>}
       </div>
@@ -581,7 +584,7 @@ function RevnuMemberDrawer({ member, onSave, onClose }) {
           <button className="btn btn-primary grow" disabled={!valid} onClick={() => onSave({ ...member, _new: undefined, id: member.id, name: name.trim(), nameAr: nameAr.trim(), email: email.trim(), roleId, perms })}>{member._new ? TL("Add member", "إضافة العضو") : TL("Save changes", "حفظ التغييرات")}</button>
           <button className="btn btn-ghost" onClick={onClose}>{TL("Cancel", "إلغاء")}</button>
         </div>
-        {!valid && <div className="soft" style={{ fontSize: 11.5, marginTop: 8 }}>{TL("Enter a name and a valid email.", "أدخل اسماً وبريداً إلكترونياً صحيحاً.")}</div>}
+        {!valid && <div className="soft" style={{ fontSize: 11.5, marginTop: 8 }}>{TL("Enter a name and a valid email.", "أدخل اسما وبريدا إلكترونيا صحيحا.")}</div>}
       </div>
     </div>
   );
@@ -598,7 +601,7 @@ function Developers({ onOpen }) {
       <div className="page-head">
         <div>
           <h1 className="page-title">{TT("Developers")}</h1>
-          <p className="page-sub">{window.I18N && window.I18N.isAR ? "مطوّرون بعلامتهم الخاصة على المنصّة. لكلٍّ مساحة عمل مستقلّة — الهوية والمشاريع والوحدات والتصاميم والباقات والتشغيل والمدفوعات والعقود." : "White-label tenants on the platform. Each has its own workspace — brand, projects, units, designs, packages, ops, payments and contracts, all isolated."}</p>
+          <p className="page-sub">{window.I18N && window.I18N.isAR ? "مطورون بعلامتهم الخاصة على المنصة. لكل مساحة عمل مستقلة — الهوية والمشاريع والوحدات والتصاميم والباقات والتشغيل والمدفوعات والعقود." : "White-label tenants on the platform. Each has its own workspace — brand, projects, units, designs, packages, ops, payments and contracts, all isolated."}</p>
         </div>
         {revnuHasPerm("developers") && <button className="btn btn-primary" onClick={() => setOnboarding(true)}>+ Onboard developer</button>}
       </div>
@@ -660,6 +663,11 @@ function FeatureToggleCard({ project }) {
     { id: "furnishing",   label: "Furnishing",     hint: "Design + package + smart-home steps" },
     { id: "fitout",       label: "Fit-out",        hint: "Optional turnkey fit-out add-on per package" },
     { id: "smartHome",    label: "Smart home",     hint: "Sub-step under furnishing" },
+    { id: "kitchens",     label: "Kitchens",       hint: "3 designs × 3 palettes · cabinets-only or full with appliances" },
+    { id: "cooling",      label: "Cooling / AC",   hint: "AC systems by brand · priced per room from each unit type's cooling points" },
+    { id: "flooring",     label: "Flooring",       hint: "Floor & wall finishes by zone · priced per m² from each unit type's zone areas" },
+    { id: "layout",       label: "Layout changes", hint: "Pre-approved wall & door changes per unit type · auto-priced per metre + door, flat override" },
+    { id: "remote",       label: "Remote ordering", hint: "“Send to customer” link · buyer completes on the phone · rep confirms with one tap · e-signature on the buyer's phone" },
     { id: "operations",   label: "Operations",     hint: "Ops model + calculator + PM contract" },
   ];
   return (
@@ -727,10 +735,10 @@ function RevnuTermsEditor({ project, dev }) {
   };
   return (
     <div style={{ marginTop: 22, padding: "16px 16px 14px", border: "1px solid var(--line)", borderRadius: "var(--r-md)", background: "var(--bg-sunken)" }}>
-      <div className="eyebrow" style={{ marginBottom: 4 }}>{AR ? "// شروط الدفع لـ REVNU" : "// REVNU PAYMENT TERMS"}</div>
+      <div className="eyebrow" style={{ marginBottom: 4 }}>{AR ? "// شروط الدفع ل REVNU" : "// REVNU PAYMENT TERMS"}</div>
       <p className="soft" style={{ fontSize: 11.5, margin: "0 0 12px", lineHeight: 1.5 }}>
         {AR
-          ? "كيف يُسدّد هذا المشروع لـ Revnu قيمة التأثيث / الذكي / التشغيل لكل طلب. أضف ما تشاء من الدفعات — الأسماء والنِسب حرة، ويجب أن يكون مجموعها 100%."
+          ? "كيف يسدد هذا المشروع ل Revnu قيمة التأثيث / الذكي / التشغيل لكل طلب. أضف ما تشاء من الدفعات — الأسماء والنسب حرة، ويجب أن يكون مجموعها 100%."
           : "How this project settles each order's furnishing / smart / operations addendum with Revnu. Add as many milestones as you need — labels and percentages are free-form, and must total 100%."}
       </p>
       <div className="stack-sm">
@@ -759,7 +767,7 @@ function RevnuTermsEditor({ project, dev }) {
         <button className="btn btn-primary btn-sm" disabled={!ok} onClick={save}>{AR ? "حفظ الشروط" : "Save terms"}</button>
         {saved && <span className="soft" style={{ fontSize: 12, color: "var(--positive, #1f8a5b)" }}>{AR ? "✓ تم الحفظ لهذه الجلسة" : "✓ Saved for this session"}</span>}
         {!ok && sum !== 100 && <span className="soft" style={{ fontSize: 12, color: "var(--warning, #b8860b)" }}>{AR ? "يجب أن يكون المجموع 100%" : "Must total 100%"}</span>}
-        {!ok && sum === 100 && <span className="soft" style={{ fontSize: 12, color: "var(--warning, #b8860b)" }}>{AR ? "كل دفعة تحتاج اسماً" : "Every milestone needs a name"}</span>}
+        {!ok && sum === 100 && <span className="soft" style={{ fontSize: 12, color: "var(--warning, #b8860b)" }}>{AR ? "كل دفعة تحتاج اسما" : "Every milestone needs a name"}</span>}
       </div>
     </div>
   );
@@ -831,7 +839,7 @@ function DevDrawer({ dev, onClose }) {
             ))}
           </div>
 
-          <div className="soft" style={{ fontSize: 11.5, marginTop: 18 }}>{window.I18N && window.I18N.isAR ? "بوابات المطوّر تُفتح بحسابات فريقه فقط — من صفحة الدخول الخاصة به." : "The developer's portals open only with their own team accounts — from their sign-in page."}</div>
+          <div className="soft" style={{ fontSize: 11.5, marginTop: 18 }}>{window.I18N && window.I18N.isAR ? "بوابات المطور تفتح بحسابات فريقه فقط — من صفحة الدخول الخاصة به." : "The developer's portals open only with their own team accounts — from their sign-in page."}</div>
         </div>
       </div>
     </div>
@@ -1042,7 +1050,7 @@ function AllOrders() {
       <div className="page-head">
         <div>
           <h1 className="page-title">{TT("All orders")}</h1>
-          <p className="page-sub">{window.I18N && window.I18N.isAR ? "كل الطلبات عبر جميع المطوّرين." : "Every order across every developer."}</p>
+          <p className="page-sub">{window.I18N && window.I18N.isAR ? "كل الطلبات عبر جميع المطورين." : "Every order across every developer."}</p>
         </div>
       </div>
 
@@ -1128,7 +1136,7 @@ function Interested() {
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">{window.I18N && window.I18N.isAR ? "المطوّرون المهتمّون" : "Interested developers"}</h1>
+          <h1 className="page-title">{window.I18N && window.I18N.isAR ? "المطورون المهتمون" : "Interested developers"}</h1>
           <p className="page-sub">Leads from the marketing site and direct outreach. Move them through the pipeline.</p>
         </div>
         <button className="btn btn-secondary" onClick={() => D.downloadCSV("interested-developers.csv", D.getInterested(), [{ key: "createdAt", label: "Submitted" }, { key: "name", label: "Name" }, { key: "role", label: "Role" }, { key: "company", label: "Company" }, { key: "email", label: "Email" }, { key: "phone", label: "Phone" }, { key: "city", label: "City" }, { key: "units", label: "Project size" }, { key: "status", label: "Status" }, { key: "notes", label: "Notes" }])}>{window.I18N?window.I18N.t("Export CSV"):"Export CSV"}</button>
@@ -1328,6 +1336,7 @@ function DeveloperWorkspace({ devId, onBack }) {
     { id: "brand",     label: "Brand & onboarding" },
     { id: "revnuterms", label: "Revnu payment terms" },
     { id: "commissions", label: "Sales commissions" },
+    { id: "plan",      label: "Plan & billing" },
     { id: "projects",  label: "Projects" },
     { id: "team",      label: "Team" },
     { id: "orders",    label: "Orders" },
@@ -1370,8 +1379,8 @@ function DeveloperWorkspace({ devId, onBack }) {
       {tab === "brand"    && <WsBrand    dv={dv} />}
       {tab === "revnuterms" && (
         <div className="card card-pad-lg">
-          <WsCardHead eye="// REVNU ↔ DEVELOPER" title={window.I18N && window.I18N.isAR ? "ما يدفعه هذا المطوّر لـ Revnu" : "What this developer pays Revnu"}
-            sub={window.I18N && window.I18N.isAR ? "يُحصّل المطوّر قيمة التأثيث من المشتري ضمن سعر الوحدة، ثم يُسوّيها مع Revnu وفق الشروط أدناه — لكل مشروع شروطه الخاصة." : "The developer collects the furnishing value inside the unit price, then settles it with Revnu on the terms below. Each project has its own terms."} />
+          <WsCardHead eye="// REVNU ↔ DEVELOPER" title={window.I18N && window.I18N.isAR ? "ما يدفعه هذا المطور ل Revnu" : "What this developer pays Revnu"}
+            sub={window.I18N && window.I18N.isAR ? "يحصل المطور قيمة التأثيث من المشتري ضمن سعر الوحدة، ثم يسويها مع Revnu وفق الشروط أدناه — لكل مشروع شروطه الخاصة." : "The developer collects the furnishing value inside the unit price, then settles it with Revnu on the terms below. Each project has its own terms."} />
           {D.PROJECTS.filter((p) => p.developerId === dv.id).map((p) => (
             <div key={p.id} style={{ marginTop: 8 }}>
               <div className="row" style={{ gap: 8, alignItems: "baseline", marginTop: 14 }}>
@@ -1391,6 +1400,7 @@ function DeveloperWorkspace({ devId, onBack }) {
       {tab === "projects" && <WsProjects dv={dv} T={T} onOpenProject={setProjectId} onChange={bump} />}
       {tab === "team"     && <WsTeam     T={T} />}
       {tab === "commissions" && <WsCommissions dv={dv} />}
+      {tab === "plan"     && <WsPlan dv={dv} />}
       {tab === "orders"   && <WsOrders   T={T} onChange={bump} />}
     </>
   );
@@ -1398,14 +1408,14 @@ function DeveloperWorkspace({ devId, onBack }) {
 
 const WS_AR = {
   // eyebrows
-  "// REVNU ↔ DEVELOPER": "// Revnu ↔ المطوّر", "// BRAND": "// الهوية", "// PROJECTS": "// المشاريع",
+  "// REVNU ↔ DEVELOPER": "// Revnu ↔ المطور", "// BRAND": "// الهوية", "// PROJECTS": "// المشاريع",
   "// DESIGNS": "// التصاميم", "// FURNISHING PACKAGES": "// باقات التأثيث", "// SMART HOME": "// المنزل الذكي",
   "// OPERATIONS": "// التشغيل", "// CONTRACTS": "// العقود", "// TEAM": "// الفريق", "// ORDERS": "// الطلبات",
   "// PROJECT SETTINGS": "// إعدادات المشروع", "// UNIT TYPES": "// أنواع الوحدات", "// UNITS": "// الوحدات",
   // titles
-  "What this developer pays Revnu": "ما يدفعه هذا المطوّر لـ Revnu",
+  "What this developer pays Revnu": "ما يدفعه هذا المطور ل Revnu",
   "Brand & onboarding details": "تفاصيل الهوية والإعداد",
-  "Projects · each fully configurable": "المشاريع · كلٌّ قابل للتهيئة بالكامل",
+  "Projects · each fully configurable": "المشاريع · كل قابل للتهيئة بالكامل",
   "Design library": "مكتبة التصاميم",
   "Packages · per-type pricing · BOQ": "الباقات · تسعير حسب النوع · جدول الكميات",
   "Smart-home tiers": "باقات المنزل الذكي",
@@ -1415,10 +1425,10 @@ const WS_AR = {
   "Project details, commercials & features": "تفاصيل المشروع والشروط التجارية والميزات",
   "Type media — floor plan, 3D render & masterplan": "وسائط النوع — المخطط، الرندر ثلاثي الأبعاد والمخطط العام",
   // subs
-  "The developer collects the furnishing value from the buyer inside the unit price, then settles it with Revnu on the terms below. Applied to every order under this developer.": "يُحصّل المطوّر قيمة التأثيث من المشتري ضمن سعر الوحدة، ثم يُسوّيها مع Revnu وفق الشروط أدناه. تنطبق على كل طلب لدى هذا المطوّر.",
+  "The developer collects the furnishing value from the buyer inside the unit price, then settles it with Revnu on the terms below. Applied to every order under this developer.": "يحصل المطور قيمة التأثيث من المشتري ضمن سعر الوحدة، ثم يسويها مع Revnu وفق الشروط أدناه. تنطبق على كل طلب لدى هذا المطور.",
   "Logo, colors, legal entity and primary contact. This is what the sales portal will look like to their customers.": "الشعار والألوان والكيان القانوني وجهة الاتصال. هكذا ستبدو بوابة المبيعات لعملائهم.",
   "Design library": "مكتبة التصاميم",
-  "Add, edit, change status. Status changes show up live for the developer's sales team.": "أضف وعدّل وغيّر الحالة. تظهر تغييرات الحالة مباشرةً لفريق مبيعات المطوّر.",
+  "Add, edit, change status. Status changes show up live for the developer's sales team.": "أضف وعدل وغير الحالة. تظهر تغييرات الحالة مباشرة لفريق مبيعات المطور.",
 };
 
 function WsCardHead({ eye, title, sub, action }) {
@@ -1471,12 +1481,12 @@ function WsBrand({ dv }) {
       <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 18 }}>
         <div className="card card-pad-lg">
           <div className="eyebrow" style={{ marginBottom: 10 }}>{TT("LEGAL ENTITY")}</div>
-          <BiField label={AR ? "اسم المطوّر (الهوية في المنصة)" : "Developer name (brand shown across the platform)"} en={name} ar={nameAr}
-            onEn={setName} onAr={setNameAr} placeholder="Developer name" placeholderAr="اسم المطوّر بالعربية" />
+          <BiField label={AR ? "اسم المطور (الهوية في المنصة)" : "Developer name (brand shown across the platform)"} en={name} ar={nameAr}
+            onEn={setName} onAr={setNameAr} placeholder="Developer name" placeholderAr="اسم المطور بالعربية" />
           <BiField label={AR ? "الاسم القانوني (يظهر في العقود فقط)" : "Legal entity name (contracts only)"} en={legalName} ar={legalNameAr}
             onEn={setLegalName} onAr={setLegalNameAr} placeholder="e.g. Grova Tilal Real Estate Development Company" placeholderAr="مثال: شركة جروفا تلال للتطوير العقاري" />
-          <BiField label={AR ? "المفوّض بالتوقيع (يظهر في العقد)" : "Authorised signatory (appears on the contract)"} en={signer} ar={signerAr}
-            onEn={setSigner} onAr={setSignerAr} placeholder="e.g. Abdullah Najjar" placeholderAr="مثال: عبدالله النجّار" />
+          <BiField label={AR ? "المفوض بالتوقيع (يظهر في العقد)" : "Authorised signatory (appears on the contract)"} en={signer} ar={signerAr}
+            onEn={setSigner} onAr={setSignerAr} placeholder="e.g. Abdullah Najjar" placeholderAr="مثال: عبدالله النجار" />
           <BiField label={AR ? "المنصب / الصفة (يظهر تحت التوقيع)" : "Signatory title (appears under the signature)"} en={signerTitle} ar={signerTitleAr}
             onEn={setSignerTitle} onAr={setSignerTitleAr} placeholder="e.g. Chief Executive Officer" placeholderAr="مثال: الرئيس التنفيذي" />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -1511,10 +1521,10 @@ function WsBrand({ dv }) {
           <hr className="hr-thin" style={{ margin: "14px 0" }} />
           <div className="eyebrow" style={{ marginBottom: 10 }}>{AR ? "الشعار" : "LOGO"}</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <DevLogoSlot dv={dv} field="logo" label={AR ? "ملوّن (خلفية فاتحة)" : "Full-color (light bg)"} darkPreview={false} />
+            <DevLogoSlot dv={dv} field="logo" label={AR ? "ملون (خلفية فاتحة)" : "Full-color (light bg)"} darkPreview={false} />
             <DevLogoSlot dv={dv} field="logoDark" label={AR ? "للوضع الداكن (خلفية داكنة)" : "Dark-mode (dark bg)"} darkPreview={true} />
           </div>
-          <div className="soft" style={{ fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>{AR ? "يُستخدم الشعار الملوّن على الخلفيات الفاتحة (الترويسات)، والنسخة الداكنة على الخلفيات الداكنة (غلاف العقد)." : "Full-color shows on light backgrounds (letterheads); the dark-mode logo shows on dark backgrounds (e.g. the contract cover)."}</div>
+          <div className="soft" style={{ fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>{AR ? "يستخدم الشعار الملون على الخلفيات الفاتحة (الترويسات)، والنسخة الداكنة على الخلفيات الداكنة (غلاف العقد)." : "Full-color shows on light backgrounds (letterheads); the dark-mode logo shows on dark backgrounds (e.g. the contract cover)."}</div>
           <div style={{ marginTop: 14, padding: 14, borderRadius: "var(--r-md)", background: primary, color: "#fff" }}>
             <div className="row" style={{ gap: 10 }}>
               <span style={{ width: 28, height: 28, borderRadius: 7, background: "rgba(255,255,255,0.2)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{dv.initials}</span>
@@ -1583,7 +1593,12 @@ function WsProjects({ dv, T, onOpenProject, onChange }) {
                   { id: "furnishing",   label: "Furnishing",     hint: "Design + package + smart-home" },
                   { id: "fitout",       label: "Fit-out",        hint: "Turnkey fit-out add-on per package" },
                   { id: "smartHome",    label: "Smart home",     hint: "Sub-step under furnishing" },
-                                { id: "operations",   label: "Operations",     hint: "Ops + calculator + PM contract" },
+                  { id: "kitchens",     label: "Kitchens",       hint: "3 designs × 3 palettes · cabinets or full kitchen" },
+                  { id: "cooling",      label: "Cooling / AC",   hint: "AC by brand · priced per cooling point" },
+                  { id: "flooring",     label: "Flooring",       hint: "Finishes by zone · priced per m²" },
+                  { id: "layout",       label: "Layout changes", hint: "Walls & doors · pre-approved per unit type" },
+                  { id: "remote",       label: "Remote ordering", hint: "WhatsApp link · rep confirms · e-sign on the buyer's phone" },
+                  { id: "operations",   label: "Operations",     hint: "Ops + calculator + PM contract" },
                 ].map((opt) => <FeatureRow key={opt.id} project={p} opt={opt} />)}
               </div>
             </div>
@@ -1605,7 +1620,7 @@ function NewProjectDrawer({ dv, onClose, onCreated }) {
     deliveryQ: "Q4",
     deliveryY: "2027",
     totalUnits: 100,
-    features: Object.assign({ furnishing: true, smartHome: true, operations: true, fitout: false }, (dv.masterAgreement && dv.masterAgreement.defaultFeatures) || {}),
+    features: Object.assign({ furnishing: true, smartHome: true, operations: true, fitout: false, kitchens: false, cooling: false, flooring: false, layout: false }, (dv.masterAgreement && dv.masterAgreement.defaultFeatures) || {}),
     custFee: 22,
     devShare: 6,
     salesPct: 1.0,
@@ -1692,6 +1707,11 @@ function NewProjectDrawer({ dv, onClose, onCreated }) {
               { id: "furnishing",   label: "Furnishing" },
               { id: "fitout",       label: "Fit-out" },
               { id: "smartHome",    label: "Smart home" },
+              { id: "kitchens",     label: "Kitchens" },
+              { id: "cooling",      label: "Cooling / AC" },
+              { id: "flooring",     label: "Flooring" },
+              { id: "layout",       label: "Layout changes" },
+              { id: "remote",       label: "Remote ordering" },
               { id: "operations",   label: "Operations" },
             ].map((f) => (
               <label key={f.id} style={{ padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 6, background: p.features[f.id] ? "var(--bg-sunken)" : "var(--bg-card)", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
@@ -1719,7 +1739,7 @@ function NewProjectDrawer({ dv, onClose, onCreated }) {
           </div>
 
           <div className="soft" style={{ fontSize: 11.5, marginTop: 4, padding: "10px 12px", background: "var(--bg-sunken)", borderRadius: 6 }}>
-            {window.I18N && window.I18N.isAR ? "يُنشأ مشروع فارغ بدون تصاميم / باقات / منزل ذكي / تشغيل / عقود. أكمل إعداد كل منها في مساحة المشروع." : "A blank project is created with empty designs / packages / smart / ops / contracts. Configure each in the project workspace afterwards."}
+            {window.I18N && window.I18N.isAR ? "ينشأ مشروع فارغ بدون تصاميم / باقات / منزل ذكي / تشغيل / عقود. أكمل إعداد كل منها في مساحة المشروع." : "A blank project is created with empty designs / packages / smart / ops / contracts. Configure each in the project workspace afterwards."}
           </div>
 
           <hr className="hr-thin" />
@@ -1790,9 +1810,9 @@ function MetricChip({ k, v }) {
 }
 
 function FeatureRow({ project, opt }) {
-  const SKIPPABLE = { furnishing: true, smartHome: true, operations: true }; // fit-out is already optional by nature
+  const SKIPPABLE = { furnishing: true, smartHome: true, operations: true, kitchens: true, cooling: true, flooring: true, layout: true }; // fit-out is already optional by nature
   const [, force] = useState(0);
-  const on = !!(project.features && project.features[opt.id]);
+  const on = opt.id === "remote" ? !!project.features && project.features.remote !== false : !!(project.features && project.features[opt.id]);
   const canSkip = !!(project.optional && project.optional[opt.id]);
   const toggleOn = () => { window.RevnuSupport.act(() => D.setProjectFlags(project.id, { features: { [opt.id]: !on } })).then(() => force((x) => x + 1)); };
   const toggleSkip = () => { window.RevnuSupport.act(() => D.setProjectFlags(project.id, { optional: { [opt.id]: !canSkip } })).then(() => force((x) => x + 1)); };
@@ -1987,8 +2007,8 @@ function DesignDrawer({ design, onClose, projectId }) {
             </div>
             <div style={{ fontSize: 11.5, color: "var(--text-soft)", marginBottom: 10 }}>{window.I18N && window.I18N.isAR ? "أضف عدة لوحات ألوان لهذا التصميم — يختار العميل واحدة في المبيعات وتظهر في العقد." : "Add several colourways for this design — the customer picks one in the sales flow and it appears in the contract."}</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-              <Labeled label={AR ? "ماذا تغيّر اللوحة؟ (إنجليزي)" : "What the palette changes (English)"}><textarea className="input" rows={2} style={{ resize: "vertical", fontSize: 12 }} value={d.paletteNote || ""} onChange={(e) => set({ paletteNote: e.target.value })} placeholder="Accessories, cushions, rugs, bedding, wall art…" /></Labeled>
-              <Labeled label="ماذا تغيّر اللوحة؟ (عربي)"><textarea className="input" dir="rtl" rows={2} style={{ resize: "vertical", fontSize: 12, fontFamily: "var(--font-ar)" }} value={d.paletteNoteAr || ""} onChange={(e) => set({ paletteNoteAr: e.target.value })} placeholder="الإكسسوارات والمخدات والسجاد والمفارش واللوحات…" /></Labeled>
+              <Labeled label={AR ? "ماذا تغير اللوحة؟ (إنجليزي)" : "What the palette changes (English)"}><textarea className="input" rows={2} style={{ resize: "vertical", fontSize: 12 }} value={d.paletteNote || ""} onChange={(e) => set({ paletteNote: e.target.value })} placeholder="Accessories, cushions, rugs, bedding, wall art…" /></Labeled>
+              <Labeled label="ماذا تغير اللوحة؟ (عربي)"><textarea className="input" dir="rtl" rows={2} style={{ resize: "vertical", fontSize: 12, fontFamily: "var(--font-ar)" }} value={d.paletteNoteAr || ""} onChange={(e) => set({ paletteNoteAr: e.target.value })} placeholder="الإكسسوارات والمخدات والسجاد والمفارش واللوحات…" /></Labeled>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {d.palettes.map((pal, pi) => (
@@ -2022,10 +2042,10 @@ function DesignDrawer({ design, onClose, projectId }) {
           <div>
             <div className="row-between" style={{ marginBottom: 8 }}>
               <div className="eyebrow">{TT("3D INTERIOR PICTURES")}</div>
-              <button className="btn btn-sm btn-secondary" onClick={() => designImgInput.current && designImgInput.current.click()}>{imgBusy ? (AR ? "جارٍ الرفع…" : "Uploading…") : (AR ? "+ رفع صورة" : "+ Upload image")}</button>
+              <button className="btn btn-sm btn-secondary" onClick={() => designImgInput.current && designImgInput.current.click()}>{imgBusy ? (AR ? "جار الرفع…" : "Uploading…") : (AR ? "+ رفع صورة" : "+ Upload image")}</button>
               <input ref={designImgInput} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={onUploadDesignImg} />
             </div>
-            <div style={{ fontSize: 11.5, color: "var(--text-soft)", marginBottom: 10 }}>{AR ? "لقطات ثلاثية الأبعاد للثيم — يراها العميل في مرحلة المبيعات وتُطبع في الاتفاقية. النسبة المثلى 4:3." : "3D renders of the theme — the customer sees these in the sales flow and they print into the agreement. Best ratio 4:3."}</div>
+            <div style={{ fontSize: 11.5, color: "var(--text-soft)", marginBottom: 10 }}>{AR ? "لقطات ثلاثية الأبعاد للثيم — يراها العميل في مرحلة المبيعات وتطبع في الاتفاقية. النسبة المثلى 4:3." : "3D renders of the theme — the customer sees these in the sales flow and they print into the agreement. Best ratio 4:3."}</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
               {d.images.map((img, i) => (
                 <div key={img.id || i} style={{ border: "1px solid var(--line)", borderRadius: 6, overflow: "hidden", background: "var(--bg-sunken)" }}>
@@ -2083,7 +2103,7 @@ function WsPackages({ T }) {
   return (
     <>
       <WsCardHead eye="// FURNISHING PACKAGES" title="Packages · per-type pricing · BOQ"
-        sub={window.I18N && window.I18N.isAR ? "لكل باقة تسعير حسب نوع الوحدة وجدول كميات. يُطبع جدول الكميات في ملحق التأثيث (F-1) ضمن اتفاقية المشتري." : "Each package has pricing per unit-type and a Bill of Quantities. The BOQ is printed into the buyer's Furnishing Schedule as Appendix F-1."}
+        sub={window.I18N && window.I18N.isAR ? "لكل باقة تسعير حسب نوع الوحدة وجدول كميات. يطبع جدول الكميات في ملحق التأثيث (F-1) ضمن اتفاقية المشتري." : "Each package has pricing per unit-type and a Bill of Quantities. The BOQ is printed into the buyer's Furnishing Schedule as Appendix F-1."}
         action={<button className="btn btn-primary" onClick={() => setAdding(true)}>{window.I18N && window.I18N.isAR ? "+ باقة جديدة" : "+ New package"}</button>} />
       <div className="stack-md">
         {pkgs.map((p) => (
@@ -2139,7 +2159,7 @@ function WsPackages({ T }) {
                     <div className="soft" style={{ fontSize: 10, fontWeight: 600 }}>FIT-OUT PRICE · FROM BOQ</div>
                     <div className="mono" style={{ fontSize: 18, fontWeight: 600, marginTop: 2 }}>+{D.fmtSAR(D.boqTotal(p.fitout.boq))} <span className="soft" style={{ fontSize: 10 }}>SAR</span></div>
                   </div>
-                  <div className="soft" style={{ fontSize: 11.5, maxWidth: 320 }}>{window.I18N && window.I18N.isAR ? ((p.fitout.boq || []).length + " بندًا مسعّرًا — مجموعها هو سعر إضافة التشطيب الذي يُضاف إلى إضافات المشتري.") : ((p.fitout.boq || []).length + " priced line items — their sum is the fit-out add-on price added to the buyer's extras.")}</div>
+                  <div className="soft" style={{ fontSize: 11.5, maxWidth: 320 }}>{window.I18N && window.I18N.isAR ? ((p.fitout.boq || []).length + " بندا مسعرا — مجموعها هو سعر إضافة التشطيب الذي يضاف إلى إضافات المشتري.") : ((p.fitout.boq || []).length + " priced line items — their sum is the fit-out add-on price added to the buyer's extras.")}</div>
                 </div>
               </div>
             )}
@@ -2190,10 +2210,10 @@ function PackageDrawer({ pkg, unitTypes, projectId, onClose }) {
             <div className="row-between" style={{ alignItems: "center" }}>
               <div>
                 <div className="eyebrow" style={{ color: p.signature ? "#d6b87c" : undefined }}>{TT("SIGNATURE EDITION")}</div>
-                <div style={{ fontSize: 11.5, marginTop: 2, opacity: 0.85 }}>{window.I18N && window.I18N.isAR ? "باقة موقّعة من علامة تجارية — تظهر ببطاقة مميّزة مع شعار العلامة في بوابة المبيعات والعقد" : "A branded, co-signed package — gets a stand-out card with the brand's logo in the sales portal and the contract."}</div>
+                <div style={{ fontSize: 11.5, marginTop: 2, opacity: 0.85 }}>{window.I18N && window.I18N.isAR ? "باقة موقعة من علامة تجارية — تظهر ببطاقة مميزة مع شعار العلامة في بوابة المبيعات والعقد" : "A branded, co-signed package — gets a stand-out card with the brand's logo in the sales portal and the contract."}</div>
               </div>
               <label className="row" style={{ gap: 8, fontSize: 13, whiteSpace: "nowrap" }}>
-                <input type="checkbox" checked={!!p.signature} onChange={() => set({ signature: !p.signature })} /> {window.I18N && window.I18N.isAR ? "باقة موقّعة" : "Signature"}
+                <input type="checkbox" checked={!!p.signature} onChange={() => set({ signature: !p.signature })} /> {window.I18N && window.I18N.isAR ? "باقة موقعة" : "Signature"}
               </label>
             </div>
             {p.signature && (
@@ -2203,7 +2223,7 @@ function PackageDrawer({ pkg, unitTypes, projectId, onClose }) {
                 <div style={{ gridColumn: "1 / -1" }}>
                   <div className="eyebrow" style={{ marginBottom: 6, color: "#d6b87c" }}>{TT("BRAND LOGO")}</div>
                   <div className="row" style={{ gap: 10, alignItems: "center" }}>
-                    {p.brandLogo ? <img src={p.brandLogo} alt="" style={{ height: 34, maxWidth: 130, objectFit: "contain", filter: "brightness(0) invert(1)" }} /> : <span style={{ fontSize: 11.5, opacity: 0.6 }}>{window.I18N && window.I18N.isAR ? "لم يُرفع شعار" : "No logo yet"}</span>}
+                    {p.brandLogo ? <img src={p.brandLogo} alt="" style={{ height: 34, maxWidth: 130, objectFit: "contain", filter: "brightness(0) invert(1)" }} /> : <span style={{ fontSize: 11.5, opacity: 0.6 }}>{window.I18N && window.I18N.isAR ? "لم يرفع شعار" : "No logo yet"}</span>}
                     <label className="btn btn-sm btn-secondary" style={{ cursor: "pointer" }}>
                       {window.I18N && window.I18N.isAR ? "رفع الشعار" : "Upload logo"}
                       <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => {
@@ -2553,12 +2573,793 @@ function PaymentDrawer({ plan, cms, onClose }) {
   );
 }
 
+function WsKitchens({ T }) {
+  const AR = window.I18N && window.I18N.isAR;
+  const [editing, setEditing] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [, bump] = useState(0);
+  const on = !!(T.project && T.project.features && T.project.features.kitchens);
+  const types = T.unitTypes || [];
+  const list = T.kitchens || [];
+  return (
+    <>
+      <WsCardHead eye="// KITCHENS" title="Kitchen designs" sub={AR ? "أضف أي عدد من التصاميم، ولكل تصميم لوحات ألوان وصور ثلاثية الأبعاد. نطاقان لكل تصميم: المطبخ فقط (خزائن) أو مطبخ كامل مع الأجهزة، بسعر لكل نوع وحدة. يفعل من مفاتيح المشروع." : "Add as many designs as you like; each has its own palettes, 3D shots and two scopes — kitchen only (cabinetry) or full kitchen with appliances — priced per unit type. Enabled per project from the feature toggles."}
+        action={<div className="row" style={{ gap: 8 }}><span className={"chip " + (on ? "" : "chip-soft")}>{on ? (AR ? "مفعل في مسار البيع" : "ON in sales flow") : (AR ? "غير مفعل — فعله من المفاتيح" : "OFF — enable in feature toggles")}</span><button className="btn btn-primary" onClick={() => setAdding(true)}>{AR ? "+ إضافة مطبخ" : "+ Add kitchen"}</button></div>} />
+      {editing && <KitchenDrawer kitchen={editing} types={types} onClose={() => { setEditing(null); bump((x) => x + 1); }} />}
+      {adding && <KitchenDrawer kitchen={{ id: "new", projectId: T.project.id, name: "", nameAr: "", summary: "", summaryAr: "", images: [], palettes: [{ id: "p1", name: "", nameAr: "", colors: ["#E8DFD0", "#C9A87C", "#F4F1EA"] }], scopes: { cabinets: { includes: [], includesAr: [], pricing: {} }, full: { includes: [], includesAr: [], pricing: {} } } }} types={types} onClose={() => { setAdding(false); bump((x) => x + 1); }} />}
+      {list.length === 0 ? <div className="card card-pad soft">{AR ? "لا توجد تصاميم مطابخ لهذا المشروع — اضغط «إضافة مطبخ»." : "No kitchen designs for this project yet — press “Add kitchen”."}</div> : (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
+        {list.map((k) => (
+          <div key={k.id} className="card card-pad">
+            {k.images && k.images.length > 0 && (
+              <div style={{ display: "flex", gap: 4, marginBottom: 10, borderRadius: 6, overflow: "hidden" }}>
+                {k.images.slice(0, 3).map((img, i) => (
+                  <div key={i} style={{ flex: 1, aspectRatio: "4/3", overflow: "hidden", background: "var(--bg-sunken)" }}>
+                    <img src={img.src} alt={img.label || ""} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  </div>
+                ))}
+              </div>
+            )}
+            <strong>{AR ? (k.nameAr || k.name) : k.name}</strong>
+            <p style={{ margin: "4px 0 8px", fontSize: 12.5, color: "var(--text-muted)" }}>{AR ? (k.summaryAr || k.summary) : k.summary}</p>
+            <div className="row" style={{ gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+              {(k.palettes || []).map((p) => (
+                <span key={p.id} className="chip chip-soft" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ display: "inline-flex", gap: 2 }}>{p.colors.slice(0, 3).map((c, i) => <span key={i} style={{ width: 10, height: 10, borderRadius: "50%", background: c }} />)}</span>{AR ? (p.nameAr || p.name) : p.name}
+                </span>
+              ))}
+            </div>
+            <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+              <thead><tr className="soft" style={{ fontSize: 10.5, textAlign: "start" }}><th style={{ textAlign: "start", paddingBottom: 4 }}>{AR ? "النوع" : "Type"}</th><th style={{ textAlign: "end" }}>{AR ? "المطبخ فقط" : "Kitchen only"}</th><th style={{ textAlign: "end" }}>{AR ? "مطبخ كامل" : "Full kitchen"}</th></tr></thead>
+              <tbody>{types.map((t) => (
+                <tr key={t.id} style={{ borderTop: "1px dotted var(--line)" }}>
+                  <td style={{ padding: "4px 0" }}>{AR ? (t.nameAr || t.name) : t.name}</td>
+                  <td className="mono" style={{ textAlign: "end" }}>{D.kitchenPrice(k, "cabinets", t.id) ? D.fmtSAR(D.kitchenPrice(k, "cabinets", t.id)) : "—"}</td>
+                  <td className="mono" style={{ textAlign: "end" }}>{D.kitchenPrice(k, "full", t.id) ? D.fmtSAR(D.kitchenPrice(k, "full", t.id)) : "—"}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+            <div className="soft" style={{ fontSize: 10.5, marginTop: 6 }}>{AR ? "الأسعار بالريال قبل الضريبة" : "SAR, ex-VAT"}</div>
+            {(k.addons || []).length > 0 && (
+              <div style={{ marginTop: 8, fontSize: 12 }}>
+                <div className="eyebrow" style={{ fontSize: 10, marginBottom: 4 }}>{AR ? "// إضافات اختيارية" : "// OPTIONAL ITEMS"}</div>
+                {k.addons.map((a) => <div key={a.id} className="row-between" style={{ padding: "3px 0", borderTop: "1px dotted var(--line)" }}><span>{AR ? (a.nameAr || a.name) : a.name}<span className="soft"> · {(a.scopes || []).map((s) => s === "full" ? (AR ? "كامل" : "full") : (AR ? "خزائن" : "cabinets")).join("/")}</span></span><span className="mono">+{D.fmtSAR(a.price)}</span></div>)}
+              </div>
+            )}
+            <div className="row" style={{ gap: 6, marginTop: 10 }}>
+              <button className="btn btn-sm btn-ghost" onClick={() => setEditing(k)}>{AR ? "تعديل" : "Edit"}</button>
+              <DelBtn kind="kitchen" id={k.id} name={k.name} after={() => bump((x) => x + 1)} />
+            </div>
+          </div>
+        ))}
+      </div>)}
+    </>
+  );
+}
+
+/* Kitchen editor — name, summary, palettes (any number), 3D shots, and per-scope includes + per-type prices. */
+function KitchenDrawer({ kitchen, types, onClose }) {
+  const AR = window.I18N && window.I18N.isAR;
+  const clone = (k) => ({ ...k, images: [...(k.images || [])], addons: (k.addons || []).map((a) => ({ ...a, scopes: [...(a.scopes || ["cabinets", "full"])] })), palettes: (k.palettes || []).map((p) => ({ ...p, colors: [...(p.colors || [])] })),
+    scopes: { cabinets: { includes: [...((k.scopes && k.scopes.cabinets && k.scopes.cabinets.includes) || [])], includesAr: [...((k.scopes && k.scopes.cabinets && k.scopes.cabinets.includesAr) || [])], pricing: { ...((k.scopes && k.scopes.cabinets && k.scopes.cabinets.pricing) || {}) } },
+              full:     { includes: [...((k.scopes && k.scopes.full && k.scopes.full.includes) || [])], includesAr: [...((k.scopes && k.scopes.full && k.scopes.full.includesAr) || [])], pricing: { ...((k.scopes && k.scopes.full && k.scopes.full.pricing) || {}) } } } });
+  const [k, setK] = useState(() => clone(kitchen));
+  const set = (patch) => setK((p) => ({ ...p, ...patch }));
+  const setScope = (sc, patch) => setK((p) => ({ ...p, scopes: { ...p.scopes, [sc]: { ...p.scopes[sc], ...patch } } }));
+  const [line, setLine] = useState({ cabinets: "", full: "" });
+  const [busy, setBusy] = useState(false);
+  const imgInput = React.useRef(null);
+  const onUploadImg = async (e) => {
+    const files = Array.from(e.target.files || []); if (!files.length) return;
+    setBusy(true);
+    try { const added = []; for (const f of files) { const url = await uploadScaled(f, 1400, "kitchens/" + (k.projectId || "misc")); added.push({ id: "ki" + Date.now().toString(36) + added.length, label: f.name.replace(/\.[^.]+$/, ""), labelAr: "", src: url }); } set({ images: [...k.images, ...added] }); }
+    catch (err) { console.error(err); }
+    setBusy(false); e.target.value = "";
+  };
+  const save = () => {
+    if (!k.name.trim()) return;
+    const payload = { name: k.name.trim(), nameAr: k.nameAr || "", summary: k.summary || "", summaryAr: k.summaryAr || "", images: k.images, palettes: k.palettes.filter((p) => (p.name || "").trim() || p.colors.length).map((p, i) => ({ ...p, id: p.id || ("p" + (i + 1)), name: p.name || ("Palette " + (i + 1)) })), scopes: k.scopes, addons: k.addons.filter((a) => (a.name || "").trim()).map((a, i) => ({ ...a, id: a.id || ("a" + (i + 1)), price: Number(a.price) || 0 })) };
+    if (hasNegative(payload)) { window.RevnuSupport.toast(negMsg(), "err"); return; }
+    window.RevnuSupport.act(() => (k.id === "new" ? D.createKitchen({ projectId: k.projectId, ...payload }) : D.setContentField("kitchen", k.id, payload)), { done: AR ? "تم حفظ المطبخ." : "Kitchen saved." }).then((r) => { if (r !== undefined) onClose(); });
+  };
+  const scopeLabel = { cabinets: AR ? "المطبخ فقط (خزائن)" : "Kitchen only (cabinetry)", full: AR ? "مطبخ كامل (مع الأجهزة)" : "Full kitchen (with appliances)" };
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 200, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
+      <div style={{ width: 560, maxWidth: "100vw", background: "var(--bg-card)", height: "100vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <div className="row-between" style={{ padding: "18px 24px", borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg-card)", zIndex: 1 }}>
+          <div><div className="eyebrow">{k.id === "new" ? (AR ? "// مطبخ جديد" : "// NEW KITCHEN") : (AR ? "// تعديل المطبخ" : "// EDIT KITCHEN")}</div><div className="display-sm" style={{ marginTop: 2 }}>{k.name || (AR ? "مطبخ جديد" : "New kitchen")}</div></div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>{AR ? "إغلاق ×" : "Close ×"}</button>
+        </div>
+        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <Labeled label={AR ? "الاسم (إنجليزي)" : "Name (English)"}><input className="input" value={k.name} onChange={(e) => set({ name: e.target.value })} placeholder="Linear Oak" /></Labeled>
+            <Labeled label="الاسم (عربي)"><input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={k.nameAr || ""} onChange={(e) => set({ nameAr: e.target.value })} placeholder="لينير أوك" /></Labeled>
+          </div>
+          <Labeled label={AR ? "الوصف (إنجليزي)" : "Summary (English)"}><input className="input" value={k.summary || ""} onChange={(e) => set({ summary: e.target.value })} placeholder="One line shown under the name" /></Labeled>
+          <Labeled label="الوصف (عربي)"><input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={k.summaryAr || ""} onChange={(e) => set({ summaryAr: e.target.value })} /></Labeled>
+
+          <div>
+            <div className="row-between" style={{ marginBottom: 8 }}>
+              <div className="eyebrow">{AR ? "لوحات الألوان" : "COLOUR PALETTES"}</div>
+              <button className="btn btn-sm btn-secondary" onClick={() => set({ palettes: [...k.palettes, { id: "p" + Date.now().toString(36).slice(-4), name: "", nameAr: "", colors: ["#DDDDDD", "#999999", "#F5F5F5"] }] })}>{AR ? "+ لوحة" : "+ Palette"}</button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {k.palettes.map((p, i) => (
+                <div key={p.id || i} style={{ padding: "10px 12px", background: "var(--bg-sunken)", borderRadius: "var(--r-sm)", display: "grid", gridTemplateColumns: "1fr 1fr auto auto", gap: 8, alignItems: "center" }}>
+                  <input className="input" style={{ height: 30, fontSize: 12 }} value={p.name || ""} placeholder={AR ? "الاسم (إنجليزي)" : "Palette name"} onChange={(e) => set({ palettes: k.palettes.map((x, ix) => ix === i ? { ...x, name: e.target.value } : x) })} />
+                  <input className="input" dir="rtl" style={{ height: 30, fontSize: 12, fontFamily: "var(--font-ar)" }} value={p.nameAr || ""} placeholder="الاسم بالعربية" onChange={(e) => set({ palettes: k.palettes.map((x, ix) => ix === i ? { ...x, nameAr: e.target.value } : x) })} />
+                  <div className="row" style={{ gap: 4 }}>
+                    {p.colors.map((c, ci) => (
+                      <label key={ci} title={c} style={{ position: "relative", width: 24, height: 24, borderRadius: "50%", background: c, border: "1px solid rgba(0,0,0,0.15)", cursor: "pointer", overflow: "hidden" }}>
+                        <input type="color" value={c} onChange={(e) => set({ palettes: k.palettes.map((x, ix) => ix === i ? { ...x, colors: x.colors.map((cc, cci) => cci === ci ? e.target.value : cc) } : x) })} style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer" }} />
+                      </label>
+                    ))}
+                    {p.colors.length < 5 && <button className="btn btn-sm btn-ghost" style={{ height: 24, padding: "0 6px" }} onClick={() => set({ palettes: k.palettes.map((x, ix) => ix === i ? { ...x, colors: [...x.colors, "#CCCCCC"] } : x) })}>+</button>}
+                    {p.colors.length > 1 && <button className="btn btn-sm btn-ghost" style={{ height: 24, padding: "0 6px" }} onClick={() => set({ palettes: k.palettes.map((x, ix) => ix === i ? { ...x, colors: x.colors.slice(0, -1) } : x) })}>−</button>}
+                  </div>
+                  <button className="btn btn-sm btn-ghost" onClick={() => set({ palettes: k.palettes.filter((_, ix) => ix !== i) })}>×</button>
+                </div>
+              ))}
+              {k.palettes.length === 0 && <div className="soft" style={{ fontSize: 12 }}>{AR ? "أضف لوحة واحدة على الأقل." : "Add at least one palette."}</div>}
+            </div>
+          </div>
+
+          <div>
+            <div className="row-between" style={{ marginBottom: 8 }}>
+              <div className="eyebrow">{AR ? "اللقطات ثلاثية الأبعاد" : "3D SHOTS"}</div>
+              <button className="btn btn-sm btn-secondary" onClick={() => imgInput.current && imgInput.current.click()}>{busy ? (AR ? "جار الرفع…" : "Uploading…") : (AR ? "+ رفع صور" : "+ Upload images")}</button>
+              <input ref={imgInput} type="file" accept="image/png,image/jpeg,image/webp" multiple style={{ display: "none" }} onChange={onUploadImg} />
+            </div>
+            {k.images.length > 0 ? (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                {k.images.map((img, i) => (
+                  <div key={img.id || i} style={{ border: "1px solid var(--line)", borderRadius: 6, overflow: "hidden", background: "var(--bg-sunken)" }}>
+                    <div style={{ aspectRatio: "16/10", background: "var(--bg-tint)" }}><img src={img.src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} /></div>
+                    <div style={{ padding: 6 }}>
+                      <input className="input" style={{ height: 26, fontSize: 11 }} value={img.label || ""} placeholder={AR ? "وصف" : "Caption"} onChange={(e) => set({ images: k.images.map((x, ix) => ix === i ? { ...x, label: e.target.value } : x) })} />
+                      <div className="row" style={{ gap: 4, marginTop: 4 }}>
+                        <button className="btn btn-sm btn-ghost" disabled={i === 0} onClick={() => { const a = [...k.images]; [a[i - 1], a[i]] = [a[i], a[i - 1]]; set({ images: a }); }}>‹</button>
+                        <button className="btn btn-sm btn-ghost" disabled={i === k.images.length - 1} onClick={() => { const a = [...k.images]; [a[i + 1], a[i]] = [a[i], a[i + 1]]; set({ images: a }); }}>›</button>
+                        <button className="btn btn-sm btn-ghost grow" onClick={() => set({ images: k.images.filter((_, ix) => ix !== i) })}>{AR ? "حذف" : "Remove"}</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div onClick={() => imgInput.current && imgInput.current.click()} style={{ cursor: "pointer", padding: 24, border: "1px dashed var(--line-strong)", borderRadius: 6, textAlign: "center", color: "var(--text-soft)", fontSize: 12 }}>
+                {AR ? "لا توجد صور بعد — انقر لرفع لقطات المطبخ." : "No shots yet — click to upload kitchen renders."}
+              </div>
+            )}
+          </div>
+
+          {["cabinets", "full"].map((sc) => (
+            <div key={sc} style={{ border: "1px solid var(--line)", borderRadius: "var(--r-sm)", padding: 14 }}>
+              <div className="eyebrow" style={{ marginBottom: 10 }}>{scopeLabel[sc]}</div>
+              <div className="soft" style={{ fontSize: 11, marginBottom: 6 }}>{AR ? "السعر لكل نوع وحدة (ريال، قبل الضريبة) — اترك 0 إذا لم يكن متاحا لهذا النوع" : "Price per unit type (SAR, ex-VAT) — leave 0 if not offered for that type"}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8, marginBottom: 12 }}>
+                {types.map((t) => (
+                  <Labeled key={t.id} label={AR ? (t.nameAr || t.name) : t.name}>
+                    <input className="input mono" type="number" step="500" min="0" value={k.scopes[sc].pricing[t.id] || 0} onChange={(e) => setScope(sc, { pricing: { ...k.scopes[sc].pricing, [t.id]: Number(e.target.value) || 0 } })} />
+                  </Labeled>
+                ))}
+              </div>
+              <div className="soft" style={{ fontSize: 11, marginBottom: 6 }}>{AR ? "المحتويات (إنجليزي · عربي)" : "Includes (English · Arabic)"}</div>
+              <ul style={{ padding: 0, margin: "0 0 8px", listStyle: "none" }}>
+                {k.scopes[sc].includes.map((it, i) => (
+                  <li key={i} className="row-between" style={{ padding: "6px 10px", background: "var(--bg-sunken)", borderRadius: "var(--r-sm)", marginBottom: 6, fontSize: 12.5, gap: 8 }}>
+                    <span style={{ flex: 1 }}>{it}</span>
+                    <input className="input" dir="rtl" style={{ flex: 1, height: 26, fontSize: 12, fontFamily: "var(--font-ar)" }} value={k.scopes[sc].includesAr[i] || ""} placeholder="الترجمة العربية" onChange={(e) => { const a = [...k.scopes[sc].includesAr]; a[i] = e.target.value; setScope(sc, { includesAr: a }); }} />
+                    <button className="btn btn-sm btn-ghost" onClick={() => setScope(sc, { includes: k.scopes[sc].includes.filter((_, ix) => ix !== i), includesAr: k.scopes[sc].includesAr.filter((_, ix) => ix !== i) })}>×</button>
+                  </li>
+                ))}
+              </ul>
+              <div className="row" style={{ gap: 6 }}>
+                <input className="input" value={line[sc]} onChange={(e) => setLine({ ...line, [sc]: e.target.value })} placeholder={sc === "full" ? "e.g. Fridge-freezer · integrated" : "e.g. Quartz worktop · 20 mm"} onKeyDown={(e) => { if (e.key === "Enter" && line[sc].trim()) { setScope(sc, { includes: [...k.scopes[sc].includes, line[sc].trim()], includesAr: [...k.scopes[sc].includesAr, ""] }); setLine({ ...line, [sc]: "" }); } }} />
+                <button className="btn btn-secondary" onClick={() => { if (line[sc].trim()) { setScope(sc, { includes: [...k.scopes[sc].includes, line[sc].trim()], includesAr: [...k.scopes[sc].includesAr, ""] }); setLine({ ...line, [sc]: "" }); } }}>{AR ? "إضافة" : "Add"}</button>
+              </div>
+            </div>
+          ))}
+
+          <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-sm)", padding: 14 }}>
+            <div className="row-between" style={{ marginBottom: 6 }}>
+              <div className="eyebrow">{AR ? "إضافات اختيارية" : "OPTIONAL ITEMS"}</div>
+              <button className="btn btn-sm btn-secondary" onClick={() => set({ addons: [...k.addons, { id: "a" + Date.now().toString(36).slice(-4), name: "", nameAr: "", price: 0, scopes: ["full"] }] })}>{AR ? "+ إضافة" : "+ Item"}</button>
+            </div>
+            <div className="soft" style={{ fontSize: 11, marginBottom: 8 }}>{AR ? "عناصر يمكن للعميل إضافتها أو إزالتها (مثل غسالة الملابس). سعر ثابت لكل وحدة، قبل الضريبة. حدد النطاقات التي تعرض فيها." : "Items the customer can add or remove (e.g. washing machine). Flat price per unit, ex-VAT. Choose which scopes offer it."}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {k.addons.map((a, i) => {
+                const upd = (patch) => set({ addons: k.addons.map((x, ix) => ix === i ? { ...x, ...patch } : x) });
+                const tog = (sc) => upd({ scopes: a.scopes.includes(sc) ? a.scopes.filter((s) => s !== sc) : [...a.scopes, sc] });
+                return (
+                  <div key={a.id || i} style={{ padding: "10px 12px", background: "var(--bg-sunken)", borderRadius: "var(--r-sm)", display: "grid", gridTemplateColumns: "1fr 1fr 110px auto auto", gap: 8, alignItems: "center" }}>
+                    <input className="input" style={{ height: 30, fontSize: 12 }} value={a.name || ""} placeholder={AR ? "الاسم (إنجليزي)" : "e.g. Washing machine"} onChange={(e) => upd({ name: e.target.value })} />
+                    <input className="input" dir="rtl" style={{ height: 30, fontSize: 12, fontFamily: "var(--font-ar)" }} value={a.nameAr || ""} placeholder="الاسم بالعربية" onChange={(e) => upd({ nameAr: e.target.value })} />
+                    <input className="input mono" type="number" step="100" min="0" style={{ height: 30, fontSize: 12 }} value={a.price || 0} onChange={(e) => upd({ price: Number(e.target.value) || 0 })} />
+                    <div style={{ display: "flex", border: "1px solid var(--line-strong)", borderRadius: 6, overflow: "hidden", fontSize: 10.5 }}>
+                      {["cabinets", "full"].map((sc, si) => <button key={sc} type="button" onClick={() => tog(sc)} style={{ padding: "5px 8px", border: "none", borderLeft: si ? "1px solid var(--line-strong)" : "none", cursor: "pointer", fontWeight: 600, background: a.scopes.includes(sc) ? "var(--brand)" : "transparent", color: a.scopes.includes(sc) ? "var(--brand-text)" : "var(--text-muted)" }}>{sc === "full" ? (AR ? "كامل" : "Full") : (AR ? "خزائن" : "Only")}</button>)}
+                    </div>
+                    <button className="btn btn-sm btn-ghost" onClick={() => set({ addons: k.addons.filter((_, ix) => ix !== i) })}>×</button>
+                  </div>
+                );
+              })}
+              {k.addons.length === 0 && <div className="soft" style={{ fontSize: 12 }}>{AR ? "لا توجد إضافات." : "No optional items yet."}</div>}
+            </div>
+          </div>
+
+          <hr className="hr-thin" />
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn btn-primary grow" disabled={!k.name.trim()} onClick={save}>{k.id === "new" ? (AR ? "إنشاء المطبخ" : "Create kitchen") : (AR ? "حفظ" : "Save kitchen")}</button>
+            <button className="btn btn-ghost" onClick={onClose}>{AR ? "إلغاء" : "Cancel"}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Cooling / AC — cooling points per unit type + AC systems (brand, tiers, install, fit, add-ons) */
+function WsCooling({ T }) {
+  const AR = window.I18N && window.I18N.isAR; const TL = (en, ar) => (AR ? ar : en);
+  const [, bump] = useState(0); const refresh = () => bump((x) => x + 1);
+  const [editing, setEditing] = useState(null);
+  const [editPts, setEditPts] = useState(null);
+  const on = !!(T.project && T.project.features && T.project.features.cooling);
+  const types = T.unitTypes || []; const list = T.ac || [];
+  return (
+    <>
+      <WsCardHead eye="// COOLING" title={TL("Cooling points per unit type", "نقاط التبريد لكل نوع وحدة")}
+        sub={TL("Each unit type lists the rooms that need an indoor unit and the capacity each needs. Every AC system prices itself from this table, so a 1-bedroom and a penthouse are priced correctly without extra rows.", "لكل نوع وحدة قائمة بالغرف التي تحتاج وحدة داخلية وسعة كل منها. كل نظام تكييف يسعر تلقائيا من هذا الجدول، فتسعر الغرفة الواحدة والبنتهاوس بشكل صحيح دون صفوف إضافية.")}
+        action={<span className={"chip " + (on ? "" : "chip-soft")}>{on ? TL("ON in sales flow", "مفعل في مسار البيع") : TL("OFF — enable in feature toggles", "غير مفعل — فعله من المفاتيح")}</span>} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12, marginBottom: 22 }}>
+        {types.map((t) => { const pts = D.coolingPointsFor(T.project.id, t.id); const tot = pts.reduce((s, p) => s + (Number(p.btu) || 0), 0); return (
+          <div key={t.id} className="card card-pad">
+            <div className="row-between"><strong>{AR ? (t.nameAr || t.name) : t.name}</strong><span className="chip chip-soft">{pts.length} {TL("units", "وحدات")} · {D.fmtSAR(tot)} BTU</span></div>
+            <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", marginTop: 8 }}><tbody>
+              {pts.map((p, i) => <tr key={i} style={{ borderTop: i ? "1px dotted var(--line)" : "none" }}><td style={{ padding: "3px 0" }}>{AR ? (p.roomAr || p.room) : p.room}</td><td className="mono" style={{ textAlign: "end" }}>{D.fmtSAR(p.btu)} BTU</td></tr>)}
+              {pts.length === 0 && <tr><td className="soft" style={{ padding: "4px 0" }}>{TL("No cooling points yet.", "لا توجد نقاط تبريد بعد.")}</td></tr>}
+            </tbody></table>
+            <button className="btn btn-sm btn-ghost" style={{ marginTop: 8 }} onClick={() => setEditPts({ type: t, points: pts.map((p) => ({ ...p })) })}>{TL("Edit rooms", "تعديل الغرف")}</button>
+          </div>); })}
+      </div>
+
+      <WsCardHead eye="// AC SYSTEMS" title={TL("Air-conditioning systems", "أنظمة التكييف")}
+        sub={TL("Brand + model with a price per capacity tier and an installation fee per indoor unit. Limit a system to the unit types it physically fits (central VRF for penthouses, ducted only where there is a false ceiling).", "ماركة وموديل بسعر لكل شريحة سعة ورسوم تركيب لكل وحدة داخلية. حدد لكل نظام أنواع الوحدات التي يناسبها فعليا (المركزي للبنتهاوس، والمخفي حيث يوجد سقف مستعار).")}
+        action={<button className="btn btn-primary" onClick={() => setEditing({ id: "new", projectId: T.project.id, brand: "", brandAr: "", name: "", nameAr: "", type: "split", summary: "", summaryAr: "", energyClass: "A+", warrantyYears: 5, install: 350, tiers: { "18000": 0, "24000": 0, "30000": 0, "36000": 0 }, fits: [], addons: [], images: [], logo: "" })}>{TL("+ Add system", "+ إضافة نظام")}</button>} />
+      {list.length === 0 ? <div className="card card-pad soft">{TL("No AC systems for this project yet — press “Add system”.", "لا توجد أنظمة تكييف لهذا المشروع بعد — اضغط «إضافة نظام».")}</div> : (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
+        {list.map((a) => { const ty = D.acTypeById(a.type); const tiers = Object.keys(a.tiers || {}).map(Number).sort((x, y) => x - y); return (
+          <div key={a.id} className="card card-pad">
+            <div className="row-between" style={{ alignItems: "flex-start" }}>
+              <div className="row" style={{ gap: 10, alignItems: "flex-start" }}>
+                {a.logo ? <span style={{ width: 66, height: 38, flex: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#fff", border: "1px solid var(--line)", borderRadius: 6, padding: 5 }}><img src={a.logo} alt={a.brand} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} /></span> : null}
+                <div><strong style={{ fontSize: 15 }}>{AR ? (a.brandAr || a.brand) : a.brand}</strong> <span>{AR ? (a.nameAr || a.name) : a.name}</span>
+                <div className="row" style={{ gap: 6, marginTop: 4, flexWrap: "wrap" }}><span className="chip chip-soft">{AR ? ty.ar : ty.en}</span>{a.energyClass ? <span className="chip chip-soft">{a.energyClass}</span> : null}{a.warrantyYears ? <span className="chip chip-soft">{a.warrantyYears} {TL("yr", "سنة")}</span> : null}</div></div></div>
+              <span className="chip">{(!a.fits || !a.fits.length) ? TL("Fits all types", "لكل الأنواع") : a.fits.map((id) => { const t = types.find((x) => x.id === id); return t ? (AR ? (t.nameAr || t.name) : t.name).split(" · ")[0] : id; }).join(", ")}</span>
+            </div>
+            <p style={{ margin: "8px 0", fontSize: 12.5, color: "var(--text-muted)" }}>{AR ? (a.summaryAr || a.summary) : a.summary}</p>
+            {(a.images || []).length > 0 && <div style={{ display: "flex", gap: 4, marginBottom: 10, borderRadius: 6, overflow: "hidden" }}>{a.images.slice(0, 4).map((img, i) => <div key={img.id || i} style={{ flex: 1, aspectRatio: "4/3", overflow: "hidden", background: "var(--bg-sunken)" }}><img src={img.src} alt={img.label || ""} title={img.label || ""} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} /></div>)}</div>}
+            <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+              <thead><tr className="soft" style={{ fontSize: 10.5 }}><th style={{ textAlign: "start", paddingBottom: 4 }}>{TL("Capacity", "السعة")}</th><th style={{ textAlign: "end" }}>{TL("Price / unit", "السعر / وحدة")}</th></tr></thead>
+              <tbody>{tiers.map((k) => <tr key={k} style={{ borderTop: "1px dotted var(--line)" }}><td style={{ padding: "3px 0" }} className="mono">{D.fmtSAR(k)} BTU</td><td className="mono" style={{ textAlign: "end" }}>{D.fmtSAR(a.tiers[k])}</td></tr>)}
+                <tr style={{ borderTop: "1px dotted var(--line)" }}><td style={{ padding: "3px 0" }}>{TL("Installation / indoor unit", "التركيب / وحدة داخلية")}</td><td className="mono" style={{ textAlign: "end" }}>{D.fmtSAR(a.install)}</td></tr></tbody>
+            </table>
+            <div className="eyebrow" style={{ fontSize: 10, margin: "10px 0 4px" }}>{TL("// PRICE PER UNIT TYPE (EX-VAT)", "// السعر لكل نوع وحدة (قبل الضريبة)")}</div>
+            <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>{types.map((t) => { const p = D.acPrice(a, T.project.id, t.id); return <span key={t.id} className="chip chip-soft" style={{ opacity: p ? 1 : 0.5 }}>{(AR ? (t.nameAr || t.name) : t.name).split(" · ")[0]}: <span className="mono" style={{ marginInlineStart: 4 }}>{p ? D.fmtSAR(p) : "—"}</span></span>; })}</div>
+            {(a.addons || []).length > 0 && <div style={{ marginTop: 8, fontSize: 12 }}><div className="eyebrow" style={{ fontSize: 10, marginBottom: 4 }}>{TL("// OPTIONAL ITEMS", "// إضافات اختيارية")}</div>{a.addons.map((x) => <div key={x.id} className="row-between" style={{ padding: "3px 0", borderTop: "1px dotted var(--line)" }}><span>{AR ? (x.nameAr || x.name) : x.name}</span><span className="mono">+{D.fmtSAR(x.price)}</span></div>)}</div>}
+            <div className="row" style={{ gap: 6, marginTop: 10 }}>
+              <button className="btn btn-sm btn-ghost" onClick={() => setEditing(a)}>{TL("Edit", "تعديل")}</button>
+              <DelBtn kind="ac" id={a.id} name={a.brand + " " + a.name} after={refresh} />
+            </div>
+          </div>); })}
+      </div>)}
+      {editing && <ACDrawer ac={editing} types={types} onClose={() => { setEditing(null); refresh(); }} />}
+      {editPts && <CoolingPointsDrawer projectId={T.project.id} type={editPts.type} initial={editPts.points} onClose={() => { setEditPts(null); refresh(); }} />}
+    </>
+  );
+}
+function CoolingPointsDrawer({ projectId, type, initial, onClose }) {
+  const AR = window.I18N && window.I18N.isAR; const TL = (en, ar) => (AR ? ar : en);
+  const [pts, setPts] = useState(initial);
+  const upd = (i, p) => setPts(pts.map((x, ix) => ix === i ? { ...x, ...p } : x));
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 200, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
+      <div style={{ width: 520, maxWidth: "100vw", background: "var(--bg-card)", height: "100vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <div className="row-between" style={{ padding: "18px 24px", borderBottom: "1px solid var(--line)" }}>
+          <div><div className="eyebrow">{TL("// COOLING POINTS", "// نقاط التبريد")}</div><div className="display-sm" style={{ marginTop: 2 }}>{AR ? (type.nameAr || type.name) : type.name}</div></div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>{TL("Close ×", "إغلاق ×")}</button>
+        </div>
+        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div className="soft" style={{ fontSize: 12 }}>{TL("One row per indoor unit: the room and the cooling capacity it needs. Systems price each row at the smallest tier that covers the capacity.", "صف لكل وحدة داخلية: الغرفة وسعة التبريد المطلوبة. تسعر كل غرفة بأصغر شريحة تغطي السعة.")}</div>
+          {pts.map((p, i) => (
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 110px auto", gap: 8, alignItems: "center", padding: "8px 10px", background: "var(--bg-sunken)", borderRadius: "var(--r-sm)" }}>
+              <input className="input" style={{ height: 30, fontSize: 12 }} value={p.room || ""} placeholder={TL("Room (EN)", "الغرفة (إنجليزي)")} onChange={(e) => upd(i, { room: e.target.value })} />
+              <input className="input" dir="rtl" style={{ height: 30, fontSize: 12, fontFamily: "var(--font-ar)" }} value={p.roomAr || ""} placeholder="الغرفة (عربي)" onChange={(e) => upd(i, { roomAr: e.target.value })} />
+              <select className="select" style={{ height: 30, fontSize: 12 }} value={p.btu} onChange={(e) => upd(i, { btu: Number(e.target.value) })}>{[9000, 12000, 18000, 24000, 30000, 36000, 48000, 60000].map((b) => <option key={b} value={b}>{D.fmtSAR(b)} BTU</option>)}</select>
+              <button className="btn btn-sm btn-ghost" onClick={() => setPts(pts.filter((_, ix) => ix !== i))}>×</button>
+            </div>
+          ))}
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn btn-sm btn-secondary" onClick={() => setPts([...pts, { room: "", roomAr: "", btu: 18000 }])}>{TL("+ Room", "+ غرفة")}</button>
+            <span className="grow" />
+            <button className="btn btn-ghost" onClick={onClose}>{TL("Cancel", "إلغاء")}</button>
+            <button className="btn btn-primary" onClick={() => { const list = pts.filter((p) => (p.room || p.roomAr || "").trim()).map((p) => ({ room: p.room || p.roomAr, roomAr: p.roomAr || "", btu: Number(p.btu) || 18000 })); if (hasNegative(list)) { window.RevnuSupport.toast(negMsg(), "err"); return; } window.RevnuSupport.act(() => D.setCoolingPoints(projectId, type.id, list), { done: TL("Cooling points saved.", "تم حفظ نقاط التكييف.") }).then((r) => { if (r !== undefined) onClose(); }); }}>{TL("Save", "حفظ")}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+function ACDrawer({ ac, types, onClose }) {
+  const AR = window.I18N && window.I18N.isAR; const TL = (en, ar) => (AR ? ar : en);
+  const [a, setA] = useState(() => ({ ...ac, tiers: { ...(ac.tiers || {}) }, fits: [...(ac.fits || [])], addons: (ac.addons || []).map((x) => ({ ...x })), images: (ac.images || []).map((x) => ({ ...x })), logo: ac.logo || "" }));
+  const set = (patch) => setA((p) => ({ ...p, ...patch }));
+  const [busy, setBusy] = useState(false); const imgInput = React.useRef(null); const logoInput = React.useRef(null);
+  const onLogo = async (e) => { const f = e.target.files && e.target.files[0]; if (!f) return; try { const url = await uploadScaled(f, 600, "ac/" + (a.projectId || "misc"), true); set({ logo: url }); } catch (err) { console.error(err); } e.target.value = ""; };
+  const onUploadImg = async (e) => {
+    const files = Array.from(e.target.files || []); if (!files.length) return; setBusy(true);
+    try { const added = []; for (const f of files) { const url = await uploadScaled(f, 1400, "ac/" + (a.projectId || "misc")); added.push({ id: "aci" + Date.now().toString(36) + added.length, label: f.name.replace(/\.[^.]+$/, ""), src: url }); } setA((p) => ({ ...p, images: [...(p.images || []), ...added] })); }
+    catch (err) { console.error(err); }
+    setBusy(false); e.target.value = "";
+  };
+  const tierKeys = Object.keys(a.tiers).map(Number).sort((x, y) => x - y);
+  const setTier = (k, v) => set({ tiers: { ...a.tiers, [k]: Number(v) || 0 } });
+  const save = () => {
+    if (!(a.brand || "").trim() || !(a.name || "").trim()) return;
+    const payload = { brand: a.brand.trim(), brandAr: a.brandAr || "", name: a.name.trim(), nameAr: a.nameAr || "", type: a.type, summary: a.summary || "", summaryAr: a.summaryAr || "", energyClass: a.energyClass || "", warrantyYears: Number(a.warrantyYears) || 0, install: Number(a.install) || 0, logo: a.logo || "", images: a.images || [], tiers: a.tiers, fits: a.fits, addons: a.addons.filter((x) => (x.name || "").trim()).map((x, i) => ({ ...x, id: x.id || ("a" + (i + 1)), price: Number(x.price) || 0 })) };
+    if (hasNegative(payload)) { window.RevnuSupport.toast(negMsg(), "err"); return; }
+    window.RevnuSupport.act(() => (a.id === "new" ? D.createAC({ projectId: a.projectId, ...payload }) : D.setContentField("ac", a.id, payload)), { done: TL("AC system saved.", "تم حفظ نظام التكييف.") }).then((r) => { if (r !== undefined) onClose(); });
+  };
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 200, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
+      <div style={{ width: 560, maxWidth: "100vw", background: "var(--bg-card)", height: "100vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <div className="row-between" style={{ padding: "18px 24px", borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg-card)", zIndex: 1 }}>
+          <div><div className="eyebrow">{a.id === "new" ? TL("// NEW AC SYSTEM", "// نظام تكييف جديد") : TL("// EDIT AC SYSTEM", "// تعديل نظام التكييف")}</div><div className="display-sm" style={{ marginTop: 2 }}>{(a.brand || "") + " " + (a.name || "")}</div></div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>{TL("Close ×", "إغلاق ×")}</button>
+        </div>
+        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <Labeled label={TL("Brand (English)", "الماركة (إنجليزي)")}><input className="input" value={a.brand || ""} onChange={(e) => set({ brand: e.target.value })} placeholder="Daikin" /></Labeled>
+            <Labeled label="الماركة (عربي)"><input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={a.brandAr || ""} onChange={(e) => set({ brandAr: e.target.value })} placeholder="دايكن" /></Labeled>
+            <Labeled label={TL("Model / range (English)", "الموديل (إنجليزي)")}><input className="input" value={a.name || ""} onChange={(e) => set({ name: e.target.value })} placeholder="Dual Inverter" /></Labeled>
+            <Labeled label="الموديل (عربي)"><input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={a.nameAr || ""} onChange={(e) => set({ nameAr: e.target.value })} /></Labeled>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+            <Labeled label={TL("Type", "النوع")}><select className="select" value={a.type} onChange={(e) => set({ type: e.target.value })}>{D.AC_TYPES.map((t) => <option key={t.id} value={t.id}>{AR ? t.ar : t.en}</option>)}</select></Labeled>
+            <Labeled label={TL("Energy class", "فئة الطاقة")}><input className="input" value={a.energyClass || ""} onChange={(e) => set({ energyClass: e.target.value })} placeholder="A++" /></Labeled>
+            <Labeled label={TL("Warranty (years)", "الضمان (سنوات)")}><input className="input mono" type="number" min="0" value={a.warrantyYears || 0} onChange={(e) => set({ warrantyYears: Number(e.target.value) || 0 })} /></Labeled>
+          </div>
+          <Labeled label={TL("Summary (English)", "الوصف (إنجليزي)")}><input className="input" value={a.summary || ""} onChange={(e) => set({ summary: e.target.value })} /></Labeled>
+          <Labeled label="الوصف (عربي)"><input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={a.summaryAr || ""} onChange={(e) => set({ summaryAr: e.target.value })} /></Labeled>
+
+          <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-sm)", padding: 14 }}>
+            <div className="eyebrow" style={{ marginBottom: 8 }}>{TL("BRAND LOGO & PRODUCT PHOTOS", "شعار الماركة وصور المنتج")}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "150px minmax(0, 1fr)", gap: 14, alignItems: "start" }}>
+              <div>
+                <div className="soft" style={{ fontSize: 10.5, marginBottom: 5 }}>{TL("Brand logo · transparent PNG", "شعار الماركة · PNG شفاف")}</div>
+                <div onClick={() => logoInput.current && logoInput.current.click()} title={TL("Upload logo", "رفع الشعار")} style={{ cursor: "pointer", border: "1px dashed var(--line-strong)", borderRadius: "var(--r-sm)", height: 74, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", padding: 8 }}>
+                  {a.logo ? <img src={a.logo} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} /> : <span style={{ fontSize: 11, color: "var(--text-soft)" }}>{TL("Click to upload", "انقر للرفع")}</span>}
+                </div>
+                <div className="row" style={{ gap: 6, marginTop: 5 }}>
+                  <button className="btn btn-sm btn-secondary" onClick={() => logoInput.current && logoInput.current.click()}>{a.logo ? TL("Replace", "استبدال") : TL("Upload", "رفع")}</button>
+                  {a.logo && <button className="btn btn-sm btn-ghost" onClick={() => set({ logo: "" })}>✕</button>}
+                  <input ref={logoInput} type="file" accept="image/png,image/svg+xml,image/jpeg,image/webp" style={{ display: "none" }} onChange={onLogo} />
+                </div>
+              </div>
+              <div>
+                <div className="row-between" style={{ marginBottom: 5 }}>
+                  <div className="soft" style={{ fontSize: 10.5 }}>{TL("Product photos · indoor unit, outdoor unit, controller", "صور المنتج · الوحدة الداخلية والخارجية وجهاز التحكم")}</div>
+                  <button className="btn btn-sm btn-secondary" onClick={() => imgInput.current && imgInput.current.click()}>{busy ? TL("Uploading…", "جار الرفع…") : TL("+ Photos", "+ صور")}</button>
+                  <input ref={imgInput} type="file" accept="image/png,image/jpeg,image/webp" multiple style={{ display: "none" }} onChange={onUploadImg} />
+                </div>
+                {a.images.length > 0 ? (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                    {a.images.map((img, i) => (
+                      <div key={img.id || i} style={{ border: "1px solid var(--line)", borderRadius: 6, overflow: "hidden", background: "var(--bg-sunken)" }}>
+                        <div style={{ aspectRatio: "4/3", background: "var(--bg-tint)" }}><img src={img.src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} /></div>
+                        <div style={{ padding: 6 }}>
+                          <input className="input" style={{ height: 26, fontSize: 11 }} value={img.label || ""} placeholder={TL("Caption", "وصف")} onChange={(e) => set({ images: a.images.map((x, ix) => ix === i ? { ...x, label: e.target.value } : x) })} />
+                          <div className="row" style={{ gap: 4, marginTop: 4 }}>
+                            <button className="btn btn-sm btn-ghost" disabled={i === 0} onClick={() => { const arr = [...a.images]; [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]]; set({ images: arr }); }}>‹</button>
+                            <button className="btn btn-sm btn-ghost" disabled={i === a.images.length - 1} onClick={() => { const arr = [...a.images]; [arr[i + 1], arr[i]] = [arr[i], arr[i + 1]]; set({ images: arr }); }}>›</button>
+                            <button className="btn btn-sm btn-ghost grow" onClick={() => set({ images: a.images.filter((_, ix) => ix !== i) })}>{TL("Remove", "حذف")}</button>
+                          </div>
+                        </div>
+                      </div>))}
+                  </div>
+                ) : (
+                  <div onClick={() => imgInput.current && imgInput.current.click()} style={{ cursor: "pointer", padding: 18, border: "1px dashed var(--line-strong)", borderRadius: 6, textAlign: "center", color: "var(--text-soft)", fontSize: 12 }}>{TL("No photos yet — click to upload product shots.", "لا توجد صور بعد — انقر لرفع صور المنتج.")}</div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-sm)", padding: 14 }}>
+            <div className="row-between" style={{ marginBottom: 8 }}><div className="eyebrow">{TL("PRICE PER CAPACITY TIER (SAR, EX-VAT, PER INDOOR UNIT)", "السعر لكل شريحة سعة (ريال، قبل الضريبة، لكل وحدة داخلية)")}</div>
+              <select className="select" style={{ height: 30, fontSize: 12, width: "auto" }} value="" onChange={(e) => { if (e.target.value) setTier(Number(e.target.value), 0); }}><option value="">{TL("+ tier…", "+ شريحة…")}</option>{[9000, 12000, 18000, 24000, 30000, 36000, 48000, 60000].filter((k) => !(k in a.tiers)).map((k) => <option key={k} value={k}>{D.fmtSAR(k)} BTU</option>)}</select></div>
+            <div className="soft" style={{ fontSize: 11, marginBottom: 8 }}>{TL("A room is priced at the smallest tier that covers its capacity. Leave 0 to skip a tier.", "تسعر الغرفة بأصغر شريحة تغطي سعتها. اترك 0 لتجاوز الشريحة.")}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
+              {tierKeys.map((k) => <Labeled key={k} label={D.fmtSAR(k) + " BTU"}><div className="row" style={{ gap: 4 }}><input className="input mono" type="number" step="100" min="0" value={a.tiers[k]} onChange={(e) => setTier(k, e.target.value)} /><button className="btn btn-sm btn-ghost" onClick={() => { const t = { ...a.tiers }; delete t[k]; set({ tiers: t }); }}>×</button></div></Labeled>)}
+            </div>
+            <div style={{ marginTop: 10, maxWidth: 220 }}><Labeled label={TL("Installation per indoor unit (SAR)", "التركيب لكل وحدة داخلية (ريال)")}><input className="input mono" type="number" step="50" min="0" value={a.install || 0} onChange={(e) => set({ install: Number(e.target.value) || 0 })} /></Labeled></div>
+          </div>
+
+          <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-sm)", padding: 14 }}>
+            <div className="eyebrow" style={{ marginBottom: 6 }}>{TL("FITS UNIT TYPES", "يناسب أنواع الوحدات")}</div>
+            <div className="soft" style={{ fontSize: 11, marginBottom: 8 }}>{TL("Leave all unticked = fits every type. Tick to restrict (e.g. central only for penthouses).", "اترك الكل دون تحديد = يناسب كل الأنواع. حدد للتقييد (مثل المركزي للبنتهاوس فقط).")}</div>
+            <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>{types.map((t) => { const on = a.fits.includes(t.id); return <button key={t.id} type="button" className={"btn btn-sm " + (on ? "btn-primary" : "btn-secondary")} onClick={() => set({ fits: on ? a.fits.filter((x) => x !== t.id) : [...a.fits, t.id] })}>{AR ? (t.nameAr || t.name) : t.name}</button>; })}</div>
+          </div>
+
+          <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-sm)", padding: 14 }}>
+            <div className="row-between" style={{ marginBottom: 6 }}><div className="eyebrow">{TL("OPTIONAL ITEMS", "إضافات اختيارية")}</div><button className="btn btn-sm btn-secondary" onClick={() => set({ addons: [...a.addons, { id: "a" + Date.now().toString(36).slice(-4), name: "", nameAr: "", price: 0 }] })}>{TL("+ Item", "+ إضافة")}</button></div>
+            <div className="soft" style={{ fontSize: 11, marginBottom: 8 }}>{TL("Items the customer can add (smart thermostat, extended warranty…). Flat price per unit, ex-VAT.", "عناصر يمكن للعميل إضافتها (ثرموستات ذكي، ضمان ممتد…). سعر ثابت لكل وحدة، قبل الضريبة.")}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {a.addons.map((x, i) => { const upd = (p) => set({ addons: a.addons.map((y, ix) => ix === i ? { ...y, ...p } : y) }); return (
+                <div key={x.id || i} style={{ padding: "8px 10px", background: "var(--bg-sunken)", borderRadius: "var(--r-sm)", display: "grid", gridTemplateColumns: "1fr 1fr 110px auto", gap: 8, alignItems: "center" }}>
+                  <input className="input" style={{ height: 30, fontSize: 12 }} value={x.name || ""} placeholder={TL("Name (EN)", "الاسم (إنجليزي)")} onChange={(e) => upd({ name: e.target.value })} />
+                  <input className="input" dir="rtl" style={{ height: 30, fontSize: 12, fontFamily: "var(--font-ar)" }} value={x.nameAr || ""} placeholder="الاسم بالعربية" onChange={(e) => upd({ nameAr: e.target.value })} />
+                  <input className="input mono" type="number" step="50" min="0" style={{ height: 30, fontSize: 12 }} value={x.price || 0} onChange={(e) => upd({ price: Number(e.target.value) || 0 })} />
+                  <button className="btn btn-sm btn-ghost" onClick={() => set({ addons: a.addons.filter((_, ix) => ix !== i) })}>×</button>
+                </div>); })}
+              {a.addons.length === 0 && <div className="soft" style={{ fontSize: 12 }}>{TL("No optional items.", "لا توجد إضافات.")}</div>}
+            </div>
+          </div>
+
+          <hr className="hr-thin" />
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn btn-primary grow" disabled={!(a.brand || "").trim() || !(a.name || "").trim()} onClick={save}>{a.id === "new" ? TL("Create system", "إنشاء النظام") : TL("Save system", "حفظ النظام")}</button>
+            <button className="btn btn-ghost" onClick={onClose}>{TL("Cancel", "إلغاء")}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Flooring — zones (m² + standard finish) per unit type + the finish catalogue (family · sizes · uplift per m² · zones allowed) */
+function WsFlooring({ T }) {
+  const AR = window.I18N && window.I18N.isAR; const TL = (en, ar) => (AR ? ar : en);
+  const [, bump] = useState(0); const refresh = () => bump((x) => x + 1);
+  const [editing, setEditing] = useState(null);
+  const [editZones, setEditZones] = useState(null);
+  const on = !!(T.project && T.project.features && T.project.features.flooring);
+  const showRate = !!(T.project && T.project.flooringShowRate);
+  const types = T.unitTypes || []; const list = T.flooring || [];
+  const standards = list.filter((f) => f.standard); const upgrades = list.filter((f) => !f.standard);
+  const nm = (o, k) => (AR && o && o[k + "Ar"]) ? o[k + "Ar"] : (o ? (o[k] || "") : "");
+  const Sw = ({ f, size }) => <span style={{ width: size || 22, height: size || 22, borderRadius: 5, flex: "none", display: "inline-block", verticalAlign: "middle", background: f && f.image ? "url(" + f.image + ") center/cover" : ((f && f.swatch) || "#DDD"), border: "1px solid rgba(0,0,0,0.12)" }} />;
+  const blank = { id: "new", projectId: T.project.id, family: "tile", standard: false, name: "", nameAr: "", summary: "", summaryAr: "", swatch: "#DDD8CC", image: "", sizes: [{ id: "60x60", label: "60 × 60 cm", labelAr: "60 × 60 سم", uplift: 0 }], zones: [] };
+  return (
+    <>
+      <WsCardHead eye="// FLOORING" title={TL("Zones & standard finish per unit type", "المناطق والتشطيب القياسي لكل نوع وحدة")}
+        sub={TL("Each unit type lists its flooring zones with a nominal area and the standard finish delivered at no cost. Every upgrade prices itself as m² × the finish's uplift, so a 1-bedroom and a penthouse are priced correctly without extra rows.", "لكل نوع وحدة قائمة بمناطق الأرضيات مع مساحة اسمية والتشطيب القياسي المسلم دون تكلفة. كل ترقية تسعر تلقائيا (م² × فرق السعر)، فتسعر الغرفة الواحدة والبنتهاوس بشكل صحيح دون صفوف إضافية.")}
+        action={<span className={"chip " + (on ? "" : "chip-soft")}>{on ? TL("ON in sales flow", "مفعل في مسار البيع") : TL("OFF — enable in feature toggles", "غير مفعل — فعله من المفاتيح")}</span>} />
+      <DeadlinesCard T={T} highlight="flooring" onChange={refresh} />
+      <div className="card card-pad" style={{ marginBottom: 14, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", border: "1px solid " + (showRate ? "var(--brand)" : "var(--line)") }}>
+        <div style={{ flex: 1, minWidth: 260 }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{TL("Show the SAR/m² rate to customers on screen", "إظهار سعر المتر المربع للعميل على الشاشة")}</div>
+          <div className="soft" style={{ fontSize: 11.5, marginTop: 2 }}>{TL("HQ always prices per m². When off, the sales screens show each zone's m² and amount only — the rate stays out of the conversation. Appendix F-5 in the agreement always prints zone · m² · rate · amount.", "تسعر الإدارة دائما بالمتر المربع. عند الإيقاف تعرض شاشات البيع مساحة كل منطقة والمبلغ فقط دون سعر المتر. أما الملحق F-5 في الاتفاقية فيطبع دائما المنطقة والمساحة والسعر والمبلغ.")}</div>
+        </div>
+        <div className="row" style={{ gap: 8, alignItems: "center" }}><span className="soft" style={{ fontSize: 11.5 }}>{showRate ? TL("Rate shown", "السعر ظاهر") : TL("Rate hidden", "السعر مخفي")}</span><FeatureSwitch on={showRate} onClick={() => { window.RevnuSupport.act(() => D.setProjectInfo(T.project.id, { flooringShowRate: !showRate })).then(refresh); }} /></div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 22 }}>
+        {types.map((t) => { const zs = D.flooringZonesFor(T.project.id, t.id); const tot = zs.reduce((a, z) => a + (Number(z.area) || 0), 0); return (
+          <div key={t.id} className="card card-pad">
+            <div className="row-between"><strong>{AR ? (t.nameAr || t.name) : t.name}</strong><span className="chip chip-soft">{zs.length} {TL("zones", "مناطق")} · {tot} m²</span></div>
+            <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", marginTop: 8 }}><tbody>
+              {zs.map((z, i) => { const meta = D.flooringZoneMeta(z.zone); const std = D.flooringById(z.standardId); return <tr key={i} style={{ borderTop: i ? "1px dotted var(--line)" : "none" }}><td style={{ padding: "4px 0" }}>{AR ? meta.ar : meta.en}</td><td className="mono soft" style={{ textAlign: "end", paddingInlineEnd: 10, whiteSpace: "nowrap" }}>{z.area} m²</td><td style={{ textAlign: "end", whiteSpace: "nowrap" }}>{std ? <span className="row" style={{ gap: 6, justifyContent: "flex-end", alignItems: "center" }}><Sw f={std} size={14} /><span style={{ fontSize: 11.5 }}>{nm(std, "name")}</span></span> : <span className="soft">{TL("no standard set", "بلا قياسي")}</span>}</td></tr>; })}
+              {zs.length === 0 && <tr><td className="soft" style={{ padding: "4px 0" }}>{TL("No zones yet.", "لا توجد مناطق بعد.")}</td></tr>}
+            </tbody></table>
+            <button className="btn btn-sm btn-ghost" style={{ marginTop: 8 }} onClick={() => setEditZones({ type: t, zones: zs.map((z) => ({ ...z })) })}>{TL("Edit zones", "تعديل المناطق")}</button>
+          </div>); })}
+      </div>
+
+      <WsCardHead eye="// FINISH CATALOGUE" title={TL("Floor & wall finishes", "تشطيبات الأرضيات والجدران")}
+        sub={TL("Standard finishes are what the customer gets at no cost. Upgrade finishes carry up to three sizes, each with an uplift per m² (supply & lay, ex-VAT), and the zones they may go in — no parquet in bathrooms.", "التشطيبات القياسية هي ما يحصل عليه العميل دون تكلفة. ولكل تشطيب ترقية حتى ثلاثة مقاسات بفرق سعر للمتر المربع (توريد وتركيب، قبل الضريبة) والمناطق المسموح بها — لا باركيه في الحمامات.")}
+        action={<button className="btn btn-primary" onClick={() => setEditing(blank)}>{TL("+ Add finish", "+ إضافة تشطيب")}</button>} />
+      {list.length === 0 ? <div className="card card-pad soft">{TL("No finishes for this project yet — press “Add finish”.", "لا توجد تشطيبات لهذا المشروع بعد — اضغط «إضافة تشطيب».")}</div> : (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 14 }}>
+        {standards.concat(upgrades).map((f) => { const fam = D.flooringFamilyById(f.family); return (
+          <div key={f.id} className="card" style={{ overflow: "hidden" }}>
+            <div style={{ height: 96, background: f.image ? "url(" + f.image + ") center/cover" : f.swatch }} />
+            <div className="card-pad">
+              <div className="row-between" style={{ alignItems: "flex-start", gap: 8 }}>
+                <div><strong style={{ fontSize: 15 }}>{nm(f, "name")}</strong>
+                  <div className="row" style={{ gap: 6, marginTop: 4, flexWrap: "wrap" }}><span className="chip chip-soft">{AR ? fam.ar : fam.en}</span>{f.standard ? <span className="chip">{TL("Standard · included", "قياسي · مضمن")}</span> : null}</div></div>
+                <span className="chip chip-soft" style={{ flex: "none" }}>{(!f.zones || !f.zones.length) ? TL("All zones", "كل المناطق") : f.zones.length + TL(" zones", " مناطق")}</span>
+              </div>
+              {nm(f, "summary") ? <p style={{ margin: "8px 0", fontSize: 12.5, color: "var(--text-muted)" }}>{nm(f, "summary")}</p> : null}
+              <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", marginTop: 6 }}>
+                <thead><tr className="soft" style={{ fontSize: 10.5 }}><th style={{ textAlign: "start", paddingBottom: 4 }}>{TL("Size", "المقاس")}</th><th style={{ textAlign: "end" }}>{f.standard ? TL("Uplift", "الفرق") : TL("Uplift / m² (ex-VAT)", "الفرق / م² (قبل الضريبة)")}</th></tr></thead>
+                <tbody>{(f.sizes || []).map((sz) => <tr key={sz.id} style={{ borderTop: "1px dotted var(--line)" }}><td style={{ padding: "3px 0" }}>{nm(sz, "label")}</td><td className="mono" style={{ textAlign: "end" }}>{f.standard || !sz.uplift ? TL("included", "مضمن") : "+" + D.fmtSAR(sz.uplift)}</td></tr>)}</tbody>
+              </table>
+              {(f.zones || []).length > 0 && <div className="row" style={{ gap: 4, flexWrap: "wrap", marginTop: 8 }}>{f.zones.map((z) => { const m = D.flooringZoneMeta(z); return <span key={z} className="chip chip-soft" style={{ fontSize: 10.5 }}>{AR ? m.ar : m.en}</span>; })}</div>}
+              <div className="row" style={{ gap: 6, marginTop: 10 }}>
+                <button className="btn btn-sm btn-ghost" onClick={() => setEditing(f)}>{TL("Edit", "تعديل")}</button>
+                <DelBtn kind="flooring" id={f.id} name={f.name} after={refresh} />
+              </div>
+            </div>
+          </div>); })}
+      </div>)}
+      {editing && <FlooringDrawer finish={editing} onClose={() => { setEditing(null); refresh(); }} />}
+      {editZones && <FlooringZonesDrawer projectId={T.project.id} type={editZones.type} initial={editZones.zones} standards={standards} onClose={() => { setEditZones(null); refresh(); }} />}
+    </>
+  );
+}
+function FlooringZonesDrawer({ projectId, type, initial, standards, onClose }) {
+  const AR = window.I18N && window.I18N.isAR; const TL = (en, ar) => (AR ? ar : en);
+  const [zs, setZs] = useState(initial);
+  const upd = (i, p) => setZs(zs.map((x, ix) => ix === i ? { ...x, ...p } : x));
+  const unused = D.FLOORING_ZONE_TYPES.filter((z) => !zs.some((x) => x.zone === z.id));
+  const stdFor = (zoneId) => standards.filter((f) => D.flooringFits(f, zoneId));
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 200, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
+      <div style={{ width: 560, maxWidth: "100vw", background: "var(--bg-card)", height: "100vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <div className="row-between" style={{ padding: "18px 24px", borderBottom: "1px solid var(--line)" }}>
+          <div><div className="eyebrow">{TL("// FLOORING ZONES", "// مناطق الأرضيات")}</div><div className="display-sm" style={{ marginTop: 2 }}>{AR ? (type.nameAr || type.name) : type.name}</div></div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>{TL("Close ×", "إغلاق ×")}</button>
+        </div>
+        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div className="soft" style={{ fontSize: 12 }}>{TL("One row per zone from Revnu's fixed vocabulary: nominal area in m² (bathrooms = floor + walls) and the standard finish delivered at no cost. Upgrades price as m² × uplift.", "صف لكل منطقة من قائمة Revnu الثابتة: المساحة الاسمية بالمتر المربع (الحمامات = أرضية وجدران) والتشطيب القياسي المسلم دون تكلفة. تسعر الترقيات ب م² × فرق السعر.")}</div>
+          {zs.map((z, i) => { const opts = stdFor(z.zone); return (
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "1.2fr 90px 1.3fr auto", gap: 8, alignItems: "center", padding: "8px 10px", background: "var(--bg-sunken)", borderRadius: "var(--r-sm)" }}>
+              <select className="select" style={{ height: 30, fontSize: 12 }} value={z.zone} onChange={(e) => upd(i, { zone: e.target.value })}>{D.FLOORING_ZONE_TYPES.filter((t) => t.id === z.zone || !zs.some((x) => x.zone === t.id)).map((t) => <option key={t.id} value={t.id}>{AR ? t.ar : t.en}</option>)}</select>
+              <div className="row" style={{ gap: 4, alignItems: "center" }}><input className="input mono" type="number" min="0" step="1" style={{ height: 30, fontSize: 12 }} value={z.area} onChange={(e) => upd(i, { area: Number(e.target.value) || 0 })} /><span className="soft" style={{ fontSize: 11 }}>m²</span></div>
+              <select className="select" style={{ height: 30, fontSize: 12 }} value={z.standardId || ""} onChange={(e) => upd(i, { standardId: e.target.value })}><option value="">{TL("Standard finish…", "التشطيب القياسي…")}</option>{opts.map((f) => <option key={f.id} value={f.id}>{AR ? (f.nameAr || f.name) : f.name}</option>)}</select>
+              <button className="btn btn-sm btn-ghost" onClick={() => setZs(zs.filter((_, ix) => ix !== i))}>×</button>
+            </div>); })}
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn btn-sm btn-secondary" disabled={!unused.length} onClick={() => setZs([...zs, { zone: unused[0].id, area: 20, standardId: (stdFor(unused[0].id)[0] || {}).id || "" }])}>{TL("+ Zone", "+ منطقة")}</button>
+            <span className="grow" />
+            <button className="btn btn-ghost" onClick={onClose}>{TL("Cancel", "إلغاء")}</button>
+            <button className="btn btn-primary" onClick={() => { const list = zs.filter((z) => z.zone).map((z) => ({ zone: z.zone, area: Number(z.area) || 0, standardId: z.standardId || "" })); if (hasNegative(list)) { window.RevnuSupport.toast(negMsg(), "err"); return; } window.RevnuSupport.act(() => D.setFlooringZones(projectId, type.id, list), { done: TL("Flooring zones saved.", "تم حفظ مناطق الأرضيات.") }).then((r) => { if (r !== undefined) onClose(); }); }}>{TL("Save", "حفظ")}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+function FlooringDrawer({ finish, onClose }) {
+  const AR = window.I18N && window.I18N.isAR; const TL = (en, ar) => (AR ? ar : en);
+  const [f, setF] = useState(() => ({ ...finish, sizes: (finish.sizes || []).map((x) => ({ ...x })), zones: [...(finish.zones || [])] }));
+  const set = (patch) => setF((p) => ({ ...p, ...patch }));
+  const imgInput = React.useRef(null);
+  const onImg = async (e) => { const file = e.target.files && e.target.files[0]; if (!file) return; try { const url = await uploadScaled(file, 1200, "flooring/" + (f.projectId || "misc")); set({ image: url }); } catch (err) { console.error(err); } e.target.value = ""; };
+  const updSize = (i, p) => set({ sizes: f.sizes.map((x, ix) => ix === i ? { ...x, ...p } : x) });
+  const save = () => {
+    if (!(f.name || "").trim()) return;
+    const sizes = f.sizes.filter((x) => (x.label || x.labelAr || "").trim()).map((x, i) => ({ id: x.id || ("s" + (i + 1)), label: x.label || x.labelAr, labelAr: x.labelAr || "", uplift: f.standard ? 0 : (Number(x.uplift) || 0) }));
+    const payload = { family: f.family, standard: !!f.standard, name: f.name.trim(), nameAr: f.nameAr || "", summary: f.summary || "", summaryAr: f.summaryAr || "", swatch: f.swatch || "#DDD8CC", image: f.image || "", sizes, zones: f.zones };
+    if (hasNegative(payload)) { window.RevnuSupport.toast(negMsg(), "err"); return; }
+    window.RevnuSupport.act(() => (f.id === "new" ? D.createFlooring({ projectId: f.projectId, ...payload }) : D.setContentField("flooring", f.id, payload)), { done: TL("Finish saved.", "تم حفظ التشطيب.") }).then((r) => { if (r !== undefined) onClose(); });
+  };
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 200, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
+      <div style={{ width: 560, maxWidth: "100vw", background: "var(--bg-card)", height: "100vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <div className="row-between" style={{ padding: "18px 24px", borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg-card)", zIndex: 1 }}>
+          <div><div className="eyebrow">{f.id === "new" ? TL("// NEW FINISH", "// تشطيب جديد") : TL("// EDIT FINISH", "// تعديل التشطيب")}</div><div className="display-sm" style={{ marginTop: 2 }}>{f.name || TL("Untitled", "بلا اسم")}</div></div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>{TL("Close ×", "إغلاق ×")}</button>
+        </div>
+        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <Labeled label={TL("Name (English)", "الاسم (إنجليزي)")}><input className="input" value={f.name || ""} onChange={(e) => set({ name: e.target.value })} placeholder="Carrara White marble" /></Labeled>
+            <Labeled label="الاسم (عربي)"><input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={f.nameAr || ""} onChange={(e) => set({ nameAr: e.target.value })} placeholder="رخام كرارا أبيض" /></Labeled>
+            <Labeled label={TL("Material family", "نوع الخامة")}><select className="select" value={f.family} onChange={(e) => set({ family: e.target.value })}>{D.FLOORING_FAMILIES.map((x) => <option key={x.id} value={x.id}>{AR ? x.ar : x.en}</option>)}</select></Labeled>
+            <Labeled label={TL("Role", "الدور")}>
+              <div style={{ display: "flex", border: "1px solid var(--line-strong)", borderRadius: 7, overflow: "hidden", height: 38 }}>
+                <button type="button" onClick={() => set({ standard: false })} style={{ flex: 1, fontSize: 11.5, fontWeight: 600, cursor: "pointer", border: "none", background: !f.standard ? "var(--brand)" : "transparent", color: !f.standard ? "var(--brand-text)" : "var(--text-muted)" }}>{TL("Upgrade", "ترقية")}</button>
+                <button type="button" onClick={() => set({ standard: true })} style={{ flex: 1, fontSize: 11.5, fontWeight: 600, cursor: "pointer", border: "none", borderInlineStart: "1px solid var(--line-strong)", background: f.standard ? "var(--brand)" : "transparent", color: f.standard ? "var(--brand-text)" : "var(--text-muted)" }}>{TL("Standard · included", "قياسي · مضمن")}</button>
+              </div>
+            </Labeled>
+          </div>
+          <Labeled label={TL("Summary (English)", "الوصف (إنجليزي)")}><input className="input" value={f.summary || ""} onChange={(e) => set({ summary: e.target.value })} /></Labeled>
+          <Labeled label="الوصف (عربي)"><input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={f.summaryAr || ""} onChange={(e) => set({ summaryAr: e.target.value })} /></Labeled>
+
+          <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-sm)", padding: 14 }}>
+            <div className="eyebrow" style={{ marginBottom: 8 }}>{TL("SWATCH & PHOTO", "العينة والصورة")}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "150px minmax(0, 1fr)", gap: 14, alignItems: "start" }}>
+              <div>
+                <div className="soft" style={{ fontSize: 10.5, marginBottom: 5 }}>{TL("Fallback colour", "اللون البديل")}</div>
+                <div className="row" style={{ gap: 8, alignItems: "center" }}><input type="color" value={f.swatch || "#DDD8CC"} onChange={(e) => set({ swatch: e.target.value })} style={{ width: 44, height: 34, border: "1px solid var(--line)", borderRadius: 6, padding: 2, background: "#fff" }} /><span className="mono" style={{ fontSize: 12 }}>{f.swatch}</span></div>
+              </div>
+              <div>
+                <div className="soft" style={{ fontSize: 10.5, marginBottom: 5 }}>{TL("Photo · close-up of the tile, slab or plank", "صورة · لقطة قريبة للبلاطة أو اللوح")}</div>
+                <div onClick={() => imgInput.current && imgInput.current.click()} style={{ cursor: "pointer", border: "1px dashed var(--line-strong)", borderRadius: 6, height: 96, background: f.image ? "url(" + f.image + ") center/cover" : f.swatch, display: "flex", alignItems: "center", justifyContent: "center" }}>{!f.image && <span style={{ fontSize: 11, color: "var(--text-soft)", background: "rgba(255,255,255,0.7)", padding: "2px 8px", borderRadius: 4 }}>{TL("Click to upload", "انقر للرفع")}</span>}</div>
+                <div className="row" style={{ gap: 6, marginTop: 5 }}>
+                  <button className="btn btn-sm btn-secondary" onClick={() => imgInput.current && imgInput.current.click()}>{f.image ? TL("Replace", "استبدال") : TL("Upload", "رفع")}</button>
+                  {f.image && <button className="btn btn-sm btn-ghost" onClick={() => set({ image: "" })}>✕</button>}
+                  <input ref={imgInput} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: "none" }} onChange={onImg} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-sm)", padding: 14 }}>
+            <div className="row-between" style={{ marginBottom: 6 }}><div className="eyebrow">{f.standard ? TL("SIZE", "المقاس") : TL("SIZES & UPLIFT PER m² (SAR, EX-VAT, SUPPLY & LAY)", "المقاسات وفرق السعر للمتر المربع (ريال، قبل الضريبة، توريد وتركيب)")}</div><button className="btn btn-sm btn-secondary" disabled={f.sizes.length >= 3} onClick={() => set({ sizes: [...f.sizes, { id: "s" + Date.now().toString(36).slice(-4), label: "", labelAr: "", uplift: 0 }] })}>{TL("+ Size", "+ مقاس")}</button></div>
+            <div className="soft" style={{ fontSize: 11, marginBottom: 8 }}>{f.standard ? TL("Standard finishes are included — no uplift.", "التشطيبات القياسية مضمنة — بلا فرق سعر.") : TL("Up to three sizes. The uplift is the difference the customer pays over the standard finish, per m² of the zones chosen.", "حتى ثلاثة مقاسات. فرق السعر هو ما يدفعه العميل فوق التشطيب القياسي لكل متر مربع من المناطق المختارة.")}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {f.sizes.map((x, i) => (
+                <div key={x.id || i} style={{ padding: "8px 10px", background: "var(--bg-sunken)", borderRadius: "var(--r-sm)", display: "grid", gridTemplateColumns: f.standard ? "1fr 1fr auto" : "1fr 1fr 110px auto", gap: 8, alignItems: "center" }}>
+                  <input className="input" style={{ height: 30, fontSize: 12 }} value={x.label || ""} placeholder={TL("Size (EN) · 120 × 60 cm", "المقاس (إنجليزي)")} onChange={(e) => updSize(i, { label: e.target.value })} />
+                  <input className="input" dir="rtl" style={{ height: 30, fontSize: 12, fontFamily: "var(--font-ar)" }} value={x.labelAr || ""} placeholder="المقاس بالعربية" onChange={(e) => updSize(i, { labelAr: e.target.value })} />
+                  {!f.standard && <div className="row" style={{ gap: 4, alignItems: "center" }}><input className="input mono" type="number" step="5" min="0" style={{ height: 30, fontSize: 12 }} value={x.uplift || 0} onChange={(e) => updSize(i, { uplift: Number(e.target.value) || 0 })} /><span className="soft" style={{ fontSize: 10.5, whiteSpace: "nowrap" }}>/m²</span></div>}
+                  <button className="btn btn-sm btn-ghost" onClick={() => set({ sizes: f.sizes.filter((_, ix) => ix !== i) })}>×</button>
+                </div>))}
+              {f.sizes.length === 0 && <div className="soft" style={{ fontSize: 12 }}>{TL("Add at least one size.", "أضف مقاسا واحدا على الأقل.")}</div>}
+            </div>
+          </div>
+
+          <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-sm)", padding: 14 }}>
+            <div className="eyebrow" style={{ marginBottom: 6 }}>{TL("ZONES ALLOWED", "المناطق المسموح بها")}</div>
+            <div className="soft" style={{ fontSize: 11, marginBottom: 8 }}>{TL("Leave all unticked = any zone. Tick to restrict (e.g. no parquet in bathrooms).", "اترك الكل دون تحديد = كل المناطق. حدد للتقييد (مثل: لا باركيه في الحمامات).")}</div>
+            <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>{D.FLOORING_ZONE_TYPES.map((z) => { const on = f.zones.includes(z.id); return <button key={z.id} type="button" className={"btn btn-sm " + (on ? "btn-primary" : "btn-secondary")} onClick={() => set({ zones: on ? f.zones.filter((x) => x !== z.id) : [...f.zones, z.id] })}>{AR ? z.ar : z.en}</button>; })}</div>
+          </div>
+
+          <hr className="hr-thin" />
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn btn-primary grow" disabled={!(f.name || "").trim() || !f.sizes.length} onClick={save}>{f.id === "new" ? TL("Create finish", "إنشاء التشطيب") : TL("Save finish", "حفظ التشطيب")}</button>
+            <button className="btn btn-ghost" onClick={onClose}>{TL("Cancel", "إلغاء")}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Customisation windows — one date per feature; the sales step shows a live countdown and locks after it. Printed in the agreement. */
+function DeadlinesCard({ T, highlight, onChange }) {
+  const AR = window.I18N && window.I18N.isAR; const TL = (en, ar) => (AR ? ar : en);
+  const p = T.project; const [, bump] = useState(0);
+  const rows = [{ key: "layout", field: "layoutDeadline", en: "Layout changes", ar: "تعديلات المخطط" }, { key: "flooring", field: "flooringDeadline", en: "Flooring changes", ar: "تعديلات الأرضيات" }];
+  const set = (field, v) => { window.RevnuSupport.act(() => D.setProjectInfo(p.id, { [field]: v || null })).then(() => { bump((x) => x + 1); if (onChange) onChange(); }); };
+  return (
+    <div className="card card-pad" style={{ marginBottom: 14 }}>
+      <div className="row-between" style={{ marginBottom: 8, gap: 10, flexWrap: "wrap" }}><div className="eyebrow">{TL("// CUSTOMISATION DEADLINES", "// مواعيد إغلاق التعديلات")}</div><span className="soft" style={{ fontSize: 11.5 }}>{TL("Sales screens show a live countdown and lock the step after the date. The date is printed in the agreement.", "تعرض شاشات البيع عدا تنازليا وتقفل الخطوة بعد التاريخ. يطبع التاريخ في الاتفاقية.")}</span></div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 10 }}>
+        {rows.map((r) => { const ms = D.deadlineLeftMs(p, r.key); const open = ms == null || ms > 0; const days = ms == null ? null : Math.floor(Math.abs(ms) / 86400000); return (
+          <div key={r.key} style={{ padding: "10px 12px", background: r.key === highlight ? "var(--brand-soft)" : "var(--bg-sunken)", borderRadius: "var(--r-sm)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 120 }}><div style={{ fontSize: 13, fontWeight: 600 }}>{AR ? r.ar : r.en}</div><div style={{ fontSize: 11, color: ms != null && !open ? "#B23B3B" : "var(--text-soft)" }}>{ms == null ? TL("No deadline — always open", "بلا موعد — مفتوح دائما") : open ? TL(days + " days left", "متبق " + days + " يوما") : TL("Closed " + days + " days ago", "أغلق منذ " + days + " يوما")}</div></div>
+            <input className="input mono" type="date" style={{ height: 32, fontSize: 12, width: 160 }} value={p[r.field] || ""} onChange={(e) => set(r.field, e.target.value)} />
+            {p[r.field] ? <button className="btn btn-sm btn-ghost" onClick={() => set(r.field, "")}>×</button> : null}
+          </div>); })}
+      </div>
+    </div>
+  );
+}
+/* Layout changes — auto-price rates, deadlines, and the pre-approved wall/door options per unit type (grouped by area) */
+function WsLayout({ T }) {
+  const AR = window.I18N && window.I18N.isAR; const TL = (en, ar) => (AR ? ar : en);
+  const [, bump] = useState(0); const refresh = () => bump((x) => x + 1);
+  const [editing, setEditing] = useState(null);
+  const p = T.project; const on = !!(p && p.features && p.features.layout); const types = T.unitTypes || [];
+  const rates = D.layoutRatesFor(p);
+  // typed rates show at once and are saved once the typing stops
+  const rateTimer = React.useRef(null);
+  const setRate = (k, v) => { const n = Number(v) || 0; if (n < 0) return; p.layoutRates = { ...rates, [k]: n }; refresh(); clearTimeout(rateTimer.current); rateTimer.current = setTimeout(() => { window.RevnuSupport.act(() => D.setProjectInfo(p.id, { layoutRates: { ...D.layoutRatesFor(p) } })); }, 700); };
+  const nm = (o, k) => (AR && o && o[k + "Ar"]) ? o[k + "Ar"] : (o ? (o[k] || "") : "");
+  const blank = (typeId) => ({ id: "new", projectId: p.id, typeId, area: "", areaName: "", areaNameAr: "", asDesigned: "", asDesignedAr: "", name: "", nameAr: "", kind: "add", wallM: 3, doors: 1, flatPrice: null, roomsAfter: "", roomsAfterAr: "", summary: "", summaryAr: "", works: [], worksAr: [], before: "", after: "" });
+  const Thumb = ({ src }) => <span style={{ width: 44, height: 33, borderRadius: 4, flex: "none", display: "inline-block", background: src ? "url(" + src + ") center/cover" : "repeating-linear-gradient(45deg, var(--bg-sunken) 0 6px, var(--bg-tint) 6px 12px)", border: "1px solid var(--line)" }} />;
+  return (
+    <>
+      <WsCardHead eye="// LAYOUT CHANGES" title={TL("Pre-approved layout options per unit type", "خيارات المخطط المعتمدة لكل نوع وحدة")}
+        sub={TL("Each option switches one area of the plan between “as designed” and an alternative — close the kitchen, separate the majlis, merge a bedroom into a family living. Options in the same area are mutually exclusive; “as designed” is always free. Non-load-bearing partitions and doors only.", "كل خيار يبدل منطقة واحدة من المخطط بين «كما في التصميم» وبديل — إغلاق المطبخ، فصل المجلس، دمج غرفة نوم مع صالة عائلية. الخيارات في المنطقة نفسها متنافية، و«كما في التصميم» مجاني دائما. جدران غير حاملة وأبواب فقط.")}
+        action={<span className={"chip " + (on ? "" : "chip-soft")}>{on ? TL("ON in sales flow", "مفعل في مسار البيع") : TL("OFF — enable in feature toggles", "غير مفعل — فعله من المفاتيح")}</span>} />
+      <DeadlinesCard T={T} highlight="layout" onChange={refresh} />
+      <div className="card card-pad" style={{ marginBottom: 22 }}>
+        <div className="eyebrow" style={{ marginBottom: 6 }}>{TL("// AUTO-PRICE RATES (SAR, EX-VAT)", "// أسعار التسعير التلقائي (ريال، قبل الضريبة)")}</div>
+        <div className="soft" style={{ fontSize: 12, marginBottom: 10 }}>{TL("Every option prices itself as wall metres × rate + doors × door price, unless a flat price is set on the option. Prices never go below zero — removals are free at most, never a credit.", "يسعر كل خيار تلقائيا: أمتار الجدار × السعر + الأبواب × سعر الباب، ما لم يحدد سعر ثابت للخيار. لا تقل الأسعار عن الصفر — الإزالة مجانية على الأكثر ولا تحتسب كرصيد.")}</div>
+        <div className="row" style={{ gap: 14, flexWrap: "wrap" }}>
+          <Labeled label={TL("Wall · per linear metre (supply, plaster, paint, MEP)", "الجدار · للمتر الطولي (توريد ولياسة ودهان وكهرباء)")}><input className="input mono" type="number" step="50" min="0" style={{ width: 160 }} value={rates.wallPerM} onChange={(e) => setRate("wallPerM", e.target.value)} /></Labeled>
+          <Labeled label={TL("Door · each (leaf, frame, ironmongery)", "الباب · للوحدة (الضلفة والإطار والإكسسوارات)")}><input className="input mono" type="number" step="50" min="0" style={{ width: 160 }} value={rates.doorPrice} onChange={(e) => setRate("doorPrice", e.target.value)} /></Labeled>
+        </div>
+      </div>
+      {types.map((t) => { const areas = D.layoutAreas(p.id, t.id); return (
+        <div key={t.id} className="card card-pad" style={{ marginBottom: 14 }}>
+          <div className="row-between"><strong>{AR ? (t.nameAr || t.name) : t.name}</strong><button className="btn btn-sm btn-secondary" onClick={() => setEditing(blank(t.id))}>{TL("+ Option", "+ خيار")}</button></div>
+          {areas.length === 0 ? <div className="soft" style={{ fontSize: 12, marginTop: 6 }}>{TL("No layout options for this type yet.", "لا توجد خيارات مخطط لهذا النوع بعد.")}</div> : areas.map((area) => (
+            <div key={area.key} style={{ marginTop: 12 }}>
+              <div className="eyebrow" style={{ fontSize: 10 }}>// {AR ? area.nameAr : area.name} <span style={{ textTransform: "none", letterSpacing: 0, opacity: 0.8 }}>· {TL("as designed: ", "كما في التصميم: ")}{AR ? area.asDesignedAr : area.asDesigned}</span></div>
+              {area.options.map((o) => { const price = D.layoutPrice(o, p); return (
+                <div key={o.id} className="row-between" style={{ padding: "8px 0", borderTop: "1px dotted var(--line)", gap: 10, flexWrap: "wrap" }}>
+                  <div className="row" style={{ gap: 10, alignItems: "center" }}>
+                    <Thumb src={o.before} /><span className="soft">→</span><Thumb src={o.after} />
+                    <div><div style={{ fontWeight: 600, fontSize: 13 }}>{nm(o, "name")}</div><div className="soft" style={{ fontSize: 11.5 }}>{o.kind === "remove" ? TL("Wall removed", "إزالة جدار") : TL("Wall added", "إضافة جدار")}{o.wallM ? " · " + o.wallM + " m" : ""}{o.doors ? " · " + o.doors + TL(" door(s)", " باب") : ""}{nm(o, "roomsAfter") ? " · → " + nm(o, "roomsAfter") : ""}</div></div>
+                  </div>
+                  <div className="row" style={{ gap: 8, alignItems: "center" }}>
+                    <span className="mono" style={{ fontWeight: 600 }}>{price ? D.fmtSAR(price) : TL("no charge", "بدون تكلفة")}</span><span className="chip chip-soft" style={{ fontSize: 10.5 }}>{o.flatPrice != null && o.flatPrice !== "" ? TL("flat", "ثابت") : TL("auto", "تلقائي")}</span>
+                    <button className="btn btn-sm btn-ghost" onClick={() => setEditing(o)}>{TL("Edit", "تعديل")}</button>
+                    <DelBtn kind="layout" id={o.id} name={o.name} after={refresh} />
+                  </div>
+                </div>); })}
+            </div>))}
+        </div>); })}
+      {editing && <LayoutDrawer opt={editing} project={p} types={types} onClose={() => { setEditing(null); refresh(); }} />}
+    </>
+  );
+}
+function LayoutDrawer({ opt, project, types, onClose }) {
+  const AR = window.I18N && window.I18N.isAR; const TL = (en, ar) => (AR ? ar : en);
+  const [o, setO] = useState(() => ({ ...opt, works: [...(opt.works || [])], worksAr: [...(opt.worksAr || [])], flat: opt.flatPrice != null && opt.flatPrice !== "" }));
+  const set = (patch) => setO((x) => ({ ...x, ...patch }));
+  const beforeIn = React.useRef(null); const afterIn = React.useRef(null);
+  const onImg = (key) => async (e) => { const f = e.target.files && e.target.files[0]; if (!f) return; try { const url = await uploadScaled(f, 1200, "layout/" + (o.projectId || "misc")); set({ [key]: url }); } catch (err) { console.error(err); } e.target.value = ""; };
+  const existing = D.layoutAreas(project.id, o.typeId);
+  const slug = (t) => (t || "").toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]+/g, "-").replace(/^-|-$/g, "") || ("area-" + Date.now().toString(36).slice(-4));
+  const auto = Math.max(0, Math.round((Number(o.wallM) || 0) * D.layoutRatesFor(project).wallPerM + (Number(o.doors) || 0) * D.layoutRatesFor(project).doorPrice));
+  const save = () => {
+    if (!(o.name || "").trim() || !(o.areaName || "").trim()) return;
+    const payload = { typeId: o.typeId, area: o.area || slug(o.areaName), areaName: o.areaName.trim(), areaNameAr: o.areaNameAr || "", asDesigned: o.asDesigned || "As designed", asDesignedAr: o.asDesignedAr || "", name: o.name.trim(), nameAr: o.nameAr || "", kind: o.kind, wallM: Number(o.wallM) || 0, doors: Number(o.doors) || 0, flatPrice: o.flat ? Math.max(0, Number(o.flatPrice) || 0) : null, roomsAfter: o.roomsAfter || "", roomsAfterAr: o.roomsAfterAr || "", summary: o.summary || "", summaryAr: o.summaryAr || "", works: o.works.filter((w) => w.trim()), worksAr: o.worksAr.filter((w) => w.trim()), before: o.before || "", after: o.after || "" };
+    if (hasNegative(payload)) { window.RevnuSupport.toast(negMsg(), "err"); return; }
+    window.RevnuSupport.act(() => (o.id === "new" ? D.createLayoutOption({ projectId: o.projectId, ...payload }) : D.setContentField("layout", o.id, payload)), { done: (window.I18N && window.I18N.isAR) ? "تم حفظ خيار المخطط." : "Layout option saved." }).then((r) => { if (r !== undefined) onClose(); });
+  };
+  const ImgPick = ({ label, k, inputRef }) => (
+    <div>
+      <div className="soft" style={{ fontSize: 10.5, marginBottom: 5 }}>{label}</div>
+      <div onClick={() => inputRef.current && inputRef.current.click()} style={{ cursor: "pointer", border: "1px dashed var(--line-strong)", borderRadius: 6, aspectRatio: "4/3", background: o[k] ? "url(" + o[k] + ") center/cover" : "var(--bg-sunken)", display: "flex", alignItems: "center", justifyContent: "center" }}>{!o[k] && <span style={{ fontSize: 11, color: "var(--text-soft)" }}>{TL("Click to upload plan crop", "انقر لرفع قصاصة المخطط")}</span>}</div>
+      <div className="row" style={{ gap: 6, marginTop: 5 }}><button className="btn btn-sm btn-secondary" onClick={() => inputRef.current && inputRef.current.click()}>{o[k] ? TL("Replace", "استبدال") : TL("Upload", "رفع")}</button>{o[k] && <button className="btn btn-sm btn-ghost" onClick={() => set({ [k]: "" })}>✕</button>}<input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: "none" }} onChange={onImg(k)} /></div>
+    </div>
+  );
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 200, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
+      <div style={{ width: 600, maxWidth: "100vw", background: "var(--bg-card)", height: "100vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <div className="row-between" style={{ padding: "18px 24px", borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg-card)", zIndex: 1 }}>
+          <div><div className="eyebrow">{o.id === "new" ? TL("// NEW LAYOUT OPTION", "// خيار مخطط جديد") : TL("// EDIT LAYOUT OPTION", "// تعديل خيار المخطط")}</div><div className="display-sm" style={{ marginTop: 2 }}>{o.name || TL("Untitled", "بلا اسم")}</div></div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>{TL("Close ×", "إغلاق ×")}</button>
+        </div>
+        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <Labeled label={TL("Unit type", "نوع الوحدة")}><select className="select" value={o.typeId} onChange={(e) => set({ typeId: e.target.value })}>{types.map((t) => <option key={t.id} value={t.id}>{AR ? (t.nameAr || t.name) : t.name}</option>)}</select></Labeled>
+            <Labeled label={TL("Area of the plan", "منطقة المخطط")}><select className="select" value={existing.some((a) => a.key === o.area) ? o.area : "__new"} onChange={(e) => { const a = existing.find((x) => x.key === e.target.value); if (a) set({ area: a.key, areaName: a.name, areaNameAr: a.nameAr, asDesigned: a.asDesigned, asDesignedAr: a.asDesignedAr }); else set({ area: "" }); }}><option value="__new">{TL("New area…", "منطقة جديدة…")}</option>{existing.map((a) => <option key={a.key} value={a.key}>{AR ? a.nameAr : a.name}</option>)}</select></Labeled>
+            <Labeled label={TL("Area name (EN)", "اسم المنطقة (إنجليزي)")}><input className="input" value={o.areaName || ""} onChange={(e) => set({ areaName: e.target.value })} placeholder="Kitchen" /></Labeled>
+            <Labeled label="اسم المنطقة (عربي)"><input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={o.areaNameAr || ""} onChange={(e) => set({ areaNameAr: e.target.value })} placeholder="المطبخ" /></Labeled>
+            <Labeled label={TL("As designed (EN)", "كما في التصميم (إنجليزي)")}><input className="input" value={o.asDesigned || ""} onChange={(e) => set({ asDesigned: e.target.value })} placeholder="Open kitchen" /></Labeled>
+            <Labeled label="كما في التصميم (عربي)"><input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={o.asDesignedAr || ""} onChange={(e) => set({ asDesignedAr: e.target.value })} placeholder="مطبخ مفتوح" /></Labeled>
+            <Labeled label={TL("Option name (EN)", "اسم الخيار (إنجليزي)")}><input className="input" value={o.name || ""} onChange={(e) => set({ name: e.target.value })} placeholder="Closed kitchen · wall + door" /></Labeled>
+            <Labeled label="اسم الخيار (عربي)"><input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={o.nameAr || ""} onChange={(e) => set({ nameAr: e.target.value })} placeholder="مطبخ مغلق · جدار وباب" /></Labeled>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+            <Labeled label={TL("Change", "نوع التعديل")}><select className="select" value={o.kind} onChange={(e) => set({ kind: e.target.value })}><option value="add">{TL("Add a wall", "إضافة جدار")}</option><option value="remove">{TL("Remove a wall", "إزالة جدار")}</option></select></Labeled>
+            <Labeled label={TL("Wall length (m)", "طول الجدار (م)")}><input className="input mono" type="number" step="0.1" min="0" value={o.wallM} onChange={(e) => set({ wallM: e.target.value })} /></Labeled>
+            <Labeled label={TL("Doors", "الأبواب")}><input className="input mono" type="number" step="1" min="0" value={o.doors} onChange={(e) => set({ doors: e.target.value })} /></Labeled>
+          </div>
+          <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-sm)", padding: 14 }}>
+            <div className="row-between" style={{ marginBottom: 8 }}><div className="eyebrow">{TL("PRICE (SAR, EX-VAT)", "السعر (ريال، قبل الضريبة)")}</div>
+              <div style={{ display: "flex", border: "1px solid var(--line-strong)", borderRadius: 7, overflow: "hidden", height: 32 }}>
+                <button type="button" onClick={() => set({ flat: false })} style={{ padding: "0 12px", fontSize: 11.5, fontWeight: 600, cursor: "pointer", border: "none", background: !o.flat ? "var(--brand)" : "transparent", color: !o.flat ? "var(--brand-text)" : "var(--text-muted)" }}>{TL("Auto", "تلقائي")}</button>
+                <button type="button" onClick={() => set({ flat: true, flatPrice: o.flatPrice != null && o.flatPrice !== "" ? o.flatPrice : auto })} style={{ padding: "0 12px", fontSize: 11.5, fontWeight: 600, cursor: "pointer", border: "none", borderInlineStart: "1px solid var(--line-strong)", background: o.flat ? "var(--brand)" : "transparent", color: o.flat ? "var(--brand-text)" : "var(--text-muted)" }}>{TL("Flat", "ثابت")}</button>
+              </div></div>
+            {o.flat ? <div className="row" style={{ gap: 10, alignItems: "center" }}><input className="input mono" type="number" step="50" min="0" style={{ width: 160 }} value={o.flatPrice == null ? "" : o.flatPrice} onChange={(e) => set({ flatPrice: e.target.value })} /><span className="soft" style={{ fontSize: 12 }}>{TL("0 = no charge. Auto would be ", "0 = بدون تكلفة. التلقائي يساوي ") + D.fmtSAR(auto)}</span></div>
+                    : <div style={{ fontSize: 13 }}><span className="mono" style={{ fontWeight: 700 }}>{D.fmtSAR(auto)}</span> <span className="soft" style={{ fontSize: 12 }}>= {o.wallM || 0} m × {D.fmtSAR(D.layoutRatesFor(project).wallPerM)} + {o.doors || 0} × {D.fmtSAR(D.layoutRatesFor(project).doorPrice)}</span></div>}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <Labeled label={TL("Rooms after the change (EN) · optional", "الغرف بعد التعديل (إنجليزي) · اختياري")}><input className="input" value={o.roomsAfter || ""} onChange={(e) => set({ roomsAfter: e.target.value })} placeholder="2 bedrooms + family living" /></Labeled>
+            <Labeled label="الغرف بعد التعديل (عربي)"><input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={o.roomsAfterAr || ""} onChange={(e) => set({ roomsAfterAr: e.target.value })} /></Labeled>
+            <Labeled label={TL("Summary (EN)", "الوصف (إنجليزي)")}><input className="input" value={o.summary || ""} onChange={(e) => set({ summary: e.target.value })} /></Labeled>
+            <Labeled label="الوصف (عربي)"><input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={o.summaryAr || ""} onChange={(e) => set({ summaryAr: e.target.value })} /></Labeled>
+            <Labeled label={TL("Works included · one per line (EN)", "الأعمال المشمولة · سطر لكل بند (إنجليزي)")}><textarea className="input" rows={4} value={o.works.join("\n")} onChange={(e) => set({ works: e.target.value.split("\n") })} /></Labeled>
+            <Labeled label="الأعمال المشمولة · سطر لكل بند (عربي)"><textarea className="input" dir="rtl" rows={4} style={{ fontFamily: "var(--font-ar)" }} value={o.worksAr.join("\n")} onChange={(e) => set({ worksAr: e.target.value.split("\n") })} /></Labeled>
+          </div>
+          <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-sm)", padding: 14 }}>
+            <div className="eyebrow" style={{ marginBottom: 8 }}>{TL("PLAN CROPS · BEFORE / AFTER", "قصاصات المخطط · قبل / بعد")}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}><ImgPick label={TL("Before · as designed", "قبل · كما في التصميم")} k="before" inputRef={beforeIn} /><ImgPick label={TL("After · with this option", "بعد · مع هذا الخيار")} k="after" inputRef={afterIn} /></div>
+          </div>
+          <hr className="hr-thin" />
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn btn-primary grow" disabled={!(o.name || "").trim() || !(o.areaName || "").trim()} onClick={save}>{o.id === "new" ? TL("Create option", "إنشاء الخيار") : TL("Save option", "حفظ الخيار")}</button>
+            <button className="btn btn-ghost" onClick={onClose}>{TL("Cancel", "إلغاء")}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function WsSmart({ T }) {
   const [editing, setEditing] = useState(null);
   const [adding, setAdding]   = useState(false);
   return (
     <>
-      <WsCardHead eye="// SMART HOME" title="Smart-home tiers" sub={window.I18N && window.I18N.isAR ? "طبقات اختيارية. كل فئة بسعر ثابت يُضاف إلى باقة التأثيث." : "Optional layers. Each tier is a fixed-price kit added on top of the furnishing package."}
+      <WsCardHead eye="// SMART HOME" title="Smart-home tiers" sub={window.I18N && window.I18N.isAR ? "طبقات اختيارية. كل فئة بسعر ثابت يضاف إلى باقة التأثيث." : "Optional layers. Each tier is a fixed-price kit added on top of the furnishing package."}
         action={<button className="btn btn-primary" onClick={() => setAdding(true)}>+ Add tier</button>} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
         {T.smart.map((s) => (
@@ -2648,7 +3449,7 @@ function SmartDrawer({ tier, onClose, projectId }) {
           <div>
             <div className="row-between" style={{ marginBottom: 8 }}>
               <div className="eyebrow">{AR ? "صور المنزل الذكي" : "SMART-HOME PICTURES"}</div>
-              <button className="btn btn-sm btn-secondary" onClick={() => imgInput.current && imgInput.current.click()}>{busy ? (AR ? "جارٍ الرفع…" : "Uploading…") : (AR ? "+ رفع صورة" : "+ Upload image")}</button>
+              <button className="btn btn-sm btn-secondary" onClick={() => imgInput.current && imgInput.current.click()}>{busy ? (AR ? "جار الرفع…" : "Uploading…") : (AR ? "+ رفع صورة" : "+ Upload image")}</button>
               <input ref={imgInput} type="file" accept="image/*" style={{ display: "none" }} onChange={onUploadImg} />
             </div>
             <div style={{ fontSize: 11.5, color: "var(--text-soft)", marginBottom: 10 }}>{AR ? "صور للأجهزة والتركيبات — يراها العميل في مرحلة المبيعات. النسبة المثلى 16:10." : "Pictures of the devices & install — the customer sees these in the sales flow. Best ratio 16:10."}</div>
@@ -2847,46 +3648,366 @@ function OpsDrawer({ model, unitTypes, onClose, projectId }) {
 
 function WsContracts({ dv, T }) {
   const AR = window.I18N && window.I18N.isAR;
-  const [, setV] = useState(0);
+  const TL = (en, ar) => (AR ? ar : en);
+  const [scope, setScopeRaw] = useState("dev");            // "dev" = this developer · "master" = Revnu master
+  const [draft, setDraft] = useState(null);                 // working copy — null means no unsaved edits
   const [editing, setEditing] = useState(null);
-  const [preview, setPreview] = useState(null);
-  const refresh = () => setV((x) => x + 1);
-  const list = D.CONTRACTS.filter((c) => T.contracts.some((x) => x.id === c.id) || (c._created && c.projectId === T.project.id));
-  const langLabel = (l) => l === "ar" ? (AR ? "عربي فقط" : "Arabic only") : l === "en" ? (AR ? "إنجليزي فقط" : "English only") : (AR ? "عربي + إنجليزي" : "Arabic + English");
+  const [importing, setImporting] = useState(false);
+  const [preview, setPreview] = useState(false);
+  const [showHist, setShowHist] = useState(false);
+  const [fields, setFields] = useState(false);
+  const [, bump] = useState(0);
+  const refresh = () => bump((x) => x + 1);
+  const setScope = (v) => { setScopeRaw(v); setDraft(null); setShowHist(false); };
+  const devId = scope === "dev" ? dv.id : null;
+  const custom = D.agreementHasCustom(dv.id);
+  const stored = scope === "dev" ? D.agreementLayoutFor(dv.id) : D.agreementMaster();
+  const layout = draft || stored;
+  const dirty = !!draft;
+  const editable = scope === "master" || custom;
+  const update = (fn) => { const d = JSON.parse(JSON.stringify(layout)); fn(d); setDraft(d); };
+  const move = (i, dir) => update((d) => { const j = i + dir; if (j < 0 || j >= d.blocks.length) return; const t = d.blocks[i]; d.blocks[i] = d.blocks[j]; d.blocks[j] = t; });
+  const toggle = (i) => update((d) => { d.blocks[i].enabled = d.blocks[i].enabled === false; });
+  const setWhen = (i, w) => update((d) => { d.blocks[i].showWhen = w; });
+  const remove = (i) => update((d) => { d.blocks.splice(i, 1); });
+  const insertBeforeExecution = (d, items) => { const ex = d.blocks.findIndex((x) => x.kind === "data" && x.ref === "execution"); const at = ex >= 0 ? ex : d.blocks.length; d.blocks.splice(at, 0, ...items); };
+  const saveClause = (b) => { const nb = { ...b }; const isNew = !!nb._new; delete nb._new; update((d) => { if (isNew) insertBeforeExecution(d, [nb]); else { const i = d.blocks.findIndex((x) => x.id === nb.id); if (i >= 0) d.blocks[i] = nb; else insertBeforeExecution(d, [nb]); } }); setEditing(null); };
+  const issues = D.lintAgreementLayout(layout, dv);
+  const hasErrors = issues.some((i) => i.level === "error");
+  const save = () => { if (!draft) return; if (hasErrors && !confirm(TL("There are unresolved checks. Save anyway?", "هناك فحوصات غير محلولة. حفظ على أي حال؟"))) return; window.RevnuSupport.act(() => D.saveAgreementLayout(draft), { done: TL("Agreement saved as a new version.", "تم حفظ الاتفاقية كنسخة جديدة.") }).then((r) => { if (r !== undefined) { setDraft(null); refresh(); } }); };
+  const customise = () => { window.RevnuSupport.act(() => D.cloneAgreementForDeveloper(dv.id)).then((r) => { if (r !== undefined) { setDraft(null); refresh(); } }); };
+  const reset = () => { if (confirm(TL("Remove " + dv.name + "'s custom agreement and go back to the Revnu master?", "إزالة اتفاقية " + dv.name + " المخصصة والعودة إلى نموذج Revnu الرئيسي؟"))) { window.RevnuSupport.act(() => D.resetAgreementForDeveloper(dv.id)).then(() => { setDraft(null); refresh(); }); } };
+  const missingData = D.AGREEMENT_DATA_BLOCKS.filter((db) => !layout.blocks.some((b) => b.kind === "data" && b.ref === db.id));
+  const addData = (ref) => update((d) => { const def = D.AGREEMENT_DATA_BLOCKS.find((x) => x.id === ref) || {}; const blk = { id: ref, kind: "data", ref, enabled: true, showWhen: def.showWhen || "always" }; if (ref === "execution") d.blocks.push(blk); else insertBeforeExecution(d, [blk]); });
+  const whenLabel = (w) => { const x = D.AGREEMENT_SHOW_WHEN.find((s) => s.id === (w || "always")); return x ? (AR ? x.ar : x.en) : w; };
+  const dataLabel = (ref) => { const x = D.AGREEMENT_DATA_BLOCKS.find((s) => s.id === ref); return x ? (AR ? x.ar : x.en) : ref; };
+  const clauseTitle = (b) => (AR ? (b.titleAr || b.title) : (b.title || b.titleAr)) || TL("Untitled clause", "بند بلا عنوان");
+  const sectionOf = (b) => (AR ? (b.sectionAr || b.section) : (b.section || b.sectionAr)) || "";
+  const hist = D.agreementHistory(devId);
+  const newClause = () => ({ id: "cl-" + Date.now().toString(36), kind: "clause", _new: true, enabled: true, showWhen: "always", section: "General Terms & Conditions", sectionAr: "الأحكام والشروط العامة", title: "", titleAr: "", body: "", bodyAr: "" });
+  const nClauses = layout.blocks.filter((b) => b.kind === "clause").length;
   return (
     <>
-      <WsCardHead eye="// CONTRACTS" title={AR ? "نماذج العقود" : "Contract templates"} sub={AR ? ("تُملأ تلقائياً من بيانات الطلب. لكل نموذج نسخة عربية وإنجليزية، وأكواد متغيّرة تُعبّأ من الصفقة. يوقّع المشتري مع " + dv.name + ".") : ("Auto-filled from order data. Each template holds an Arabic + English version with variable codes. Buyer signs with " + dv.name + ".")}
-        action={<button className="btn btn-primary" onClick={() => setEditing({ _new: true, projectId: T.project.id, name: "", nameAr: "", kind: "sale", lang: "both", body: "", bodyAr: "" })}>{AR ? "+ نموذج جديد" : "+ New template"}</button>} />
+      <WsCardHead eye="// AGREEMENT" title={TL("Agreement template", "نموذج الاتفاقية")}
+        sub={TL("The legal wording lives in clause blocks you edit here — no code. Unit tables, schedules and totals are system blocks that always read the live deal. Switch a feature off and its blocks disappear on their own.", "الصياغة القانونية في بنود تحررها هنا — بدون برمجة. جداول الوحدات والملاحق والمجاميع بنود نظامية تقرأ الصفقة الحية دائما. عند إيقاف أي ميزة تختفي بنودها تلقائيا.")}
+        action={<div className="row" style={{ gap: 8 }}>
+          <div style={{ display: "inline-flex", border: "1px solid var(--line-strong)", borderRadius: 7, overflow: "hidden" }}>
+            {[["dev", AR ? (dv.nameAr || dv.name) : dv.name], ["master", TL("Revnu master", "نموذج Revnu")]].map(([id, lbl], i) => (
+              <button key={id} type="button" onClick={() => setScope(id)} style={{ padding: "6px 12px", border: "none", borderInlineStart: i ? "1px solid var(--line-strong)" : "none", cursor: "pointer", fontSize: 11.5, fontWeight: 600, background: scope === id ? "var(--brand)" : "transparent", color: scope === id ? "var(--brand-text)" : "var(--text-muted)" }}>{lbl}</button>
+            ))}
+          </div>
+          <button className="btn btn-secondary" onClick={() => setPreview(true)}>{TL("Preview", "معاينة")}</button>
+        </div>} />
+
+      <div className="card card-pad" style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 240 }}>
+          {scope === "dev" && !custom ? (
+            <>
+              <strong>{TL("Using the Revnu master agreement", "يستخدم نموذج Revnu الرئيسي")}</strong> <span className="chip chip-soft mono">v{layout.version}</span>
+              <div className="soft" style={{ fontSize: 12, marginTop: 3 }}>{TL("Customise to give " + dv.name + " its own wording. System blocks stay identical to Revnu's.", "خصص النموذج لتمنح " + dv.name + " صياغته الخاصة. تبقى البنود النظامية مطابقة لنموذج Revnu.")}</div>
+            </>
+          ) : (
+            <>
+              <strong>{(AR ? (layout.nameAr || layout.name) : layout.name) || (scope === "master" ? TL("Revnu master agreement", "نموذج Revnu الرئيسي") : dv.name)}</strong>{" "}
+              <span className="chip mono">v{layout.version}{dirty ? " · " + TL("unsaved", "غير محفوظ") : ""}</span>
+              <div className="soft" style={{ fontSize: 12, marginTop: 3 }}>
+                {TL("Updated ", "آخر تحديث ") + D.fmtDate(layout.updated)} · {layout.blocks.length} {TL("blocks", "بند")} · {nClauses} {TL("clauses", "بند نصي")}
+                {layout.basedOn ? " · " + TL("based on master v" + layout.basedOn, "مبني على النموذج الرئيسي v" + layout.basedOn) : ""}
+                {scope === "master" ? " · " + TL("applies to every developer without a custom agreement", "يسري على كل مطور بلا اتفاقية مخصصة") : ""}
+              </div>
+            </>
+          )}
+        </div>
+        <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+          {scope === "dev" && !custom && <button className="btn btn-primary" onClick={customise}>{TL("Customise for " + dv.name, "تخصيص ل " + dv.name)}</button>}
+          {editable && (
+            <>
+              <button className="btn btn-sm btn-secondary" onClick={() => setEditing(newClause())}>{TL("+ Clause", "+ بند")}</button>
+              <button className="btn btn-sm btn-secondary" onClick={() => setImporting(true)}>{TL("Import text / Word", "استيراد نص / Word")}</button>
+              {missingData.length > 0 && (
+                <select className="input" style={{ height: 30, fontSize: 12, width: "auto" }} value="" onChange={(e) => { if (e.target.value) addData(e.target.value); }}>
+                  <option value="">{TL("+ System block…", "+ بند نظامي…")}</option>
+                  {missingData.map((x) => <option key={x.id} value={x.id}>{AR ? x.ar : x.en}</option>)}
+                </select>
+              )}
+              {scope === "dev" && <button className="btn btn-sm btn-ghost" onClick={() => setFields(true)}>{TL("Developer fields", "حقول المطور")}{(dv.customFields || []).length ? " (" + dv.customFields.length + ")" : ""}</button>}
+              {hist.length > 0 && <button className="btn btn-sm btn-ghost" onClick={() => setShowHist((v) => !v)}>{TL("History", "السجل")} ({hist.length})</button>}
+              {scope === "dev" && custom && <button className="btn btn-sm btn-ghost" onClick={reset}>{TL("Reset to master", "العودة للنموذج الرئيسي")}</button>}
+            </>
+          )}
+        </div>
+      </div>
+
+      {issues.length > 0 && (
+        <div className="card card-pad" style={{ marginBottom: 12, borderColor: hasErrors ? "var(--negative, #c0492f)" : "var(--amber, #E8A74E)" }}>
+          <div className="eyebrow" style={{ marginBottom: 6 }}>{TL("// CHECKS", "// الفحوصات")}</div>
+          {issues.map((i, k) => <div key={k} style={{ fontSize: 12.5, padding: "3px 0", color: i.level === "error" ? "var(--negative, #c0492f)" : "var(--text)" }}>{i.level === "error" ? "✕ " : "⚠ "}{AR ? i.ar : i.en}</div>)}
+        </div>
+      )}
+      {showHist && hist.length > 0 && (
+        <div className="card card-pad" style={{ marginBottom: 12 }}>
+          <div className="eyebrow" style={{ marginBottom: 6 }}>{TL("// VERSION HISTORY", "// سجل النسخ")}</div>
+          {hist.map((h, i) => (
+            <div key={i} className="row-between" style={{ padding: "5px 0", borderTop: i ? "1px dotted var(--line)" : "none", fontSize: 12.5 }}>
+              <span><span className="mono">v{h.version}</span> · {D.fmtDate(h.updated)} · {h.blocks.length} {TL("blocks", "بند")}</span>
+              <button className="btn btn-sm btn-ghost" onClick={() => { window.RevnuSupport.act(() => D.restoreAgreementVersion(devId, i)).then((r) => { if (r !== undefined) { setDraft(null); refresh(); } }); }}>{TL("Restore", "استعادة")}</button>
+            </div>
+          ))}
+          <div className="soft" style={{ fontSize: 11, marginTop: 6 }}>{TL("Issued orders keep the version they were signed with — restoring never rewrites a signed agreement.", "تحتفظ الطلبات الصادرة بالنسخة التي وقعت بها — الاستعادة لا تعيد كتابة أي اتفاقية موقعة.")}</div>
+        </div>
+      )}
+
       <div className="card card-flush">
         <table className="tbl">
-          <thead><tr><th>{TT("Template")}</th><th>{TT("Kind")}</th><th>{AR ? "اللغة" : "Language"}</th><th>{TT("Version")}</th><th>{TT("Updated")}</th><th className="right">{TT("Actions")}</th></tr></thead>
+          <thead><tr><th style={{ width: 76 }}></th><th style={{ width: 92 }}>{TL("Type", "النوع")}</th><th>{TL("Block", "البند")}</th><th style={{ width: 240 }}>{TL("Show when", "يظهر عند")}</th><th className="right" style={{ width: 190 }}></th></tr></thead>
           <tbody>
-            {list.map((c) => (
-              <tr key={c.id}>
-                <td><strong>{(AR && c.nameAr) ? c.nameAr : c.name}</strong></td>
-                <td><span className="chip">{window.I18N ? window.I18N.t(({ sale: "Sale", furnish: "Furnishing", ops: "Operations", kyc: "KYC" }[c.kind] || c.kind)) : c.kind}</span></td>
-                <td className="muted" style={{ fontSize: 12 }}>{langLabel(c.lang || "both")}</td>
-                <td className="mono">{c.version}</td>
-                <td className="mono" style={{ fontSize: 12 }}>{D.fmtDate(c.updated)}</td>
-                <td className="right">
-                  <button className="btn btn-sm btn-secondary" onClick={() => setPreview(c)}>{AR ? "معاينة" : "Preview"}</button>
-                  <button className="btn btn-sm btn-ghost" onClick={() => setEditing({ ...c })}>{AR ? "تعديل" : "Edit"}</button>
-                </td>
-              </tr>
-            ))}
-            {list.length === 0 && <tr><td colSpan={6} style={{ textAlign: "center", padding: 30, color: "var(--text-soft)" }}>{AR ? "لا توجد نماذج بعد." : "No templates yet."}</td></tr>}
+            {layout.blocks.map((b, i) => {
+              const off = b.enabled === false;
+              const isData = b.kind === "data";
+              return (
+                <tr key={b.id || i} style={{ opacity: off ? 0.5 : 1 }}>
+                  <td>{editable && <div className="row" style={{ gap: 2 }}><button className="btn btn-sm btn-ghost" disabled={i === 0} onClick={() => move(i, -1)} title="Up">↑</button><button className="btn btn-sm btn-ghost" disabled={i === layout.blocks.length - 1} onClick={() => move(i, 1)} title="Down">↓</button></div>}</td>
+                  <td><span className={"chip " + (isData ? "" : "chip-soft")}>{isData ? TL("System", "نظامي") : TL("Clause", "بند")}</span></td>
+                  <td>
+                    <strong style={{ textDecoration: off ? "line-through" : "none" }}>{isData ? dataLabel(b.ref) : clauseTitle(b)}</strong>
+                    {!isData && <div className="soft" style={{ fontSize: 11.5, marginTop: 2, maxWidth: 560, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sectionOf(b) ? "§ " + sectionOf(b) + " · " : ""}{((AR ? (b.bodyAr || b.body) : (b.body || b.bodyAr)) || "").slice(0, 140)}</div>}
+                    {isData && <div className="soft" style={{ fontSize: 11.5, marginTop: 2 }}>{TL("Generated from the deal — reads units, choices and prices live.", "يولد من الصفقة — يقرأ الوحدات والاختيارات والأسعار مباشرة.")}</div>}
+                  </td>
+                  <td>{editable ? <select className="input" style={{ height: 30, fontSize: 12 }} value={b.showWhen || "always"} onChange={(e) => setWhen(i, e.target.value)}>{D.AGREEMENT_SHOW_WHEN.map((w) => <option key={w.id} value={w.id}>{AR ? w.ar : w.en}</option>)}</select> : <span className="soft" style={{ fontSize: 12 }}>{whenLabel(b.showWhen)}</span>}</td>
+                  <td className="right">{editable && (
+                    <div className="row" style={{ gap: 4, justifyContent: "flex-end" }}>
+                      <button className="btn btn-sm btn-ghost" onClick={() => toggle(i)}>{off ? TL("Enable", "تفعيل") : TL("Disable", "إيقاف")}</button>
+                      {!isData && <button className="btn btn-sm btn-secondary" onClick={() => setEditing({ ...b })}>{TL("Edit", "تعديل")}</button>}
+                      {(!isData || b.ref !== "execution") && <button className="btn btn-sm btn-ghost" onClick={() => remove(i)} title={TL("Remove", "إزالة")}>×</button>}
+                    </div>
+                  )}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
-      {editing && <ContractEditDrawer tpl={editing} onClose={() => { setEditing(null); refresh(); }} />}
-      {preview && <ContractPreview tpl={preview} project={T.project} onClose={() => setPreview(null)} />}
+
+      {dirty && (
+        <div style={{ position: "sticky", bottom: 12, marginTop: 12, display: "flex", gap: 8, alignItems: "center", background: "var(--bg-card)", padding: 12, borderRadius: "var(--r-md)", border: "1px solid var(--line)", boxShadow: "var(--shadow-md)" }}>
+          <span className="soft" style={{ fontSize: 12, flex: 1 }}>{TL("Saving creates v" + (layout.version + 1) + ". New orders use it immediately; issued orders keep the version they were signed with.", "الحفظ ينشئ النسخة v" + (layout.version + 1) + ". تستخدمها الطلبات الجديدة فورا؛ وتحتفظ الطلبات الصادرة بنسختها.")}</span>
+          <button className="btn btn-ghost" onClick={() => setDraft(null)}>{TL("Discard", "تجاهل")}</button>
+          <button className="btn btn-primary" onClick={save}>{TL("Save version", "حفظ نسخة")}</button>
+        </div>
+      )}
+
+      {editing && <ClauseDrawer clause={editing} layout={layout} dev={dv} onSave={saveClause} onClose={() => setEditing(null)} />}
+      {importing && <ClauseImportDrawer onAdd={(list) => { update((d) => insertBeforeExecution(d, list)); setImporting(false); }} onClose={() => setImporting(false)} />}
+      {fields && <DevFieldsDrawer dev={dv} onClose={() => { setFields(false); refresh(); }} />}
+      {preview && <AgreementPreview layout={layout} dev={dv} project={T.project} onClose={() => setPreview(false)} />}
     </>
+  );
+}
+
+/* Clause editor — EN/AR title + body, section, visibility rule, variable chips. */
+function ClauseDrawer({ clause, layout, dev, onSave, onClose }) {
+  const AR = window.I18N && window.I18N.isAR;
+  const TL = (en, ar) => (AR ? ar : en);
+  const [c, setC] = useState({ ...clause });
+  const set = (p) => setC((x) => ({ ...x, ...p }));
+  const enRef = React.useRef(null), arRef = React.useRef(null);
+  const sections = []; layout.blocks.forEach((b) => { if (b.kind === "clause" && b.section && !sections.some((s) => s.section === b.section)) sections.push({ section: b.section, sectionAr: b.sectionAr || "" }); });
+  const vars = D.CONTRACT_VARS.concat(((dev && dev.customFields) || []).filter((f) => f.key).map((f) => ({ code: "dev." + f.key, en: f.label || f.key, ar: f.labelAr || f.label || f.key })));
+  const insertVar = (field, ref, code) => {
+    const v = vars.find((x) => x.code === code);
+    const token = v && v.block ? "{{#" + code + "}} … {{/" + code + "}}" : "{{" + code + "}}";
+    const el = ref.current; const cur = c[field] || "";
+    if (el && typeof el.selectionStart === "number") { const s = el.selectionStart, e = el.selectionEnd; set({ [field]: cur.slice(0, s) + token + cur.slice(e) }); setTimeout(() => { el.focus(); el.selectionStart = el.selectionEnd = s + token.length; }, 0); }
+    else set({ [field]: cur + token });
+  };
+  const VarChips = ({ field, refEl }) => (
+    <div className="row" style={{ gap: 5, flexWrap: "wrap", margin: "6px 0 4px" }}>
+      {vars.map((v) => <button key={v.code} type="button" onClick={() => insertVar(field, refEl, v.code)} title={"{{" + v.code + "}}"} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 6, border: "1px solid var(--line-strong)", background: v.block ? "var(--bg-sunken)" : "var(--bg-tint)", cursor: "pointer", fontFamily: AR ? "var(--font-ar)" : "inherit" }}>{AR ? v.ar : v.en}</button>)}
+    </div>
+  );
+  const valid = ((c.title || c.titleAr || "").trim()) && (((c.body || "").trim()) || ((c.bodyAr || "").trim()));
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(20,18,15,0.4)", zIndex: 300, display: "flex", justifyContent: "flex-end" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: 760, maxWidth: "100%", height: "100%", background: "var(--bg-card)", borderInlineStart: "1px solid var(--line)", overflowY: "auto", padding: 26 }}>
+        <div className="row-between" style={{ marginBottom: 18 }}>
+          <div><div className="eyebrow">{c._new ? TL("// NEW CLAUSE", "// بند جديد") : TL("// EDIT CLAUSE", "// تعديل البند")}</div><h2 style={{ fontSize: 19, fontWeight: 600, margin: "2px 0 0" }}>{(AR ? (c.titleAr || c.title) : (c.title || c.titleAr)) || TL("Untitled clause", "بند بلا عنوان")}</h2></div>
+          <button className="btn btn-sm btn-ghost" onClick={onClose}>✕</button>
+        </div>
+        <BiField label={TL("Clause title", "عنوان البند")} en={c.title || ""} ar={c.titleAr || ""} onEn={(v) => set({ title: v })} onAr={(v) => set({ titleAr: v })} placeholder="Warranties" placeholderAr="الضمانات" />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
+          <div>
+            <div className="eyebrow" style={{ marginBottom: 6 }}>{TL("Section (EN)", "القسم (إنجليزي)")}</div>
+            <input className="input" list="agr-sections" value={c.section || ""} onChange={(e) => { const hit = sections.find((s) => s.section === e.target.value); set(hit ? { section: hit.section, sectionAr: hit.sectionAr || c.sectionAr } : { section: e.target.value }); }} placeholder="General Terms & Conditions" />
+            <datalist id="agr-sections">{sections.map((s) => <option key={s.section} value={s.section} />)}</datalist>
+          </div>
+          <div>
+            <div className="eyebrow" style={{ marginBottom: 6 }}>{TL("Section (AR)", "القسم (عربي)")}</div>
+            <input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={c.sectionAr || ""} onChange={(e) => set({ sectionAr: e.target.value })} placeholder="الأحكام والشروط العامة" />
+          </div>
+          <div>
+            <div className="eyebrow" style={{ marginBottom: 6 }}>{TL("Show when", "يظهر عند")}</div>
+            <select className="input" value={c.showWhen || "always"} onChange={(e) => set({ showWhen: e.target.value })}>{D.AGREEMENT_SHOW_WHEN.map((w) => <option key={w.id} value={w.id}>{AR ? w.ar : w.en}</option>)}</select>
+          </div>
+        </div>
+        <div className="soft" style={{ fontSize: 11.5, marginBottom: 10 }}>{TL("Consecutive clauses with the same section print under one § heading and are numbered automatically. Grey chips are conditional wrappers: text inside prints only when that choice exists.", "البنود المتتالية بنفس القسم تطبع تحت عنوان § واحد وترقم تلقائيا. الأزرار الرمادية أغلفة شرطية: النص داخلها يطبع فقط عند وجود ذلك الاختيار.")}</div>
+        <div style={{ marginBottom: 16 }}>
+          <div className="eyebrow" style={{ marginBottom: 4 }}>{TL("English text", "النص الإنجليزي")}</div>
+          <VarChips field="body" refEl={enRef} />
+          <textarea ref={enRef} className="input" dir="ltr" value={c.body || ""} onChange={(e) => set({ body: e.target.value })} style={{ minHeight: 170, fontSize: 12.5, lineHeight: 1.6 }} placeholder="Type the clause… blank line = new paragraph." />
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <div className="eyebrow" style={{ marginBottom: 4 }}>{TL("Arabic text", "النص العربي")}</div>
+          <VarChips field="bodyAr" refEl={arRef} />
+          <textarea ref={arRef} className="input" dir="rtl" value={c.bodyAr || ""} onChange={(e) => set({ bodyAr: e.target.value })} style={{ minHeight: 170, fontFamily: "var(--font-ar)", fontSize: 13.5, lineHeight: 1.7 }} placeholder="اكتب نص البند… سطر فارغ = فقرة جديدة." />
+        </div>
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn btn-primary grow" disabled={!valid} onClick={() => onSave(c)}>{c._new ? TL("Add clause", "إضافة البند") : TL("Apply", "تطبيق")}</button>
+          <button className="btn btn-ghost" onClick={onClose}>{TL("Cancel", "إلغاء")}</button>
+        </div>
+        <div className="soft" style={{ fontSize: 11, marginTop: 8 }}>{TL("Applies to the working copy — press “Save version” on the list to publish.", "يطبق على النسخة الجارية — اضغط «حفظ نسخة» في القائمة للنشر.")}</div>
+      </div>
+    </div>
+  );
+}
+
+/* Paste (or upload) a developer's contract; headings become clauses, EN and AR paired by position. */
+function ClauseImportDrawer({ onAdd, onClose }) {
+  const AR = window.I18N && window.I18N.isAR;
+  const TL = (en, ar) => (AR ? ar : en);
+  const [en, setEn] = useState(""); const [ar, setAr] = useState("");
+  const [section, setSection] = useState("General Terms & Conditions"); const [sectionAr, setSectionAr] = useState("الأحكام والشروط العامة");
+  const [skip, setSkip] = useState({});
+  const enFile = React.useRef(null), arFile = React.useRef(null);
+  const load = (setter) => (e) => {
+    const f = e.target.files && e.target.files[0]; if (!f) return; e.target.value = "";
+    if ((f.name || "").toLowerCase().endsWith(".docx")) docxToText(f).then(setter).catch(() => alert(TL("Could not read the .docx — paste the text instead.", "تعذر قراءة ملف .docx — الصق النص بدلا من ذلك.")));
+    else { const fr = new FileReader(); fr.onload = () => setter(String(fr.result)); fr.readAsText(f); }
+  };
+  const enC = D.splitClausesFromText(en), arC = D.splitClausesFromText(ar);
+  const n = Math.max(enC.length, arC.length);
+  const stamp = Date.now().toString(36);
+  const list = Array.from({ length: n }, (_, i) => ({ id: "cl-" + stamp + "-" + i, kind: "clause", enabled: true, showWhen: "always", section, sectionAr, title: (enC[i] || {}).title || "", titleAr: (arC[i] || {}).title || "", body: (enC[i] || {}).body || "", bodyAr: (arC[i] || {}).body || "" }));
+  const kept = list.filter((_, i) => !skip[i]);
+  const Col = ({ label, val, setVal, fileRef, dir }) => (
+    <div>
+      <div className="row-between" style={{ marginBottom: 4 }}><div className="eyebrow">{label}</div><button className="btn btn-sm btn-ghost" onClick={() => fileRef.current && fileRef.current.click()}>{TL("Upload .docx / .txt", "رفع .docx / .txt")}</button><input ref={fileRef} type="file" accept=".txt,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style={{ display: "none" }} onChange={load(setVal)} /></div>
+      <textarea className="input" dir={dir} value={val} onChange={(e) => setVal(e.target.value)} style={{ minHeight: 220, fontSize: 12.5, lineHeight: 1.6, fontFamily: dir === "rtl" ? "var(--font-ar)" : "inherit" }} placeholder={dir === "rtl" ? "الصق النص العربي هنا (اختياري)…" : "Paste the contract text here…\n\n1. DEFINITIONS\n…\n2. PAYMENT\n…"} />
+    </div>
+  );
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(20,18,15,0.4)", zIndex: 300, display: "flex", justifyContent: "flex-end" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: 920, maxWidth: "100%", height: "100%", background: "var(--bg-card)", borderInlineStart: "1px solid var(--line)", overflowY: "auto", padding: 26 }}>
+        <div className="row-between" style={{ marginBottom: 14 }}>
+          <div><div className="eyebrow">{TL("// IMPORT", "// استيراد")}</div><h2 style={{ fontSize: 19, fontWeight: 600, margin: "2px 0 0" }}>{TL("Bring in the developer's contract", "استيراد عقد المطور")}</h2></div>
+          <button className="btn btn-sm btn-ghost" onClick={onClose}>✕</button>
+        </div>
+        <div className="soft" style={{ fontSize: 12.5, marginBottom: 12 }}>{TL("Paste the lawyer's text. Numbered lines, ALL-CAPS lines or lines ending with “:” become clause titles; the text under each becomes its body. Arabic is paired with English by position. You can edit every clause afterwards.", "الصق نص المحامي. الأسطر المرقمة أو الكبيرة أو المنتهية ب«:» تصبح عناوين بنود، والنص تحتها يصبح متنها. يقرن العربي بالإنجليزي حسب الترتيب. يمكنك تعديل كل بند لاحقا.")}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <Col label={TL("English", "الإنجليزي")} val={en} setVal={setEn} fileRef={enFile} dir="ltr" />
+          <Col label={TL("Arabic (optional)", "العربي (اختياري)")} val={ar} setVal={setAr} fileRef={arFile} dir="rtl" />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, margin: "14px 0" }}>
+          <div><div className="eyebrow" style={{ marginBottom: 6 }}>{TL("Put under section (EN)", "ضمن القسم (إنجليزي)")}</div><input className="input" value={section} onChange={(e) => setSection(e.target.value)} /></div>
+          <div><div className="eyebrow" style={{ marginBottom: 6 }}>{TL("Section (AR)", "القسم (عربي)")}</div><input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={sectionAr} onChange={(e) => setSectionAr(e.target.value)} /></div>
+        </div>
+        {n > 0 && (
+          <div className="card card-flush" style={{ marginBottom: 14 }}>
+            <table className="tbl">
+              <thead><tr><th style={{ width: 36 }}></th><th style={{ width: 36 }}>#</th><th>{TL("Clause (EN)", "البند (إنجليزي)")}</th><th>{TL("Clause (AR)", "البند (عربي)")}</th></tr></thead>
+              <tbody>{list.map((b, i) => (
+                <tr key={b.id} style={{ opacity: skip[i] ? 0.45 : 1 }}>
+                  <td><input type="checkbox" checked={!skip[i]} onChange={() => setSkip({ ...skip, [i]: !skip[i] })} /></td>
+                  <td className="mono">{i + 1}</td>
+                  <td><strong>{b.title || <span className="soft">{TL("(no title)", "(بلا عنوان)")}</span>}</strong><div className="soft" style={{ fontSize: 11.5, maxWidth: 360, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.body.slice(0, 110) || "—"}</div></td>
+                  <td dir="rtl" style={{ fontFamily: "var(--font-ar)" }}><strong>{b.titleAr || <span className="soft">—</span>}</strong><div className="soft" style={{ fontSize: 11.5, maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.bodyAr.slice(0, 90) || "—"}</div></td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )}
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn btn-primary grow" disabled={!kept.length} onClick={() => onAdd(kept)}>{TL("Add " + kept.length + " clause" + (kept.length === 1 ? "" : "s"), "إضافة " + kept.length + " بند")}</button>
+          <button className="btn btn-ghost" onClick={onClose}>{TL("Cancel", "إلغاء")}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Developer-specific values usable in any clause as {{dev.key}} (court, bank, licence no., …). */
+function DevFieldsDrawer({ dev, onClose }) {
+  const AR = window.I18N && window.I18N.isAR;
+  const TL = (en, ar) => (AR ? ar : en);
+  const [rows, setRows] = useState(((dev && dev.customFields) || []).map((f) => ({ ...f })));
+  const upd = (i, p) => setRows(rows.map((r, ix) => ix === i ? { ...r, ...p } : r));
+  const keyOf = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "");
+  const save = () => { window.RevnuSupport.act(() => D.patchDeveloper(dev.id, { customFields: rows.map((r) => ({ ...r, key: keyOf(r.key || r.label) })).filter((r) => r.key) }), { done: TL("Developer fields saved.", "تم حفظ حقول المطور.") }).then((r) => { if (r !== undefined) onClose(); }); };
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(20,18,15,0.4)", zIndex: 300, display: "flex", justifyContent: "flex-end" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: 720, maxWidth: "100%", height: "100%", background: "var(--bg-card)", borderInlineStart: "1px solid var(--line)", overflowY: "auto", padding: 26 }}>
+        <div className="row-between" style={{ marginBottom: 14 }}>
+          <div><div className="eyebrow">{TL("// DEVELOPER FIELDS", "// حقول المطور")}</div><h2 style={{ fontSize: 19, fontWeight: 600, margin: "2px 0 0" }}>{AR ? (dev.nameAr || dev.name) : dev.name}</h2></div>
+          <button className="btn btn-sm btn-ghost" onClick={onClose}>✕</button>
+        </div>
+        <div className="soft" style={{ fontSize: 12.5, marginBottom: 12 }}>{TL("Values that differ per developer and appear in their wording — jurisdiction, bank, licence number, notice address. Use them in any clause as {{dev.key}}. Legal name, CR, VAT and signatory are already available as standard variables.", "قيم تختلف بين المطورين وتظهر في صياغتهم — الاختصاص القضائي، البنك، رقم الترخيص، عنوان الإشعارات. استخدمها في أي بند بصيغة {{dev.key}}. الاسم القانوني والسجل والرقم الضريبي والمفوض متاحة كمتغيرات قياسية.")}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {rows.map((r, i) => (
+            <div key={i} style={{ padding: "10px 12px", background: "var(--bg-sunken)", borderRadius: "var(--r-sm)", display: "grid", gridTemplateColumns: "130px 1fr 1fr 1fr auto", gap: 8, alignItems: "center" }}>
+              <input className="input mono" style={{ height: 30, fontSize: 12 }} value={r.key || ""} placeholder="court" onChange={(e) => upd(i, { key: keyOf(e.target.value) })} />
+              <input className="input" style={{ height: 30, fontSize: 12 }} value={r.label || ""} placeholder={TL("Label (e.g. Competent court)", "التسمية")} onChange={(e) => upd(i, { label: e.target.value })} />
+              <input className="input" style={{ height: 30, fontSize: 12 }} value={r.value || ""} placeholder={TL("Value (EN)", "القيمة (إنجليزي)")} onChange={(e) => upd(i, { value: e.target.value })} />
+              <input className="input" dir="rtl" style={{ height: 30, fontSize: 12, fontFamily: "var(--font-ar)" }} value={r.valueAr || ""} placeholder="القيمة (عربي)" onChange={(e) => upd(i, { valueAr: e.target.value })} />
+              <button className="btn btn-sm btn-ghost" onClick={() => setRows(rows.filter((_, ix) => ix !== i))}>×</button>
+            </div>
+          ))}
+          {rows.length === 0 && <div className="soft" style={{ fontSize: 12 }}>{TL("No fields yet.", "لا توجد حقول بعد.")}</div>}
+        </div>
+        <div className="row" style={{ gap: 8, marginTop: 12 }}>
+          <button className="btn btn-sm btn-secondary" onClick={() => setRows([...rows, { key: "", label: "", value: "", valueAr: "" }])}>{TL("+ Field", "+ حقل")}</button>
+          <span className="grow" />
+          <button className="btn btn-ghost" onClick={onClose}>{TL("Cancel", "إلغاء")}</button>
+          <button className="btn btn-primary" onClick={save}>{TL("Save fields", "حفظ الحقول")}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Full-document preview of a layout against a real order (or a synthetic sample deal). */
+function AgreementPreview({ layout, dev, project, onClose }) {
+  const AR = window.I18N && window.I18N.isAR;
+  const TL = (en, ar) => (AR ? ar : en);
+  const [lang, setLang] = useState(AR ? "ar" : "en");
+  const real = D.ORDERS.find((o) => o.projectId === project.id && o.developerId === dev.id && o.status !== "cancelled");
+  const order = real || D.sampleOrderFor(project.id);
+  const ctx = order && window.agreementCtxFromOrder ? window.agreementCtxFromOrder(order, lang) : null;
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(20,18,15,0.5)", zIndex: 310, display: "flex", justifyContent: "center", alignItems: "flex-start", padding: 24, overflowY: "auto" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: 1000, maxWidth: "100%", background: "var(--bg-card)", borderRadius: 12, overflow: "hidden" }}>
+        <div className="row-between" style={{ padding: "14px 20px", borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg-card)", zIndex: 1 }}>
+          <div>
+            <div className="eyebrow">{TL("// PREVIEW · ", "// معاينة · ") + ((AR ? (layout.nameAr || layout.name) : layout.name) || "") + " v" + layout.version}</div>
+            <strong>{real ? TL("Real order ", "طلب فعلي ") + real.id : TL("Sample deal — first available unit, default choices", "صفقة نموذجية — أول وحدة متاحة مع الاختيارات الافتراضية")}</strong>
+          </div>
+          <div className="row" style={{ gap: 8 }}>
+            <div style={{ display: "inline-flex", border: "1px solid var(--line-strong)", borderRadius: 7, overflow: "hidden" }}>
+              <button type="button" onClick={() => setLang("en")} style={{ padding: "5px 11px", border: "none", cursor: "pointer", fontSize: 11.5, fontWeight: 600, background: lang === "en" ? "var(--brand)" : "transparent", color: lang === "en" ? "var(--brand-text)" : "var(--text-muted)" }}>EN</button>
+              <button type="button" onClick={() => setLang("ar")} style={{ padding: "5px 11px", border: "none", borderInlineStart: "1px solid var(--line-strong)", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "var(--font-ar)", background: lang === "ar" ? "var(--brand)" : "transparent", color: lang === "ar" ? "var(--brand-text)" : "var(--text-muted)" }}>عربي</button>
+            </div>
+            <button className="btn btn-sm btn-ghost" onClick={onClose}>✕</button>
+          </div>
+        </div>
+        <div style={{ padding: 16, background: "var(--bg-sunken)" }}>
+          {ctx && window.FullAgreement ? window.FullAgreement({ ...ctx, lang, layout }) : <div className="soft" style={{ padding: 40, textAlign: "center" }}>{TL("Nothing to preview — add a unit type and units to this project first.", "لا شيء للمعاينة — أضف نوع وحدة ووحدات لهذا المشروع أولا.")}</div>}
+        </div>
+      </div>
+    </div>
   );
 }
 
 // Resolve a sample order for previewing variable fills (latest in this project, else any).
 function _sampleOrder(projectId) {
-  return D.ORDERS.find((o) => o.projectId === projectId) || D.ORDERS[0] || null;
+  return D.ORDERS.find((o) => o.projectId === projectId) || D.ORDERS[0] || D.sampleOrderFor(projectId);
 }
 
 // Extract plain text from a .docx (zip → word/document.xml → strip tags).
@@ -3022,7 +4143,7 @@ function ContractEditDrawer({ tpl, onClose }) {
 
         <div className="row" style={{ gap: 8, marginBottom: 14, alignItems: "center" }}>
           <button className="btn btn-sm btn-secondary" onClick={() => fileRef.current && fileRef.current.click()}>{TL("Upload Word (.docx) or .txt", "رفع ملف Word (.docx) أو .txt")}</button>
-          <span className="soft" style={{ fontSize: 11 }}>{TL("Insert variable codes below; they auto-fill from the deal.", "أدرج أكواد المتغيّرات أدناه؛ تُعبّأ تلقائياً من الصفقة.")}</span>
+          <span className="soft" style={{ fontSize: 11 }}>{TL("Insert variable codes below; they auto-fill from the deal.", "أدرج أكواد المتغيرات أدناه؛ تعبأ تلقائيا من الصفقة.")}</span>
           <input ref={fileRef} type="file" accept=".txt,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style={{ display: "none" }} onChange={onUpload} />
         </div>
 
@@ -3037,7 +4158,7 @@ function ContractEditDrawer({ tpl, onClose }) {
           <div style={{ marginBottom: 16 }}>
             <div className="eyebrow" style={{ marginBottom: 4 }}>{TL("Arabic body", "النص العربي")}</div>
             <VarChips field="bodyAr" refEl={arRef} />
-            <textarea ref={arRef} className="input" dir="rtl" value={t.bodyAr || ""} onChange={(e) => set({ bodyAr: e.target.value })} style={{ minHeight: 200, fontFamily: "var(--font-ar)", fontSize: 13.5, lineHeight: 1.7 }} placeholder="اكتب نص العقد… استخدم الأزرار أعلاه لإدراج {{المتغيّرات}}." />
+            <textarea ref={arRef} className="input" dir="rtl" value={t.bodyAr || ""} onChange={(e) => set({ bodyAr: e.target.value })} style={{ minHeight: 200, fontFamily: "var(--font-ar)", fontSize: 13.5, lineHeight: 1.7 }} placeholder="اكتب نص العقد… استخدم الأزرار أعلاه لإدراج {{المتغيرات}}." />
           </div>
         )}
 
@@ -3065,7 +4186,7 @@ function ContractPreview({ tpl, project, onClose }) {
       <div onClick={(e) => e.stopPropagation()} style={{ width: 720, maxWidth: "100%", background: "var(--bg-card)", borderRadius: 12, overflow: "hidden" }}>
         <div className="row-between" style={{ padding: "14px 20px", borderBottom: "1px solid var(--line)" }}>
           <div>
-            <div className="eyebrow">{TL("PREVIEW · auto-filled", "معاينة · مُعبّأة تلقائياً")}</div>
+            <div className="eyebrow">{TL("PREVIEW · auto-filled", "معاينة · معبأة تلقائيا")}</div>
             <strong>{showAr && tpl.nameAr ? tpl.nameAr : tpl.name}</strong>
           </div>
           <div className="row" style={{ gap: 8 }}>
@@ -3091,7 +4212,7 @@ function ContractPreview({ tpl, project, onClose }) {
           <pre dir={showAr ? "rtl" : "ltr"} style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: showAr ? "var(--font-ar)" : "inherit", fontSize: 13.5, lineHeight: 1.8, margin: 0, color: "var(--text)" }}>{filled || TL("(empty template)", "(نموذج فارغ)")}</pre>
         </div>
         <div className="soft" style={{ padding: "10px 20px", borderTop: "1px solid var(--line)", fontSize: 11 }}>
-          {order ? TL("Filled from order " + order.id, "مُعبّأ من الطلب " + order.id) : TL("No sample order — codes shown as [placeholders].", "لا يوجد طلب نموذجي — تظهر الأكواد كـ [عناصر نائبة].")}
+          {order ? TL("Filled from order " + order.id, "معبأ من الطلب " + order.id) : TL("No sample order — codes shown as [placeholders].", "لا يوجد طلب نموذجي — تظهر الأكواد ك [عناصر نائبة].")}
         </div>
       </div>
     </div>
@@ -3106,9 +4227,9 @@ function WsCommissions({ dv }) {
   const sum = ladder.reduce((s, l) => s + (Number(l.pct) || 0), 0);
   const valid = Math.round(sum) === 100;
   const scopeLabel = (sc) => sc === "own" ? L("Own deals", "صفقاته") : sc === "team" ? L("My team", "فريقه") : L("All deals", "كل الصفقات");
-  const scopeHint = (sc) => sc === "own" ? L("the rep who closes the deal", "المندوب الذي يُغلق الصفقة")
-    : sc === "team" ? L("paid to their manager up the reporting chain", "تُدفع لمديره في سلسلة الإدارة")
-    : L("paid to this role across the whole developer", "تُدفع لصاحب هذا الدور على مستوى المطوّر كله");
+  const scopeHint = (sc) => sc === "own" ? L("the rep who closes the deal", "المندوب الذي يغلق الصفقة")
+    : sc === "team" ? L("paid to their manager up the reporting chain", "تدفع لمديره في سلسلة الإدارة")
+    : L("paid to this role across the whole developer", "تدفع لصاحب هذا الدور على مستوى المطور كله");
   const setLvl = (i, patch) => setLadder((ls) => ls.map((l, ix) => ix === i ? { ...l, ...patch } : l));
   const addLvl = () => setLadder((ls) => [...ls, { id: "lvl-" + Date.now().toString(36).slice(-5), name: "New level", nameAr: "", pct: 0, scope: "team" }]);
   const rmLvl = (i) => setLadder((ls) => ls.filter((_, ix) => ix !== i));
@@ -3134,18 +4255,18 @@ function WsCommissions({ dv }) {
     <>
       <WsCardHead eye={L("// SALES COMMISSIONS", "// عمولات المبيعات")} title={L("Sales commissions", "عمولات المبيعات")}
         sub={L("Set how each deal's commission pool splits across the sales org, then track Revnu's payouts. Revnu pays each person after the customer's first payment lands.",
-                "حدّد كيف تتوزّع عمولة كل صفقة على فريق المبيعات، ثم تتبّع تحويلات Revnu. تدفع Revnu لكل شخص بعد استلام الدفعة الأولى من العميل.")} />
+                "حدد كيف تتوزع عمولة كل صفقة على فريق المبيعات، ثم تتبع تحويلات Revnu. تدفع Revnu لكل شخص بعد استلام الدفعة الأولى من العميل.")} />
 
       {/* ---- Ladder editor ---- */}
       <div className="card card-pad-lg" style={{ marginBottom: 20 }}>
         <div className="row-between" style={{ marginBottom: 6 }}>
-          <div className="eyebrow">{L("// COMMISSION LADDER", "// سلّم العمولة")}</div>
+          <div className="eyebrow">{L("// COMMISSION LADDER", "// سلم العمولة")}</div>
           <span className="chip" style={{ background: valid ? "var(--positive-soft, rgba(31,138,91,0.12))" : "var(--warning-soft, rgba(184,134,11,0.14))", color: valid ? "var(--positive, #1f8a5b)" : "var(--warning, #b8860b)" }}>
             {L("Total", "الإجمالي")}: {sum}%{valid ? " ✓" : L(" — must be 100%", " — يجب أن يساوي 100%")}
           </span>
         </div>
         <div className="soft" style={{ fontSize: 12, marginBottom: 14 }}>
-          {L("The pool is the project's sales commission (% of the extras' ex-VAT value). Shares below split that pool.", "العمولة الإجمالية = عمولة مبيعات المشروع (% من الإضافات بدون الضريبة). النسب أدناه تقسّم هذه العمولة.")}
+          {L("The pool is the project's sales commission (% of the extras' ex-VAT value). Shares below split that pool.", "العمولة الإجمالية = عمولة مبيعات المشروع (% من الإضافات بدون الضريبة). النسب أدناه تقسم هذه العمولة.")}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {ladder.map((l, i) => (
@@ -3167,7 +4288,7 @@ function WsCommissions({ dv }) {
         </div>
         <div className="row" style={{ gap: 8, marginTop: 14 }}>
           <button className="btn btn-secondary" onClick={addLvl}>＋ {L("Add level", "إضافة مستوى")}</button>
-          <button className="btn btn-primary" disabled={!valid} onClick={saveLadder}>{L("Save ladder", "حفظ السلّم")}</button>
+          <button className="btn btn-primary" disabled={!valid} onClick={saveLadder}>{L("Save ladder", "حفظ السلم")}</button>
         </div>
         <div className="soft" style={{ fontSize: 11, marginTop: 10, lineHeight: 1.7 }}>
           <strong>{L("Own deals", "صفقاته")}</strong> — {scopeHint("own")}. &nbsp;
@@ -3179,7 +4300,7 @@ function WsCommissions({ dv }) {
       {/* ---- Payouts ---- */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 16 }}>
         <Stat label={L("Payable (customer paid)", "مستحقة (دفع العميل)")} value={D.fmtSAR(totalPayable)} unit="SAR" />
-        <Stat label={L("Transferred", "حُوّلت")}   value={D.fmtSAR(totalPaid)}    unit="SAR" delta={L("marked paid", "معلّمة كمدفوعة")} />
+        <Stat label={L("Transferred", "حولت")}   value={D.fmtSAR(totalPaid)}    unit="SAR" delta={L("marked paid", "معلمة كمدفوعة")} />
         <Stat label={L("Pending transfer", "بانتظار التحويل")} value={D.fmtSAR(totalPending)} unit="SAR" delta={L("owed to the team", "مستحقة للفريق")} />
       </div>
 
@@ -3193,7 +4314,7 @@ function WsCommissions({ dv }) {
             <th>{L("Name", "الاسم")}</th><th>{L("Role / level", "الدور / المستوى")}</th>
             <th>{L("Bank · IBAN", "البنك · الآيبان")}</th>
             <th className="right">{L("Payable", "المستحق")}</th>
-            <th className="right">{L("Pending", "المعلّق")}</th>
+            <th className="right">{L("Pending", "المعلق")}</th>
             <th className="right">{L("Detail", "التفاصيل")}</th>
           </tr></thead>
           <tbody>
@@ -3240,8 +4361,8 @@ function WsCommissions({ dv }) {
                       {!l.payable
                         ? <span className="soft" style={{ fontSize: 11 }}>{L("Awaiting customer payment", "بانتظار دفع العميل")}</span>
                         : l.paid
-                          ? <button className="btn btn-sm" style={{ background: "var(--positive-soft, rgba(31,138,91,0.12))", color: "var(--positive, #1f8a5b)" }} onClick={() => markPaid(l, false)}>✓ {L("Transferred", "حُوّلت")}</button>
-                          : <button className="btn btn-sm btn-primary" onClick={() => markPaid(l, true)}>{L("Mark transferred", "تعليم كمحوّلة")}</button>}
+                          ? <button className="btn btn-sm" style={{ background: "var(--positive-soft, rgba(31,138,91,0.12))", color: "var(--positive, #1f8a5b)" }} onClick={() => markPaid(l, false)}>✓ {L("Transferred", "حولت")}</button>
+                          : <button className="btn btn-sm btn-primary" onClick={() => markPaid(l, true)}>{L("Mark transferred", "تعليم كمحولة")}</button>}
                     </td>
                   </tr>
                 ))}
@@ -3262,7 +4383,7 @@ function WsTeam({ T }) {
   const users = D.USERS.filter((u) => u.developerId === T.developer.id);
   return (
     <>
-      <WsCardHead eye="// TEAM" title={AR ? "المستخدمون والأدوار" : "Users & roles"} sub={AR ? "كل من يعمل لدى المطوّر — بأي مسمّى — مع صلاحياته ومشاريعه. يمكن إسناد المندوبين لمشاريع محددة." : "Everyone who works for the developer — any title — with their permissions and project access."}
+      <WsCardHead eye="// TEAM" title={AR ? "المستخدمون والأدوار" : "Users & roles"} sub={AR ? "كل من يعمل لدى المطور — بأي مسمى — مع صلاحياته ومشاريعه. يمكن إسناد المندوبين لمشاريع محددة." : "Everyone who works for the developer — any title — with their permissions and project access."}
         action={<button className="btn btn-primary" onClick={() => setEditing({ _new: true, developerId: T.developer.id, name: "", nameAr: "", email: "", role: "", roleAr: "", perms: ["orders"], assignedProjectIds: [] })}>{AR ? "+ دعوة مستخدم" : "+ Invite user"}</button>} />
       <div className="card card-flush">
         <table className="tbl">
@@ -3334,14 +4455,14 @@ function WsTeamDrawer({ member, projects, onClose }) {
           placeholder="e.g. Sara Al-Qahtani" placeholderAr="مثال: سارة القحطاني" />
         <label className="field-label">{TL("Email", "البريد الإلكتروني")}</label>
         <input className="input" type="email" value={m.email || ""} onChange={(e) => set({ email: e.target.value })} placeholder="name@developer.sa" style={{ marginBottom: 16, direction: "ltr", textAlign: AR ? "right" : "left" }} />
-        <label className="field-label">{TL("Role / title", "الدور / المسمّى")}</label>
-        <div className="soft" style={{ fontSize: 11, margin: "2px 0 8px" }}>{TL("Free text — a label only. Access is controlled by the permissions below, not the title.", "نص حرّ — مجرد مسمّى. الوصول تتحكّم به الصلاحيات أدناه وليس المسمّى.")}</div>
+        <label className="field-label">{TL("Role / title", "الدور / المسمى")}</label>
+        <div className="soft" style={{ fontSize: 11, margin: "2px 0 8px" }}>{TL("Free text — a label only. Access is controlled by the permissions below, not the title.", "نص حر — مجرد مسمى. الوصول تتحكم به الصلاحيات أدناه وليس المسمى.")}</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
           <input className="input" value={m.role || ""} onChange={(e) => set({ role: e.target.value })} placeholder={TL("e.g. Sales Manager", "بالإنجليزية")} />
           <input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={m.roleAr || ""} onChange={(e) => set({ roleAr: e.target.value })} placeholder="مثال: مدير المبيعات" />
         </div>
         <label className="field-label">{TL("Permissions", "الصلاحيات")}</label>
-        <div className="soft" style={{ fontSize: 11, margin: "2px 0 8px" }}>{TL("Tick exactly what this person can access — independent of their title.", "حدّد بالضبط ما يمكن لهذا الشخص الوصول إليه — بصرف النظر عن مسمّاه.")}</div>
+        <div className="soft" style={{ fontSize: 11, margin: "2px 0 8px" }}>{TL("Tick exactly what this person can access — independent of their title.", "حدد بالضبط ما يمكن لهذا الشخص الوصول إليه — بصرف النظر عن مسماه.")}</div>
         <div className="stack-sm" style={{ marginBottom: 18 }}>
           {D.DEV_PERMS.map((p) => {
             const on = perms.includes(p.id);
@@ -3374,13 +4495,13 @@ function WsTeamDrawer({ member, projects, onClose }) {
         <div style={{ marginBottom: 18, padding: 14, border: "1px solid var(--line)", borderRadius: "var(--r-sm)", background: "var(--bg-sunken)" }}>
             <div className="eyebrow" style={{ marginBottom: 10 }}>{TL("// COMMISSION & PAYOUT", "// العمولة والتحويل")}</div>
             <label className="field-label">{TL("Commission level", "مستوى العمولة")}</label>
-            <div className="soft" style={{ fontSize: 11, margin: "2px 0 6px" }}>{TL("Which rung of the ladder this person sits on.", "أي درجة في سلّم العمولة يشغلها هذا الشخص.")}</div>
+            <div className="soft" style={{ fontSize: 11, margin: "2px 0 6px" }}>{TL("Which rung of the ladder this person sits on.", "أي درجة في سلم العمولة يشغلها هذا الشخص.")}</div>
             <select className="select" style={{ marginBottom: 12 }} value={m.commissionLevelId || ""} onChange={(e) => set({ commissionLevelId: e.target.value || null })}>
               <option value="">{TL("— none —", "— لا شيء —")}</option>
               {ladder.map((l) => <option key={l.id} value={l.id}>{(AR ? (l.nameAr || l.name) : l.name) + " · " + l.pct + "%"}</option>)}
             </select>
-            <label className="field-label">{TL("Reports to", "يتبع إدارياً")}</label>
-            <div className="soft" style={{ fontSize: 11, margin: "2px 0 6px" }}>{TL("Their manager — used to route the team override up the chain.", "مديره — يُستخدم لتوجيه حصة الفريق للأعلى.")}</div>
+            <label className="field-label">{TL("Reports to", "يتبع إداريا")}</label>
+            <div className="soft" style={{ fontSize: 11, margin: "2px 0 6px" }}>{TL("Their manager — used to route the team override up the chain.", "مديره — يستخدم لتوجيه حصة الفريق للأعلى.")}</div>
             <select className="select" style={{ marginBottom: 12 }} value={m.reportsTo || ""} onChange={(e) => set({ reportsTo: e.target.value || null })}>
               <option value="">{TL("— nobody (top of chain) —", "— لا أحد (قمة الهرم) —")}</option>
               {managers.map((u) => <option key={u.id} value={u.id}>{((AR && u.nameAr) ? u.nameAr : u.name) + " · " + roleLabel(u.role)}</option>)}
@@ -3398,7 +4519,7 @@ function WsTeamDrawer({ member, projects, onClose }) {
         <div className="row" style={{ gap: 8 }}>
           <button className="btn btn-primary grow" disabled={!valid} onClick={save}>{m._new ? TL("Create account", "إنشاء الحساب") : TL("Save", "حفظ")}</button>
           {!m._new && <button className="btn btn-ghost" onClick={resetPw}>{TL("Reset password", "إعادة تعيين كلمة المرور")}</button>}
-          {!m._new && CAN_DELETE_FN() && <button className="btn btn-ghost" onClick={() => { if (confirm(TL("Remove " + m.name + "? They will lose access immediately.", "إزالة " + (m.nameAr || m.name) + "؟ سيفقد الوصول فورًا.")) ) del(); }} style={{ color: "var(--negative, #c0492f)" }}>{TL("Remove", "إزالة")}</button>}
+          {!m._new && CAN_DELETE_FN() && <button className="btn btn-ghost" onClick={() => { if (confirm(TL("Remove " + m.name + "? They will lose access immediately.", "إزالة " + (m.nameAr || m.name) + "؟ سيفقد الوصول فورا.")) ) del(); }} style={{ color: "var(--negative, #c0492f)" }}>{TL("Remove", "إزالة")}</button>}
           <button className="btn btn-ghost" onClick={onClose}>{TL("Cancel", "إلغاء")}</button>
         </div>
       </div>
@@ -3468,29 +4589,29 @@ function Receivables() {
       <div className="page-head">
         <div>
           <h1 className="page-title">{TT("Developer payments")}</h1>
-          <p className="page-sub">{window.I18N && window.I18N.isAR ? "ما يدفعه كل مطوّر لـ Revnu مقابل ملحق التأثيث / الذكي / التشغيل، لكل طلب وفق شروط دفعه. التشغيل يُتابَع كوحدات مُسجّلة فقط — بلا مبالغ." : "What each developer owes Revnu for the furnishing / smart / operations addendum, per order — on their own payment terms. Operations is tracked as locked units only — no amounts."}</p>
+          <p className="page-sub">{window.I18N && window.I18N.isAR ? "ما يدفعه كل مطور ل Revnu مقابل ملحق التأثيث / الذكي / التشغيل، لكل طلب وفق شروط دفعه. التشغيل يتابع كوحدات مسجلة فقط — بلا مبالغ." : "What each developer owes Revnu for the furnishing / smart / operations addendum, per order — on their own payment terms. Operations is tracked as locked units only — no amounts."}</p>
         </div>
       </div>
 
       {recur.activeUnits > 0 && (
         <div className="card card-pad-lg" style={{ marginBottom: 18, background: "var(--brand-soft)", border: "1px solid var(--line)" }}>
           <div className="row-between" style={{ marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-            <div className="eyebrow">{window.I18N && window.I18N.isAR ? "// التشغيل · وحدات مُسجّلة" : "// OPERATIONS · LOCKED UNITS"}</div>
+            <div className="eyebrow">{window.I18N && window.I18N.isAR ? "// التشغيل · وحدات مسجلة" : "// OPERATIONS · LOCKED UNITS"}</div>
             <span className="chip">{window.I18N && window.I18N.isAR ? (recur.activeUnits + " وحدة") : (recur.activeUnits + " unit" + (recur.activeUnits !== 1 ? "s" : ""))}</span>
           </div>
           <div className="soft" style={{ fontSize: 12, lineHeight: 1.6 }}>
             {window.I18N && window.I18N.isAR
-              ? "هذه الوحدات مُسجّلة في وحدة التشغيل وأُبلغت بها شركة التشغيل. لا نتتبّع دخل التشغيل داخل النظام — يُدار خارجه. يرى المطوّر رقم الوحدة ونسبته المتفق عليها فقط، بلا مبالغ."
+              ? "هذه الوحدات مسجلة في وحدة التشغيل وأبلغت بها شركة التشغيل. لا نتتبع دخل التشغيل داخل النظام — يدار خارجه. يرى المطور رقم الوحدة ونسبته المتفق عليها فقط، بلا مبالغ."
               : "These units are locked into the operations module and the operator company has been notified. We don't track operating income in the system — it's handled off-system. The developer sees only the unit and their agreed % cut, no amounts."}
           </div>
         </div>
       )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 18 }}>
-        <Stat label={window.I18N && window.I18N.isAR ? "مُفوتَر للمطوّرين" : "Invoiced to developers"} value={D.fmtSAR(totPayable) + " SAR"} delta={rows.length + (window.I18N && window.I18N.isAR ? " فاتورة · بعد دفع العميل" : " invoices · after customer payment")} />
-        <Stat label={window.I18N && window.I18N.isAR ? "المُحصّل" : "Collected"} value={D.fmtSAR(totCollected) + " SAR"} />
-        <Stat label={window.I18N && window.I18N.isAR ? "المتبقّي" : "Outstanding"} value={D.fmtSAR(totOutstanding) + " SAR"} />
-        <Stat label={window.I18N && window.I18N.isAR ? "متوقّع" : "Projected"} value={D.fmtSAR(projected) + " SAR"} delta={projectedRows.length + (window.I18N && window.I18N.isAR ? " صفقة لم يدفع عميلها بعد" : " deals not yet paid by the customer")} />
+        <Stat label={window.I18N && window.I18N.isAR ? "مفوتر للمطورين" : "Invoiced to developers"} value={D.fmtSAR(totPayable) + " SAR"} delta={rows.length + (window.I18N && window.I18N.isAR ? " فاتورة · بعد دفع العميل" : " invoices · after customer payment")} />
+        <Stat label={window.I18N && window.I18N.isAR ? "المحصل" : "Collected"} value={D.fmtSAR(totCollected) + " SAR"} />
+        <Stat label={window.I18N && window.I18N.isAR ? "المتبقي" : "Outstanding"} value={D.fmtSAR(totOutstanding) + " SAR"} />
+        <Stat label={window.I18N && window.I18N.isAR ? "متوقع" : "Projected"} value={D.fmtSAR(projected) + " SAR"} delta={projectedRows.length + (window.I18N && window.I18N.isAR ? " صفقة لم يدفع عميلها بعد" : " deals not yet paid by the customer")} />
       </div>
 
       <div className="card card-pad-lg" style={{ marginBottom: 18 }}>
@@ -3535,7 +4656,7 @@ function Receivables() {
                 <td>{nextDue ? <span className="chip chip-warning">{nextDue.label}</span> : <span className="chip chip-positive">Settled</span>}</td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={7} style={{ textAlign: "center", padding: 36, color: "var(--text-soft)" }}>{window.I18N && window.I18N.isAR ? "لا توجد فواتير بعد — تُنشأ عند دفع العميل الدفعة الأولى." : "No invoices yet — one is raised when a customer makes the first payment."}</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={7} style={{ textAlign: "center", padding: 36, color: "var(--text-soft)" }}>{window.I18N && window.I18N.isAR ? "لا توجد فواتير بعد — تنشأ عند دفع العميل الدفعة الأولى." : "No invoices yet — one is raised when a customer makes the first payment."}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -3588,10 +4709,10 @@ function OrderDrawer({ order, onClose }) {
   const signedFile = D.documentFor(live.id, "signed_contract");
   const proofFile  = D.documentFor(live.id, "payment_proof");
   const docs = [
-    { name: AR ? "اتفاقية الشراء والاستثمار (مع الملاحق أ · ب)" : "Purchase & Investment Agreement (with Schedules A · B)", sub: AR ? "النسخة المُصدَرة — عرض · Word · PDF" : "Issued copy — view · Word · PDF", ref: "AGR-" + live.id.replace(/\D/g, ""), href: agreementHref, ok: true },
-    { name: AR ? "الاتفاقية الموقّعة" : "Signed agreement", sub: live.signedContractUrl ? live.signedContractUrl + (live.signedAt ? " · " + live.signedAt : "") : (AR ? "لم تُرفع بعد" : "not uploaded yet"), ref: live.signedContractUrl ? "✓" : "—", ok: !!live.signedContractUrl, file: signedFile },
-    { name: AR ? "إثبات دفع العميل" : "Customer proof of payment", sub: live.paymentProofUrl ? live.paymentProofUrl + (live.paidAt ? " · " + live.paidAt : "") : (AR ? "لم يُرفع بعد" : "not uploaded yet"), ref: live.paymentProofUrl ? "✓" : "—", ok: !!live.paymentProofUrl, file: proofFile },
-  ].concat(schedule.filter((m) => m.paid).map((m) => { const pf = D.transferProofFor(live.id, m.id); return { name: (AR ? "إثبات تحويل المطوّر — " : "Developer transfer proof — ") + m.label, sub: pf ? pf.name : (AR ? "مُعلَّمة كمدفوعة" : "marked as paid"), ref: "✓", ok: true, file: pf }; }));
+    { name: AR ? "اتفاقية الشراء والاستثمار (مع الملاحق أ · ب)" : "Purchase & Investment Agreement (with Schedules A · B)", sub: AR ? "النسخة المصدرة — عرض · Word · PDF" : "Issued copy — view · Word · PDF", ref: "AGR-" + live.id.replace(/\D/g, ""), href: agreementHref, ok: true },
+    { name: AR ? "الاتفاقية الموقعة" : "Signed agreement", sub: live.signedContractUrl ? live.signedContractUrl + (live.signedAt ? " · " + live.signedAt : "") : (AR ? "لم ترفع بعد" : "not uploaded yet"), ref: live.signedContractUrl ? "✓" : "—", ok: !!live.signedContractUrl, file: signedFile },
+    { name: AR ? "إثبات دفع العميل" : "Customer proof of payment", sub: live.paymentProofUrl ? live.paymentProofUrl + (live.paidAt ? " · " + live.paidAt : "") : (AR ? "لم يرفع بعد" : "not uploaded yet"), ref: live.paymentProofUrl ? "✓" : "—", ok: !!live.paymentProofUrl, file: proofFile },
+  ].concat(schedule.filter((m) => m.paid).map((m) => { const pf = D.transferProofFor(live.id, m.id); return { name: (AR ? "إثبات تحويل المطور — " : "Developer transfer proof — ") + m.label, sub: pf ? pf.name : (AR ? "معلمة كمدفوعة" : "marked as paid"), ref: "✓", ok: true, file: pf }; }));
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 200, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
       <div style={{ width: 560, maxWidth: "100vw", background: "var(--bg-card)", height: "100vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
@@ -3605,14 +4726,14 @@ function OrderDrawer({ order, onClose }) {
         <div style={{ padding: 24 }}>
           <div className="row" style={{ gap: 8, marginBottom: 10 }}>
             <span className={STATUS_CHIP[live.status]}>{AR ? (D.ORDER_STATUS_META[live.status]?.ar || live.status) : (D.ORDER_STATUS_META[live.status]?.en || live.status)}</span>
-            <span className="soft" style={{ fontSize: 12 }}>{AR ? "أُنشئ " : "created "}{D.fmtDate(live.createdAt)}</span>
+            <span className="soft" style={{ fontSize: 12 }}>{AR ? "أنشئ " : "created "}{D.fmtDate(live.createdAt)}</span>
           </div>
           {/* Process line — click the next stage to move the order (gated by the required document) */}
           <div className="row" style={{ gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
             {FLOW.map((st, i) => (
               <React.Fragment key={st}>
                 <button type="button" onClick={() => moveTo(st)} disabled={i !== flowIdx + 1}
-                  title={i === flowIdx + 1 ? (st === "signed" ? (AR ? "يلزم رفع العقد الموقّع" : "Requires the signed agreement") : st === "paid" ? (AR ? "يلزم إثبات الدفع" : "Requires proof of payment") : (AR ? "نقل الطلب إلى هذه المرحلة" : "Move the order to this stage")) : ""}
+                  title={i === flowIdx + 1 ? (st === "signed" ? (AR ? "يلزم رفع العقد الموقع" : "Requires the signed agreement") : st === "paid" ? (AR ? "يلزم إثبات الدفع" : "Requires proof of payment") : (AR ? "نقل الطلب إلى هذه المرحلة" : "Move the order to this stage")) : ""}
                   style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 10px", borderRadius: 14, cursor: i === flowIdx + 1 ? "pointer" : "default", background: i <= flowIdx ? "var(--brand)" : "transparent", color: i <= flowIdx ? "var(--brand-text)" : (i === flowIdx + 1 ? "var(--brand-deep)" : "var(--text-muted)"), borderWidth: 1, borderColor: (i <= flowIdx || i === flowIdx + 1 ? "var(--brand)" : "var(--line-strong)"), borderStyle: i === flowIdx + 1 ? "dashed" : "solid" }}>
                   {AR ? (D.ORDER_STATUS_META[st]?.ar || st) : (D.ORDER_STATUS_META[st]?.en || st)}
                 </button>
@@ -3626,7 +4747,7 @@ function OrderDrawer({ order, onClose }) {
           <SecRow k={(order.unitNumbers || []).length > 1 ? (AR ? "الوحدات" : "Units") : (AR ? "الوحدة" : "Unit")} v={(order.unitNumbers && order.unitNumbers.length ? order.unitNumbers : [order.unitNumber]).join(" · ") + ((order.unitNumbers || []).length > 1 ? "" : " · " + (u ? (window.I18N ? window.I18N.tx(u.type, "name") : u.type.name) : ""))} />
           {(order.unitNumbers || []).length <= 1 && <SecRow k={AR ? "البرج / الدور" : "Tower / Floor"} v={(u?.tower || "") + " · " + (u?.floor || "")} />}
           <SecRow k={AR ? "الباقة" : "Package"}  v={pkg ? (pkg.tier + " — " + (window.I18N ? window.I18N.tx(pkg, "name") : pkg.name)) : (AR ? "بدون" : "Skipped")} />
-          <SecRow k={AR ? "التشطيب" : "Fit-out"}  v={order.fitout ? (AR ? "مُضمَّن" : "Included") : (AR ? "غير مُضمَّن" : "Not included")} />
+          <SecRow k={AR ? "التشطيب" : "Fit-out"}  v={order.fitout ? (AR ? "مضمن" : "Included") : (AR ? "غير مضمن" : "Not included")} />
           <SecRow k={AR ? "التشغيل" : "Operations"} v={ops ? (window.I18N ? window.I18N.tx(ops, "name") : ops.name) : "—"} />
 
           <hr className="hr-thin" style={{ margin: "18px 0" }} />
@@ -3641,7 +4762,7 @@ function OrderDrawer({ order, onClose }) {
             </div>
           ) : null}
           <div className="row-between" style={{ marginTop: 4, fontSize: 12, color: "var(--text-soft)" }}>
-            <span>{AR ? "سعر الوحدة (يُسوَّى بموجب عقد الشراء)" : "Unit price (settled under the purchase agreement)"}</span>
+            <span>{AR ? "سعر الوحدة (يسوى بموجب عقد الشراء)" : "Unit price (settled under the purchase agreement)"}</span>
             <span className="mono">{D.fmtSAR(order.unitPrice)} SAR</span>
           </div>
 
@@ -3653,7 +4774,7 @@ function OrderDrawer({ order, onClose }) {
             <span className="mono soft" style={{ fontSize: 11 }}>{dv?.name}</span>
           </div>
           <p className="soft" style={{ fontSize: 11.5, margin: "0 0 12px", lineHeight: 1.5 }}>
-            {AR ? ("ما يدين به " + (dv?.nameAr || dv?.name) + " لـ Revnu عن هذا الطلب — قيمة الإضافات بعد خصم هامشه التعاقدي، وفق شروط دفعه." + (D.isCustomerPaid(order) ? "" : " تُصدر الفاتورة عند دفع العميل الدفعة الأولى.")) : ("What " + dv?.name + " owes Revnu on this order — the extras value net of their contract markup, on their payment terms." + (D.isCustomerPaid(order) ? "" : " The invoice is raised once the customer makes the first payment."))}
+            {AR ? ("ما يدين به " + (dv?.nameAr || dv?.name) + " ل Revnu عن هذا الطلب — قيمة الإضافات بعد خصم هامشه التعاقدي، وفق شروط دفعه." + (D.isCustomerPaid(order) ? "" : " تصدر الفاتورة عند دفع العميل الدفعة الأولى.")) : ("What " + dv?.name + " owes Revnu on this order — the extras value net of their contract markup, on their payment terms." + (D.isCustomerPaid(order) ? "" : " The invoice is raised once the customer makes the first payment."))}
           </p>
           <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-sm)", overflow: "hidden" }}>
             {schedule.map((m, i) => (
@@ -3673,9 +4794,9 @@ function OrderDrawer({ order, onClose }) {
             ))}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 12 }}>
-            <MiniStat label={AR ? "مستحق لـ Revnu" : "Payable to Revnu"} v={D.fmtSAR(payable)} />
-            <MiniStat label={AR ? "المُحصّل" : "Collected"} v={D.fmtSAR(paidTotal)} tone="positive" />
-            <MiniStat label={AR ? "المتبقّي" : "Outstanding"} v={D.fmtSAR(outstanding)} tone={outstanding > 0 ? "warning" : "positive"} />
+            <MiniStat label={AR ? "مستحق ل Revnu" : "Payable to Revnu"} v={D.fmtSAR(payable)} />
+            <MiniStat label={AR ? "المحصل" : "Collected"} v={D.fmtSAR(paidTotal)} tone="positive" />
+            <MiniStat label={AR ? "المتبقي" : "Outstanding"} v={D.fmtSAR(outstanding)} tone={outstanding > 0 ? "warning" : "positive"} />
           </div>
 
           <hr className="hr-thin" style={{ margin: "22px 0 12px" }} />
@@ -3690,14 +4811,14 @@ function OrderDrawer({ order, onClose }) {
                 {d.href ? <a className="btn btn-sm btn-secondary" href={d.href}>{AR ? "عرض" : "Open"}</a>
                   : d.file && d.file.storagePath ? <button className="btn btn-sm btn-secondary" onClick={() => RS.openDocument(d.file)}>{AR ? "فتح" : "Open"}</button>
                   : d.file && d.file.data ? <a className="btn btn-sm btn-secondary" href={d.file.data} download={d.file.name}>{AR ? "تنزيل" : "Download"}</a>
-                  : d.ok ? <span className="chip chip-positive">{AR ? "مُسجَّل" : "on file"}</span> : <span className="chip">{AR ? "مفقود" : "missing"}</span>}
+                  : d.ok ? <span className="chip chip-positive">{AR ? "مسجل" : "on file"}</span> : <span className="chip">{AR ? "مفقود" : "missing"}</span>}
               </div>
             ))}
           </div>
           <a className="btn btn-primary" style={{ width: "100%", marginTop: 14, justifyContent: "center" }} href={agreementHref}>{AR ? "فتح الاتفاقية · تنزيل Word / PDF ←" : "Open agreement · download Word / PDF →"}</a>
           {order.status === "cancelled" && (
             <div className="card card-pad" style={{ marginTop: 14, background: "rgba(192,73,47,0.07)", border: "1px solid rgba(192,73,47,0.3)", fontSize: 12.5 }}>
-              <strong style={{ color: "#c0492f" }}>{AR ? "مُلغى" : "Cancelled"}</strong> · {order.cancelReason || (AR ? "بدون سبب مسجّل" : "no reason recorded")}{order.cancelledBy ? " · " + order.cancelledBy : ""}
+              <strong style={{ color: "#c0492f" }}>{AR ? "ملغى" : "Cancelled"}</strong> · {order.cancelReason || (AR ? "بدون سبب مسجل" : "no reason recorded")}{order.cancelledBy ? " · " + order.cancelledBy : ""}
             </div>
           )}
           {CAN_DELETE_FN() && (
@@ -3729,6 +4850,229 @@ function SecRow({ k, v }) {
     <div className="row-between" style={{ padding: "6px 0", borderBottom: "1px dotted var(--line)", fontSize: 13 }}>      <span className="soft">{k}</span>
       <span style={{ fontWeight: 500 }}>{v}</span>
     </div>
+  );
+}
+
+/* ============================================================
+   Platform billing — price book · per-developer plan · invoices
+============================================================ */
+const INV_STATUS = {
+  paid:      { en: "Paid",      ar: "مدفوعة",  bg: "var(--positive-soft, rgba(31,138,91,0.12))", fg: "var(--positive, #1f8a5b)" },
+  issued:    { en: "Due",       ar: "مستحقة",  bg: "var(--brand-soft)", fg: "var(--brand-deep, var(--brand))" },
+  overdue:   { en: "Overdue",   ar: "متأخرة",  bg: "rgba(232,84,84,0.12)", fg: "#c0492f" },
+  scheduled: { en: "Scheduled", ar: "مجدولة",  bg: "var(--bg-sunken)", fg: "var(--text-soft)" },
+  waived:    { en: "Waived",    ar: "معفاة",   bg: "var(--bg-sunken)", fg: "var(--text-muted)" },
+};
+function InvStatus({ s }) { const AR = window.I18N && window.I18N.isAR; const m = INV_STATUS[s] || INV_STATUS.issued; return <span className="chip" style={{ background: m.bg, color: m.fg }}>{AR ? m.ar : m.en}</span>; }
+function printInvoice(inv) {
+  const w = window.open("", "_blank"); if (!w) return;
+  w.document.write(D.billingInvoiceHTML(inv, !!(window.I18N && window.I18N.isAR))); w.document.close(); setTimeout(() => w.print(), 300);
+}
+/* Invoice table shared by the Billing page and the developer Plan tab. */
+function InvoiceTable({ invoices, showDev, onChange }) {
+  const AR = window.I18N && window.I18N.isAR; const TL = (en, ar) => (AR ? ar : en);
+  const mark = (inv, paid) => { let patch; if (paid) { const ref = prompt(TL("Transfer reference (optional):", "مرجع التحويل (اختياري):")) ; if (ref === null) return; patch = { status: "paid", paidAt: new Date().toISOString().slice(0, 10), paidRef: ref }; } else patch = { status: null, paidAt: null, paidRef: "" }; window.RevnuSupport.act(() => D.setBillingInvoice(inv.id, patch)).then(() => { if (onChange) onChange(); }); };
+  return (
+    <div className="card card-flush">
+      <table className="tbl">
+        <thead><tr><th>{TL("Invoice", "الفاتورة")}</th>{showDev && <th>{TL("Developer", "المطور")}</th>}<th>{TL("Fee", "الرسوم")}</th><th>{TL("Issued", "الإصدار")}</th><th>{TL("Due", "الاستحقاق")}</th><th className="right">{TL("List", "السعر")}</th><th className="right">{TL("Total incl. VAT", "الإجمالي شامل الضريبة")}</th><th>{TL("Status", "الحالة")}</th><th className="right"></th></tr></thead>
+        <tbody>
+          {invoices.map((inv) => { const dv = D.devById(inv.developerId); return (
+            <tr key={inv.id} style={{ opacity: inv.status === "scheduled" ? 0.6 : 1 }}>
+              <td className="mono" style={{ fontSize: 12, fontWeight: 600 }}>{inv.id}</td>
+              {showDev && <td>{dv ? (AR ? (dv.nameAr || dv.name) : dv.name) : inv.developerId}</td>}
+              <td><div style={{ fontWeight: 500 }}>{AR ? inv.titleAr : inv.title}</div>{inv.bandLabel ? <div className="soft" style={{ fontSize: 11 }}>{D.fmtSAR(inv.units)} {TL("units · band", "وحدة · شريحة")} {inv.bandLabel}</div> : null}{inv.reason ? <div className="soft" style={{ fontSize: 11 }}>{inv.reason}</div> : null}</td>
+              <td className="mono" style={{ fontSize: 12 }}>{D.fmtDate(inv.date)}</td>
+              <td className="mono" style={{ fontSize: 12 }}>{D.fmtDate(inv.due)}</td>
+              <td className="right mono soft" style={{ textDecoration: inv.list !== inv.amount ? "line-through" : "none" }}>{D.fmtSAR(inv.list)}</td>
+              <td className="right mono" style={{ fontWeight: 600 }}>{inv.waived ? "0" : D.fmtSAR(inv.total)}</td>
+              <td><InvStatus s={inv.status} />{inv.paidAt ? <div className="soft" style={{ fontSize: 10.5 }}>{D.fmtDate(inv.paidAt)}{inv.paidRef ? " · " + inv.paidRef : ""}</div> : null}</td>
+              <td className="right"><div className="row" style={{ gap: 4, justifyContent: "flex-end" }}>
+                <button className="btn btn-sm btn-ghost" onClick={() => printInvoice(inv)}>{TL("PDF", "PDF")}</button>
+                {(inv.status === "issued" || inv.status === "overdue") && <button className="btn btn-sm btn-primary" onClick={() => mark(inv, true)}>{TL("Mark paid", "تعليم كمدفوعة")}</button>}
+                {inv.status === "paid" && <button className="btn btn-sm btn-ghost" onClick={() => mark(inv, false)}>{TL("Undo", "تراجع")}</button>}
+              </div></td>
+            </tr>); })}
+          {invoices.length === 0 && <tr><td colSpan={showDev ? 9 : 8} style={{ textAlign: "center", padding: 26, color: "var(--text-soft)" }}>{TL("No platform invoices.", "لا توجد فواتير منصة.")}</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+/* HQ page: price book + every developer's subscription + all invoices. */
+function Billing({ onOpenDev }) {
+  const AR = window.I18N && window.I18N.isAR; const TL = (en, ar) => (AR ? ar : en);
+  const [, bump] = useState(0); const refresh = () => bump((x) => x + 1);
+  const [editBook, setEditBook] = useState(false);
+  const [devF, setDevF] = useState("all");
+  const [statF, setStatF] = useState("all");
+  const pb = D.billingPriceBook();
+  const devs = D.DEVELOPERS;
+  const all = devs.flatMap((dv) => D.billingInvoicesFor(dv.id));
+  const tot = (f) => all.filter(f).reduce((a, i) => a + i.total, 0);
+  const rows = all.filter((i) => (devF === "all" || i.developerId === devF) && (statF === "all" || i.status === statF)).sort((a, b) => (a.date < b.date ? 1 : -1));
+  const soon = devs.map((dv) => ({ dv, r: D.billingNextRenewal(dv.id) })).filter((x) => x.r && x.r.daysAway <= 60);
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">{TL("Subscriptions & fees", "الاشتراكات والرسوم")}</h1>
+          <p className="page-sub">{TL("What developers pay Revnu for the platform: a one-time onboarding fee that includes the first project, a setup fee for each additional project, and a yearly fee by total units. Order settlements live under Developer payments.", "ما يدفعه المطورون ل Revnu مقابل المنصة: رسوم تأسيس لمرة واحدة تشمل المشروع الأول، ورسوم لكل مشروع إضافي، ورسوم سنوية حسب إجمالي الوحدات. تسويات الطلبات في «مدفوعات المطورين».")}</p>
+        </div>
+        <button className="btn btn-secondary" onClick={() => setEditBook((v) => !v)}>{editBook ? TL("Close price book", "إغلاق قائمة الأسعار") : TL("Price book", "قائمة الأسعار")}</button>
+      </div>
+
+      {editBook && <PriceBookEditor onClose={() => { setEditBook(false); refresh(); }} />}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 18 }}>
+        <Stat label={TL("Invoiced", "مفوتر")} value={D.fmtSAR(tot((i) => i.status !== "scheduled" && i.status !== "waived"))} unit="SAR" delta={TL("incl. VAT", "شامل الضريبة")} />
+        <Stat label={TL("Collected", "المحصل")} value={D.fmtSAR(tot((i) => i.status === "paid"))} unit="SAR" />
+        <Stat label={TL("Outstanding", "المتبقي")} value={D.fmtSAR(tot((i) => i.status === "issued" || i.status === "overdue"))} unit="SAR" delta={all.filter((i) => i.status === "overdue").length + TL(" overdue", " متأخرة")} />
+        <Stat label={TL("Waived", "معفى")} value={D.fmtSAR(all.filter((i) => i.waived).reduce((a, i) => a + Math.round(i.list * (1 + (pb.vatPct || 0) / 100)), 0))} unit="SAR" delta={TL("pilots & discounts", "تجارب وخصومات")} />
+      </div>
+
+      <div className="card card-pad-lg" style={{ marginBottom: 18 }}>
+        <div className="eyebrow" style={{ marginBottom: 12 }}>{TL("// BY DEVELOPER", "// حسب المطور")}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+          {devs.map((dv) => {
+            const s = D.billingSummary(dv.id); const nx = D.billingNextRenewal(dv.id); const units = D.billingUnitsFor(dv.id); const band = D.billingBandFor(units); const plan = D.planFor(dv);
+            const waivedAny = ["onboarding", "projectSetup", "annual"].some((k) => plan[k].mode === "waived");
+            return (
+              <div key={dv.id} className="card card-pad" style={{ cursor: "pointer", outline: devF === dv.id ? "2px solid var(--brand)" : "none" }} onClick={() => setDevF(devF === dv.id ? "all" : dv.id)}>
+                <div className="row-between">
+                  <div className="row" style={{ gap: 10, alignItems: "center" }}>
+                    <span style={{ width: 26, height: 26, borderRadius: 6, background: dv.brand.primary, color: dv.brand.text, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12 }}>{dv.initials}</span>
+                    <strong style={{ fontSize: 13.5 }}>{AR ? (dv.nameAr || dv.name) : dv.name}</strong>
+                  </div>
+                  {dv.suspended ? <span className="chip" style={{ background: "rgba(232,84,84,0.12)", color: "#c0492f" }}>{TL("Suspended", "موقوف")}</span> : waivedAny ? <span className="chip chip-soft">{TL("Pilot", "تجريبي")}</span> : null}
+                </div>
+                <div className="mono soft" style={{ fontSize: 10.5, marginTop: 6 }}>{D.fmtSAR(units)} {TL("UNITS · BAND", "وحدة · شريحة")} {band.label} · {D.fmtSAR(band.fee)}/{TL("yr", "سنة")}</div>
+                <div className="row-between" style={{ marginTop: 8 }}><span className="soft" style={{ fontSize: 12 }}>{TL("Outstanding", "المتبقي")}</span><span className="mono" style={{ fontWeight: 700, color: s.overdue > 0 ? "#c0492f" : s.outstanding > 0 ? "var(--warning, #b8860b)" : "var(--positive, #1f8a5b)" }}>{D.fmtSAR(s.outstanding)}</span></div>
+                <div className="row-between" style={{ marginTop: 4 }}><span className="soft" style={{ fontSize: 12 }}>{TL("Next renewal", "التجديد القادم")}</span><span className="mono" style={{ fontSize: 12 }}>{nx ? D.fmtDate(nx.date) + (nx.waived ? " · " + TL("waived", "معفى") : " · " + D.fmtSAR(nx.total)) : "—"}</span></div>
+                <div className="row" style={{ gap: 6, marginTop: 10 }}><button className="btn btn-sm btn-secondary" onClick={(e) => { e.stopPropagation(); onOpenDev && onOpenDev(dv.id); }}>{TL("Open plan", "فتح الخطة")}</button></div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {soon.length > 0 && (
+        <div className="card card-pad" style={{ marginBottom: 18, background: "var(--brand-soft)", border: "1px solid var(--line)" }}>
+          <div className="eyebrow" style={{ marginBottom: 6 }}>{TL("// RENEWALS IN THE NEXT 60 DAYS", "// تجديدات خلال 60 يوما")}</div>
+          {soon.map(({ dv, r: nx }) => <div key={dv.id} style={{ fontSize: 13, padding: "3px 0" }}><strong>{AR ? (dv.nameAr || dv.name) : dv.name}</strong> · {D.fmtDate(nx.date)} · {D.fmtSAR(nx.units)} {TL("units → band", "وحدة ← شريحة")} {nx.band.label} · {nx.waived ? TL("waived", "معفى") : D.fmtSAR(nx.total) + " SAR " + TL("incl. VAT", "شامل الضريبة")}</div>)}
+          <div className="soft" style={{ fontSize: 11, marginTop: 6 }}>{TL("The renewal invoice is generated automatically on the anniversary, at the band the developer is in that day.", "تصدر فاتورة التجديد تلقائيا في الذكرى السنوية وفق الشريحة التي يكون فيها المطور ذلك اليوم.")}</div>
+        </div>
+      )}
+
+      <div className="card card-pad" style={{ marginBottom: 14, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+        <span className="muted" style={{ fontSize: 12 }}>{TL("Status", "الحالة")}</span>
+        {["all", "overdue", "issued", "paid", "scheduled", "waived"].map((s) => <button key={s} className={"btn btn-sm " + (statF === s ? "btn-primary" : "btn-secondary")} onClick={() => setStatF(s)}>{s === "all" ? TL("All", "الكل") : (AR ? INV_STATUS[s].ar : INV_STATUS[s].en)}</button>)}
+        {devF !== "all" && <button className="btn btn-sm btn-ghost" onClick={() => setDevF("all")}>{TL("Clear developer filter", "إزالة فلتر المطور")}</button>}
+        <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--text-soft)" }}>{rows.length} {TL("invoices", "فاتورة")}</span>
+      </div>
+      <InvoiceTable invoices={rows} showDev onChange={refresh} />
+    </>
+  );
+}
+/* Global price book — the only place list prices live. */
+function PriceBookEditor({ onClose }) {
+  const AR = window.I18N && window.I18N.isAR; const TL = (en, ar) => (AR ? ar : en);
+  const [pb, setPb] = useState(() => JSON.parse(JSON.stringify(D.billingPriceBook())));
+  const set = (patch) => setPb((p) => ({ ...p, ...patch }));
+  const setBand = (i, patch) => set({ bands: pb.bands.map((b, ix) => ix === i ? { ...b, ...patch } : b) });
+  const num = (v) => (v === "" || v == null ? null : Number(v));
+  return (
+    <div className="card card-pad-lg" style={{ marginBottom: 18 }}>
+      <WsCardHead eye="// PRICE BOOK" title={TL("List prices", "الأسعار المعلنة")} sub={TL("Defaults for every developer. Override, discount or waive per developer on their Plan tab — never here.", "الأسعار الافتراضية لكل المطورين. التعديل أو الخصم أو الإعفاء يكون من تبويب «الخطة» لكل مطور — لا هنا.")} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginTop: 12 }}>
+        <Labeled label={TL("Onboarding fee (SAR, one-time · includes first project)", "رسوم التأسيس (ريال، مرة واحدة · تشمل المشروع الأول)")}><input className="input mono" type="number" step="1000" value={pb.onboardingFee} onChange={(e) => set({ onboardingFee: Number(e.target.value) || 0 })} /></Labeled>
+        <Labeled label={TL("Project setup fee (SAR, each additional project)", "رسوم تأسيس المشروع (ريال، لكل مشروع إضافي)")}><input className="input mono" type="number" step="1000" value={pb.projectSetupFee} onChange={(e) => set({ projectSetupFee: Number(e.target.value) || 0 })} /></Labeled>
+        <Labeled label={TL("VAT %", "ضريبة القيمة المضافة %")}><input className="input mono" type="number" value={pb.vatPct} onChange={(e) => set({ vatPct: Number(e.target.value) || 0 })} /></Labeled>
+        <Labeled label={TL("Payment terms (days)", "مدة السداد (يوم)")}><input className="input mono" type="number" value={pb.dueDays} onChange={(e) => set({ dueDays: Number(e.target.value) || 30 })} /></Labeled>
+      </div>
+      <div className="eyebrow" style={{ margin: "18px 0 8px" }}>{TL("// ANNUAL PLATFORM FEE · BY TOTAL UNITS", "// رسوم المنصة السنوية · حسب إجمالي الوحدات")}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {pb.bands.map((b, i) => {
+          const lo = i === 0 ? 1 : (Number(pb.bands[i - 1].upTo) || 0) + 1;
+          return (
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "110px 1fr 1fr auto", gap: 10, alignItems: "center", padding: "8px 12px", background: "var(--bg-sunken)", borderRadius: "var(--r-sm)" }}>
+              <span className="mono soft" style={{ fontSize: 12 }}>{TL("from", "من")} {D.fmtSAR(lo)}</span>
+              <div className="row" style={{ gap: 6, alignItems: "center" }}><span className="soft" style={{ fontSize: 12 }}>{TL("up to", "إلى")}</span><input className="input mono" style={{ height: 32 }} type="number" placeholder={TL("no limit", "بلا حد")} value={b.upTo == null ? "" : b.upTo} onChange={(e) => setBand(i, { upTo: num(e.target.value) })} disabled={i === pb.bands.length - 1} /></div>
+              <div className="row" style={{ gap: 6, alignItems: "center" }}><input className="input mono" style={{ height: 32 }} type="number" step="1000" value={b.fee} onChange={(e) => setBand(i, { fee: Number(e.target.value) || 0 })} /><span className="soft" style={{ fontSize: 12 }}>SAR/{TL("yr", "سنة")}</span></div>
+              <button className="btn btn-sm btn-ghost" disabled={pb.bands.length <= 2} onClick={() => set({ bands: pb.bands.filter((_, ix) => ix !== i) })}>✕</button>
+            </div>
+          );
+        })}
+      </div>
+      <div className="row" style={{ gap: 8, marginTop: 14 }}>
+        <button className="btn btn-secondary" onClick={() => { const last = pb.bands[pb.bands.length - 1]; const prev = pb.bands[pb.bands.length - 2]; const nu = { upTo: (Number(prev && prev.upTo) || 0) * 2 || 1000, fee: Math.round(last.fee * 0.8) }; set({ bands: [...pb.bands.slice(0, -1), nu, last] }); }}>＋ {TL("Add band", "إضافة شريحة")}</button>
+        <span className="grow" />
+        <button className="btn btn-ghost" onClick={onClose}>{TL("Cancel", "إلغاء")}</button>
+        <button className="btn btn-primary" onClick={() => { if (hasNegative(pb)) { window.RevnuSupport.toast(negMsg(), "err"); return; } window.RevnuSupport.act(() => D.setBillingPriceBook(pb), { done: TL("Price book saved.", "تم حفظ قائمة الأسعار.") }).then((r) => { if (r !== undefined) onClose(); }); }}>{TL("Save price book", "حفظ الأسعار")}</button>
+      </div>
+      <div className="soft" style={{ fontSize: 11, marginTop: 8 }}>{TL("Changing list prices affects future invoices and any unpaid invoice that still follows the list price; paid invoices never change.", "تغيير الأسعار يؤثر على الفواتير القادمة وأي فاتورة غير مدفوعة تتبع السعر المعلن؛ الفواتير المدفوعة لا تتغير.")}</div>
+    </div>
+  );
+}
+/* Per-developer plan: one editable line per fee, next renewal, invoices, suspend. */
+function WsPlan({ dv }) {
+  const AR = window.I18N && window.I18N.isAR; const TL = (en, ar) => (AR ? ar : en);
+  const [, bump] = useState(0); const refresh = () => bump((x) => x + 1);
+  const [plan, setPlan] = useState(() => JSON.parse(JSON.stringify(D.planFor(dv))));
+  const [dirty, setDirty] = useState(false);
+  const setLine = (k, patch) => { setPlan((p) => ({ ...p, [k]: { ...p[k], ...patch } })); setDirty(true); };
+  const pb = D.billingPriceBook(); const units = D.billingUnitsFor(dv.id); const band = D.billingBandFor(units);
+  const listOf = { onboarding: pb.onboardingFee, projectSetup: pb.projectSetupFee, annual: band.fee };
+  const preview = (k) => D.billingLineAmount({ plan }, k, listOf[k], k === "annual" ? 0 : null);
+  const save = () => { const bad = ["onboarding", "projectSetup", "annual"].find((k) => plan[k].mode !== "list" && !(plan[k].reason || "").trim()); if (bad) { alert(TL("Add a reason for every override or waiver — it is logged.", "أضف سببا لكل تعديل أو إعفاء — يسجل.")); return; } if (hasNegative(plan) || ["onboarding", "projectSetup", "annual"].some((k) => Number(plan[k].discountPct) > 100)) { window.RevnuSupport.toast(negMsg(), "err"); return; } window.RevnuSupport.act(() => D.setDeveloperPlan(dv.id, plan), { done: TL("Plan saved.", "تم حفظ الخطة.") }).then((r) => { if (r !== undefined) { setDirty(false); refresh(); } }); };
+  const inv = D.billingInvoicesFor(dv.id); const s = D.billingSummary(dv.id); const nx = D.billingNextRenewal(dv.id);
+  const projects = D.PROJECTS.filter((p) => p.developerId === dv.id);
+  return (
+    <>
+      <div className="card card-pad-lg" style={{ marginBottom: 16 }}>
+        <WsCardHead eye="// PLAN" title={TL("Platform plan", "خطة المنصة")} sub={TL("Three fees, one card. Defaults come from the price book; change a number, add a discount, or waive with a reason. Nothing else is needed for pilots or negotiated deals.", "ثلاث رسوم في بطاقة واحدة. الافتراضي من قائمة الأسعار؛ غير الرقم أو أضف خصما أو أعف مع ذكر السبب. لا يلزم أكثر من ذلك للتجارب أو الصفقات الخاصة.")}
+          action={<div className="row" style={{ gap: 8 }}>
+            <span className="chip chip-soft">{D.fmtSAR(units)} {TL("units · band", "وحدة · شريحة")} {band.label}</span>
+            <button className={"btn btn-sm " + (dv.suspended ? "btn-primary" : "btn-ghost")} onClick={() => { if (dv.suspended) { window.RevnuSupport.act(() => D.patchDeveloper(dv.id, { suspended: false, suspendedReason: "" })).then(refresh); return; } const why = prompt(TL("Reason for suspending portal access (shown to the developer):", "سبب تعليق الوصول (يظهر للمطور):")); if (why == null || !why.trim()) return; window.RevnuSupport.act(() => D.patchDeveloper(dv.id, { suspended: true, suspendedReason: why.trim() })).then(refresh); }}>{dv.suspended ? TL("Restore access", "استعادة الوصول") : TL("Suspend access", "تعليق الوصول")}</button>
+          </div>} />
+        {dv.suspended && <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: "var(--r-sm)", background: "rgba(232,84,84,0.10)", color: "#c0492f", fontSize: 13 }}>{TL("Portal access is suspended: ", "الوصول إلى البوابة معلق: ")}{dv.suspendedReason}</div>}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12, marginTop: 14 }}>
+          {D.BILLING_KINDS.map((k) => {
+            const ln = plan[k.id]; const pv = preview(k.id);
+            return (
+              <div key={k.id} style={{ border: "1px solid var(--line)", borderRadius: "var(--r-md)", padding: 14, background: ln.mode === "waived" ? "var(--bg-sunken)" : "var(--bg-card)" }}>
+                <div className="row-between" style={{ alignItems: "flex-start" }}>
+                  <div><div className="row" style={{ gap: 6, alignItems: "center" }}><strong style={{ fontSize: 14 }}>{AR ? k.ar : k.en}</strong><span className="chip chip-soft" style={{ fontSize: 10 }}>{k.cadence === "yearly" ? TL("Yearly", "سنوي") : TL("One-time", "مرة واحدة")}</span></div><div className="soft" style={{ fontSize: 11, marginTop: 2 }}>{AR ? k.cadenceAr : k.cadenceEn}</div></div>
+                  <div style={{ textAlign: "end" }}><div className="mono" style={{ fontSize: 16, fontWeight: 700, textDecoration: pv.waived ? "line-through" : "none", color: pv.waived ? "var(--text-soft)" : "var(--text)" }}>{D.fmtSAR(pv.waived ? pv.list : pv.amount)}</div><div className="soft" style={{ fontSize: 10.5 }}>{pv.waived ? TL("waived", "معفى") : pv.amount !== pv.list ? TL("list ", "المعلن ") + D.fmtSAR(pv.list) : TL("list price", "السعر المعلن")}{k.id === "annual" ? " · " + TL("band", "شريحة") + " " + band.label : ""}</div></div>
+                </div>
+                <div style={{ display: "inline-flex", border: "1px solid var(--line-strong)", borderRadius: 7, overflow: "hidden", margin: "12px 0 10px" }}>
+                  {[["list", TL("List", "المعلن")], ["custom", TL("Custom", "مخصص")], ["waived", TL("Waived", "معفى")]].map(([m, lbl], i) => (
+                    <button key={m} type="button" onClick={() => setLine(k.id, { mode: m })} style={{ padding: "5px 12px", border: "none", borderInlineStart: i ? "1px solid var(--line-strong)" : "none", cursor: "pointer", fontSize: 11.5, fontWeight: 600, background: ln.mode === m ? "var(--brand)" : "transparent", color: ln.mode === m ? "var(--brand-text)" : "var(--text-muted)" }}>{lbl}</button>
+                  ))}
+                </div>
+                {ln.mode === "custom" && <Labeled label={TL("Amount (SAR, ex-VAT)", "المبلغ (ريال، قبل الضريبة)")}><input className="input mono" type="number" step="1000" value={ln.amount == null ? "" : ln.amount} placeholder={String(listOf[k.id])} onChange={(e) => setLine(k.id, { amount: e.target.value === "" ? null : Number(e.target.value) })} /></Labeled>}
+                {ln.mode !== "waived" && <div style={{ marginTop: 8 }}><Labeled label={TL("Discount %", "خصم %")}><input className="input mono" type="number" min="0" max="100" value={ln.discountPct || ""} placeholder="0" onChange={(e) => setLine(k.id, { discountPct: Number(e.target.value) || 0 })} /></Labeled></div>}
+                {ln.mode === "waived" && k.id === "annual" && <Labeled label={TL("Waive for the first … years (blank = always)", "إعفاء لأول … سنوات (فارغ = دائما)")}><input className="input mono" type="number" min="1" value={ln.waiveYears == null ? "" : ln.waiveYears} placeholder="∞" onChange={(e) => setLine(k.id, { waiveYears: e.target.value === "" ? null : Number(e.target.value) })} /></Labeled>}
+                {ln.mode !== "list" || ln.discountPct ? <div style={{ marginTop: 8 }}><Labeled label={TL("Reason (required, logged)", "السبب (إلزامي، يسجل)")}><input className="input" value={ln.reason || ""} placeholder={k.id === "annual" ? TL("e.g. Pilot partner — first-year platform fee waived", "مثال: شريك تجريبي — إعفاء رسوم السنة الأولى") : TL("e.g. Pilot partner — one-time fee waived", "مثال: شريك تجريبي — إعفاء الرسوم لمرة واحدة")} onChange={(e) => setLine(k.id, { reason: e.target.value })} /></Labeled></div> : null}
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 14 }}>
+          <Labeled label={TL("Subscription start", "بداية الاشتراك")}><input className="input mono" type="date" value={plan.startDate || ""} onChange={(e) => { setPlan((p) => ({ ...p, startDate: e.target.value })); setDirty(true); }} /></Labeled>
+          <Labeled label={TL("Notes", "ملاحظات")}><input className="input" value={plan.notes || ""} onChange={(e) => { setPlan((p) => ({ ...p, notes: e.target.value })); setDirty(true); }} placeholder={TL("Internal — not printed on invoices", "داخلي — لا يطبع على الفواتير")} /></Labeled>
+        </div>
+        {dirty && <div className="row" style={{ gap: 8, marginTop: 14 }}><button className="btn btn-primary" onClick={save}>{TL("Save plan", "حفظ الخطة")}</button><button className="btn btn-ghost" onClick={() => { setPlan(JSON.parse(JSON.stringify(D.planFor(dv)))); setDirty(false); }}>{TL("Discard", "تجاهل")}</button><span className="soft" style={{ fontSize: 11, alignSelf: "center" }}>{TL("Unpaid invoices recalculate immediately; paid ones never change.", "الفواتير غير المدفوعة تحدث فورا؛ المدفوعة لا تتغير.")}</span></div>}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 16 }}>
+        <Stat label={TL("Invoiced", "مفوتر")} value={D.fmtSAR(s.invoiced)} unit="SAR" delta={inv.filter((i) => !i.waived && i.status !== "scheduled").length + TL(" invoices", " فاتورة")} />
+        <Stat label={TL("Outstanding", "المتبقي")} value={D.fmtSAR(s.outstanding)} unit="SAR" delta={s.overdue ? D.fmtSAR(s.overdue) + TL(" overdue", " متأخرة") : TL("nothing overdue", "لا متأخرات")} />
+        <Stat label={TL("Waived so far", "المعفى حتى الآن")} value={D.fmtSAR(s.waived)} unit="SAR" delta={TL("list value incl. VAT", "بالسعر المعلن شامل الضريبة")} />
+        <Stat label={TL("Next renewal", "التجديد القادم")} value={nx ? D.fmtDate(nx.date) : "—"} unit="" delta={nx ? (nx.waived ? TL("waived", "معفى") : D.fmtSAR(nx.total) + " SAR · " + TL("band", "شريحة") + " " + nx.band.label) + " · " + projects.length + TL(" project(s)", " مشروع") : ""} />
+      </div>
+      <InvoiceTable invoices={[...inv].reverse()} onChange={refresh} />
+    </>
   );
 }
 
@@ -3902,8 +5246,12 @@ function ProjectWorkspace({ dv, projectId, onBackToDev, onBackToList }) {
     { id: "designs",   label: "Designs" },
     { id: "packages",  label: "Packages" },
     { id: "smart",     label: "Smart home" },
+    { id: "kitchens",  label: "Kitchens" },
+    { id: "cooling",   label: "Cooling / AC" },
+    { id: "flooring",  label: "Flooring" },
+    { id: "layout",    label: "Layout" },
     { id: "ops",       label: "Operations" },
-    { id: "contracts", label: "Contracts" },
+    { id: "contracts", label: "Agreement" },
   ];
 
   return (
@@ -3925,7 +5273,7 @@ function ProjectWorkspace({ dv, projectId, onBackToDev, onBackToList }) {
           </div>
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
             {Object.entries(P.project.features || {}).filter(([k, v]) => v && k !== "paymentPlans").map(([k]) => (
-              <span key={k} className="chip" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }}>{({ furnishing: ["Furnishing", "التأثيث"], smartHome: ["Smart home", "المنزل الذكي"], operations: ["Operations", "التشغيل"], fitout: ["Fit-out", "التشطيب"], paymentPlans: ["Payment plans", "خطط الدفع"] }[k] || [k, k])[window.I18N && window.I18N.isAR ? 1 : 0]}</span>
+              <span key={k} className="chip" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }}>{({ remote: ["Remote ordering", "الطلب عن بعد"], furnishing: ["Furnishing", "التأثيث"], smartHome: ["Smart home", "المنزل الذكي"], kitchens: ["Kitchens", "المطابخ"], cooling: ["Cooling / AC", "التكييف"], flooring: ["Flooring", "الأرضيات"], layout: ["Layout changes", "تعديلات المخطط"], operations: ["Operations", "التشغيل"], fitout: ["Fit-out", "التشطيب"], paymentPlans: ["Payment plans", "خطط الدفع"] }[k] || [k, k])[window.I18N && window.I18N.isAR ? 1 : 0]}</span>
             ))}
           </div>
         </div>
@@ -3943,6 +5291,10 @@ function ProjectWorkspace({ dv, projectId, onBackToDev, onBackToList }) {
       {tab === "designs"   && <WsDesigns   T={P} />}
       {tab === "packages"  && <WsPackages  T={P} />}
       {tab === "smart"     && <WsSmart     T={P} />}
+      {tab === "kitchens"  && <WsKitchens  T={P} />}
+      {tab === "cooling"   && <WsCooling   T={P} />}
+      {tab === "flooring"  && <WsFlooring  T={P} />}
+      {tab === "layout"    && <WsLayout    T={P} />}
       {tab === "ops"       && <WsOps       T={P} />}
       {tab === "contracts" && <WsContracts dv={dv} T={P} />}
     </>
@@ -4026,7 +5378,7 @@ function PwSettings({ P, onSaved }) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Labeled label="Sales commission">
               <AmountOrPct kind={salesKind} value={salesVal} onKind={(k) => { setSalesKind(k); dirty(); }} onValue={(v) => { setSalesVal(v); dirty(); }} />
-              <div className="soft" style={{ fontSize: 11, marginTop: 4 }}>{window.I18N && window.I18N.isAR ? "لكل صفقة — % من قيمة الإضافات بدون ضريبة القيمة المضافة، أو مبلغ ثابت. تُقسَّم على الفريق حسب سلّم العمولة." : "Per deal — % of the extras' ex-VAT value, or a flat amount. Split across the team by the commission ladder."}</div>
+              <div className="soft" style={{ fontSize: 11, marginTop: 4 }}>{window.I18N && window.I18N.isAR ? "لكل صفقة — % من قيمة الإضافات بدون ضريبة القيمة المضافة، أو مبلغ ثابت. تقسم على الفريق حسب سلم العمولة." : "Per deal — % of the extras' ex-VAT value, or a flat amount. Split across the team by the commission ladder."}</div>
             </Labeled>
             <Labeled label="Contract markup (developer)">
               <AmountOrPct kind={markKind} value={markVal} onKind={(k) => { setMarkKind(k); dirty(); }} onValue={(v) => { setMarkVal(v); dirty(); }} />
@@ -4040,12 +5392,17 @@ function PwSettings({ P, onSaved }) {
         </div>
         <div className="card card-pad-lg">
           <div className="eyebrow" style={{ marginBottom: 10 }}>{TT("FEATURES & SKIP RULES")}</div>
-          <p className="muted" style={{ margin: "0 0 14px", fontSize: 12.5 }}>{window.I18N && window.I18N.isAR ? "أوقف ميزة لإزالتها من رحلة المشتري بالكامل. للميزات المُفعّلة، حدّد ما إذا كان مندوب المطوّر يستطيع تخطّيها لكل عملية بيع (اختياري) أو يجب تضمينها دائماً (إلزامي)." : <>Toggle a feature off to remove it from the buyer journey entirely. For features that stay on, decide whether the developer's rep may <strong>skip</strong> it per sale (Optional) or must always include it (Mandatory).</>}</p>
+          <p className="muted" style={{ margin: "0 0 14px", fontSize: 12.5 }}>{window.I18N && window.I18N.isAR ? "أوقف ميزة لإزالتها من رحلة المشتري بالكامل. للميزات المفعلة، حدد ما إذا كان مندوب المطور يستطيع تخطيها لكل عملية بيع (اختياري) أو يجب تضمينها دائما (إلزامي)." : <>Toggle a feature off to remove it from the buyer journey entirely. For features that stay on, decide whether the developer's rep may <strong>skip</strong> it per sale (Optional) or must always include it (Mandatory).</>}</p>
           <div className="stack-sm">
             {[
               { id: "furnishing",   label: "Furnishing",    hint: "Design + package + smart steps" },
               { id: "fitout",       label: "Fit-out",       hint: "Turnkey fit-out add-on per package" },
               { id: "smartHome",    label: "Smart home",    hint: "Smart-home tier sub-step" },
+              { id: "kitchens",     label: "Kitchens",      hint: "3 designs × 3 palettes · cabinets or full kitchen" },
+              { id: "cooling",      label: "Cooling / AC",  hint: "AC by brand · priced per cooling point" },
+              { id: "flooring",     label: "Flooring",      hint: "Finishes by zone · priced per m²" },
+              { id: "layout",       label: "Layout changes", hint: "Walls & doors · pre-approved per unit type" },
+                  { id: "remote",       label: "Remote ordering", hint: "WhatsApp link · rep confirms · e-sign on the buyer's phone" },
               { id: "operations",   label: "Operations",    hint: "Ops + calculator + PM contract" },
             ].map((opt) => <FeatureRow key={opt.id} project={P.project} opt={opt} />)}
           </div>
@@ -4056,8 +5413,11 @@ function PwSettings({ P, onSaved }) {
 }
 
 // Scale in the browser (as before), then store in the public media bucket instead of the row itself.
-async function uploadScaled(file, maxW, folder) {
-  const dataUrl = await fileToScaledDataURL(file, maxW);
+// No negative prices, sizes or rates anywhere in a catalogue payload (rows store the JSON as given).
+const hasNegative = (x) => (Array.isArray(x) ? x.some(hasNegative) : (x && typeof x === "object") ? Object.values(x).some(hasNegative) : (typeof x === "number" && x < 0));
+const negMsg = () => ((window.I18N && window.I18N.isAR) ? "لا يمكن أن تكون الأسعار أو القيم سالبة." : "Prices and values can't be negative.");
+async function uploadScaled(file, maxW, folder, keepAlpha) {
+  const dataUrl = await fileToScaledDataURL(file, maxW, keepAlpha);
   const blob = await (await fetch(dataUrl)).blob();
   const ext = blob.type === "image/png" ? "png" : "jpg";
   const name = (file.name || "image").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9-_]/g, "-").slice(0, 40);
@@ -4065,7 +5425,7 @@ async function uploadScaled(file, maxW, folder) {
   return D.uploadMedia(new File([blob], name + "." + ext, { type: blob.type }), path);
 }
 const newId = (projectId, kind) => (projectId || "x") + "-" + kind + "-" + Date.now().toString(36).slice(-5);
-function fileToScaledDataURL(file, maxW) {
+function fileToScaledDataURL(file, maxW, keepAlpha) {
   maxW = maxW || 1400;
   return new Promise((res, rej) => {
     const fr = new FileReader();
@@ -4077,9 +5437,9 @@ function fileToScaledDataURL(file, maxW) {
         const c = document.createElement("canvas");
         c.width = w; c.height = h;
         const cx = c.getContext("2d");
-        cx.fillStyle = "#fff"; cx.fillRect(0, 0, w, h);
+        if (!keepAlpha) { cx.fillStyle = "#fff"; cx.fillRect(0, 0, w, h); }
         cx.drawImage(im, 0, 0, w, h);
-        res(c.toDataURL("image/jpeg", 0.85));
+        res(keepAlpha ? c.toDataURL("image/png") : c.toDataURL("image/jpeg", 0.85));
       };
       im.onerror = rej; im.src = fr.result;
     };
@@ -4128,7 +5488,7 @@ function PwUnitTypes({ P }) {
     <>
       <div className="row-between" style={{ marginBottom: 4, flexWrap: "wrap", gap: 8 }}>
         <WsCardHead eye="// UNIT TYPES" title={AR ? "أنواع الوحدات — التعريف والوسائط" : "Unit types — definition & media"}
-          sub={AR ? "عرّف كل نوع (بالعربية والإنجليزية) وارفع وسائطه مرة واحدة. يرتبط بكل وحدة من هذا النوع ويظهر في اتفاقية المشتري." : "Define each type (Arabic + English) and upload its media once. It links to every unit of that type and prints into the buyer's agreement."} />
+          sub={AR ? "عرف كل نوع (بالعربية والإنجليزية) وارفع وسائطه مرة واحدة. يرتبط بكل وحدة من هذا النوع ويظهر في اتفاقية المشتري." : "Define each type (Arabic + English) and upload its media once. It links to every unit of that type and prints into the buyer's agreement."} />
         <button className="btn btn-primary" onClick={() => setEditing({ _new: true, projectId: P.project.id, name: "", nameAr: "", bedrooms: 1, baths: 1, area: 0, basePrice: 0 })}>{AR ? "+ إضافة نوع وحدة" : "+ Add unit type"}</button>
       </div>
       <div className="stack-md">
@@ -4138,7 +5498,7 @@ function PwUnitTypes({ P }) {
               <div>
                 <strong style={{ fontSize: 15 }}>{(AR && t.nameAr) ? t.nameAr : t.name}</strong>
                 <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>
-                  {t.bedrooms} {AR ? "غرفة" : "bed"} · {t.baths} {AR ? "حمّام" : "bath"} · {t.area} m²{window.unitLevels && window.unitLevels(t) > 1 ? " · " + window.unitLevels(t) + (AR ? " طوابق" : "-storey") : ""} · {AR ? "الأساس" : "base"} {D.fmtSAR(t.basePrice)} SAR
+                  {t.bedrooms} {AR ? "غرفة" : "bed"} · {t.baths} {AR ? "حمام" : "bath"} · {t.area} m²{window.unitLevels && window.unitLevels(t) > 1 ? " · " + window.unitLevels(t) + (AR ? " طوابق" : "-storey") : ""} · {AR ? "الأساس" : "base"} {D.fmtSAR(t.basePrice)} SAR
                 </div>
               </div>
               <div className="row" style={{ gap: 8 }}>
@@ -4216,7 +5576,7 @@ function TypeEditDrawer({ type, onClose }) {
           <Labeled label={TL("Base price (SAR)", "السعر الأساسي (ريال)")}><input className="input mono" type="number" min="0" value={t.basePrice} onChange={(e) => set({ basePrice: e.target.value })} /></Labeled>
         </div>
         {!priceOk && <div className="soft" style={{ fontSize: 11, color: "var(--negative, #b91c1c)" }}>{TL("Prices can't be negative.", "لا يمكن أن تكون الأسعار سالبة.")}</div>}
-        <div className="soft" style={{ fontSize: 11.5, margin: "8px 0 18px", lineHeight: 1.5 }}>{TL("Units of this type inherit the base price; each unit can add a price adjustment. Floor plan, 3D render and masterplan are uploaded per type on the cards.", "ترث وحدات هذا النوع السعر الأساسي، ويمكن لكل وحدة إضافة تعديل سعري. تُرفع المخططات والصور لكل نوع من البطاقات.")}</div>
+        <div className="soft" style={{ fontSize: 11.5, margin: "8px 0 18px", lineHeight: 1.5 }}>{TL("Units of this type inherit the base price; each unit can add a price adjustment. Floor plan, 3D render and masterplan are uploaded per type on the cards.", "ترث وحدات هذا النوع السعر الأساسي، ويمكن لكل وحدة إضافة تعديل سعري. ترفع المخططات والصور لكل نوع من البطاقات.")}</div>
         <div className="row" style={{ gap: 8 }}>
           <button className="btn btn-primary grow" disabled={!valid} onClick={save}>{t._new ? TL("Create type", "إنشاء النوع") : TL("Save", "حفظ")}</button>
           <button className="btn btn-ghost" onClick={onClose}>{TL("Cancel", "إلغاء")}</button>
@@ -4237,10 +5597,10 @@ function PwUnits({ P }) {
 
   return (
     <>
-      <WsCardHead eye="// UNITS" title={units.length + (window.I18N && window.I18N.isAR ? " وحدة" : " units")} sub={window.I18N && window.I18N.isAR ? "أضف وعدّل وغيّر الحالة. تظهر التغييرات مباشرةً لفريق مبيعات المطوّر. الوحدات المرتبطة بصفقة حيّة مقفلة." : "Add, edit, change status. Status changes show up live for the developer's sales team. Units in a live deal are locked."}
+      <WsCardHead eye="// UNITS" title={units.length + (window.I18N && window.I18N.isAR ? " وحدة" : " units")} sub={window.I18N && window.I18N.isAR ? "أضف وعدل وغير الحالة. تظهر التغييرات مباشرة لفريق مبيعات المطور. الوحدات المرتبطة بصفقة حية مقفلة." : "Add, edit, change status. Status changes show up live for the developer's sales team. Units in a live deal are locked."}
         action={<div className="row" style={{ gap: 8 }}>
           <button className="btn btn-secondary" onClick={() => D.downloadCSV("units-" + P.project.id + ".csv", units, [{ key: "number", label: "number" }, { key: "projectId", label: "projectId" }, { key: "typeId", label: "typeId" }, { key: "tower", label: "tower" }, { key: "floor", label: "floor" }, { key: "view", label: "view" }, { key: "priceAdj", label: "priceAdj" }, { key: "priceBen", label: "priceBen" }, { key: "status", label: "status" }])}>{TT("Export CSV")}</button>
-          <label className="btn btn-secondary" style={{ cursor: "pointer" }}>{window.I18N?window.I18N.t("Bulk upload CSV"):"Bulk upload CSV"}<input type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={(e) => { const f = e.target.files && e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { const rows = D.parseCSV(r.result); let skip = 0; const list = rows.filter((row) => { const ok = row.number && !D.UNITS.some((u) => u.number === row.number); if (!ok) skip++; return ok; }).map((row) => ({ number: row.number, projectId: P.project.id, typeId: row.typeId, tower: row.tower || "", floor: Number(row.floor) || 0, view: row.view || "", priceAdj: Number(row.priceAdj) || 0, priceBen: row.priceBen !== undefined && row.priceBen !== "" ? Number(row.priceBen) : undefined })); RS.act(() => D.addUnits(list), { pending: (window.I18N && window.I18N.isAR) ? "جارٍ إضافة الوحدات…" : "Adding units…" }).then((added) => { if (!added) return; RS.toast((window.I18N && window.I18N.isAR) ? (added.length + " وحدة أُضيفت · " + skip + " تم تجاوزها") : (added.length + " units added · " + skip + " skipped (duplicate / missing number)"), "ok"); setUnits(D.UNITS.filter((u) => u.projectId === P.project.id)); }); }; r.readAsText(f); e.target.value = ""; }} /></label>
+          <label className="btn btn-secondary" style={{ cursor: "pointer" }}>{window.I18N?window.I18N.t("Bulk upload CSV"):"Bulk upload CSV"}<input type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={(e) => { const f = e.target.files && e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { const rows = D.parseCSV(r.result); let skip = 0; const list = rows.filter((row) => { const ok = row.number && !D.UNITS.some((u) => u.number === row.number); if (!ok) skip++; return ok; }).map((row) => ({ number: row.number, projectId: P.project.id, typeId: row.typeId, tower: row.tower || "", floor: Number(row.floor) || 0, view: row.view || "", priceAdj: Number(row.priceAdj) || 0, priceBen: row.priceBen !== undefined && row.priceBen !== "" ? Number(row.priceBen) : undefined })); RS.act(() => D.addUnits(list), { pending: (window.I18N && window.I18N.isAR) ? "جار إضافة الوحدات…" : "Adding units…" }).then((added) => { if (!added) return; RS.toast((window.I18N && window.I18N.isAR) ? (added.length + " وحدة أضيفت · " + skip + " تم تجاوزها") : (added.length + " units added · " + skip + " skipped (duplicate / missing number)"), "ok"); setUnits(D.UNITS.filter((u) => u.projectId === P.project.id)); }); }; r.readAsText(f); e.target.value = ""; }} /></label>
           <button className="btn btn-primary" onClick={() => setAdding(true)}>{window.I18N?window.I18N.t("+ Add unit"):"+ Add unit"}</button>
         </div>} />
       <div className="card card-flush">
@@ -4297,7 +5657,7 @@ function PwUnitEditDrawer({ unit, onClose, onSave }) {
             <Labeled label={TL("Market price (SAR)", "سعر السوق (ريال)")}><input className="input mono" type="number" value={(D.unitTypeById(u.typeId)?.basePrice || 0) + (u.priceAdj || 0)} onChange={(e) => set({ priceAdj: Number(e.target.value) - (D.unitTypeById(u.typeId)?.basePrice || 0) })} /></Labeled>
             <Labeled label={TL("Beneficiary price (SAR)", "سعر المستفيد (ريال)")}><input className="input mono" type="number" placeholder={TL("= market", "= السوق")} value={u.priceBen != null && u.priceBen !== "" ? u.priceBen : ""} onChange={(e) => set({ priceBen: e.target.value === "" ? undefined : Number(e.target.value) })} /></Labeled>
           </div>
-          <div className="soft" style={{ fontSize: 11, marginTop: -6 }}>{TL("Non-beneficiary buyers pay the market price; beneficiaries (Sakani / housing support) pay the beneficiary price. Both feed the return study.", "غير المستفيد يدفع سعر السوق، والمستفيد (سكني / الدعم) يدفع سعر المستفيد. كلاهما يُستخدم في دراسة العائد.")}</div>
+          <div className="soft" style={{ fontSize: 11, marginTop: -6 }}>{TL("Non-beneficiary buyers pay the market price; beneficiaries (Sakani / housing support) pay the beneficiary price. Both feed the return study.", "غير المستفيد يدفع سعر السوق، والمستفيد (سكني / الدعم) يدفع سعر المستفيد. كلاهما يستخدم في دراسة العائد.")}</div>
           <Labeled label="Status">
             <select className="select" value={u.status} onChange={(e) => set({ status: e.target.value })}>
               <option value="available">Available</option><option value="reserved">Reserved</option><option value="sold">Sold</option>
@@ -4343,7 +5703,7 @@ function PwUnitAddDrawer({ project, types, onClose, onAdd }) {
             <Labeled label={TL("Market price (SAR)", "سعر السوق (ريال)")}><input className="input mono" type="number" value={(D.unitTypeById(u.typeId)?.basePrice || 0) + (u.priceAdj || 0)} onChange={(e) => set({ priceAdj: Number(e.target.value) - (D.unitTypeById(u.typeId)?.basePrice || 0) })} /></Labeled>
             <Labeled label={TL("Beneficiary price (SAR)", "سعر المستفيد (ريال)")}><input className="input mono" type="number" placeholder={TL("= market", "= السوق")} value={u.priceBen != null && u.priceBen !== "" ? u.priceBen : ""} onChange={(e) => set({ priceBen: e.target.value === "" ? undefined : Number(e.target.value) })} /></Labeled>
           </div>
-          <div className="soft" style={{ fontSize: 11, marginTop: -6 }}>{TL("Non-beneficiary buyers pay the market price; beneficiaries (Sakani / housing support) pay the beneficiary price. Both feed the return study.", "غير المستفيد يدفع سعر السوق، والمستفيد (سكني / الدعم) يدفع سعر المستفيد. كلاهما يُستخدم في دراسة العائد.")}</div>
+          <div className="soft" style={{ fontSize: 11, marginTop: -6 }}>{TL("Non-beneficiary buyers pay the market price; beneficiaries (Sakani / housing support) pay the beneficiary price. Both feed the return study.", "غير المستفيد يدفع سعر السوق، والمستفيد (سكني / الدعم) يدفع سعر المستفيد. كلاهما يستخدم في دراسة العائد.")}</div>
           <Labeled label="Status">
             <select className="select" value={u.status} onChange={(e) => set({ status: e.target.value })}>
               <option value="available">Available</option><option value="reserved">Reserved</option><option value="sold">Sold</option>

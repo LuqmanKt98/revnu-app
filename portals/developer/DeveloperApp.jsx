@@ -5,6 +5,8 @@
 import React, { useState, useMemo } from "react";
 import D from "@/lib/data/store";
 import { useStoreVersion } from "@/lib/data/useStore";
+import R from "@/lib/data/remote";
+import { SigningCard, SignatoryCard } from "@/portals/shared/mobile-wizard";
 
 const ICONS = {
   dash:    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7.5" height="9" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="5" rx="1.5"/><rect x="13.5" y="11" width="7.5" height="10" rx="1.5"/><rect x="3" y="14" width="7.5" height="7" rx="1.5"/></svg>,
@@ -26,6 +28,8 @@ const NAV = [
   { id: "team",      label: "Sales team",         icon: ICONS.perf },
   { id: "users",     label: "Users & roles",      icon: ICONS.team || ICONS.perf },
   { id: "money",     label: "Financials",         icon: ICONS.money },
+  { id: "plan",      label: "Revnu plan",         icon: ICONS.money },
+  { id: "signatory", label: "Signatory & stamp",  icon: ICONS.perf },
 ];
 
 const REP_NAV = [
@@ -36,7 +40,7 @@ const REP_NAV = [
 
 // ---- bootstrap: identity comes from the server-verified session (never from browser storage) ----
 let params, devId, developer, session, asRole, forcedUser, me;
-const PERM_FOR_PAGE = { dash: null, projects: "projects", orders: "orders", milestones: "financials", units: "inventory", team: "team", users: "team", money: "financials" };
+const PERM_FOR_PAGE = { dash: null, projects: "projects", orders: "orders", milestones: "financials", units: "inventory", team: "team", users: "team", money: "financials", plan: "financials", signatory: "contracts" };
 const canSee = (pageId) => !PERM_FOR_PAGE[pageId] || D.devHasPerm(me, PERM_FOR_PAGE[pageId]);
 function boot(p) {
   params = new URLSearchParams(p || {});
@@ -72,13 +76,13 @@ function boot(p) {
 // ============================================================
 const STATUS_ORDER = ["active", "issued", "signed", "paid"];
 const STATUS_INFO = {
-  draft:     { label: "Submitted", labelAr: "مُقدَّمة", when: "Deal submitted — contract not issued yet", whenAr: "صفقة مُقدَّمة — لم يصدر العقد بعد", next: "issued", nextLabel: "Issue contract" },
-  review:    { label: "Submitted", labelAr: "مُقدَّمة", when: "Deal submitted — contract not issued yet", whenAr: "صفقة مُقدَّمة — لم يصدر العقد بعد", next: "issued", nextLabel: "Issue contract" },
-  active:    { label: "Submitted", labelAr: "مُقدَّمة", when: "Deal submitted — contract not issued yet", whenAr: "صفقة مُقدَّمة — لم يصدر العقد بعد", next: "issued", nextLabel: "Issue contract" },
-  issued:    { label: "Contract issued", labelAr: "صدر العقد", when: "Sent to the customer for signature", whenAr: "أُرسل للعميل للتوقيع", next: "signed", nextLabel: "Mark signed" },
-  signed:    { label: "Signed", labelAr: "موقّع", when: "Signed contract uploaded — awaiting first payment", whenAr: "رُفع العقد الموقّع — بانتظار الدفعة الأولى", next: "paid", nextLabel: "Mark customer paid" },
-  paid:      { label: "Customer paid", labelAr: "دفع العميل", when: "First payment in — Revnu invoices the developer, commission earned", whenAr: "وصلت الدفعة الأولى — تُفوتر Revnu المطوّر وتُستحق العمولة", next: null, nextLabel: null },
-  cancelled: { label: "Cancelled", labelAr: "مُلغى", when: "Cancelled — units released, excluded from all figures", whenAr: "مُلغى — تحرّرت الوحدات واستُثني من كل الأرقام", next: null, nextLabel: null },
+  draft:     { label: "Submitted", labelAr: "مقدمة", when: "Deal submitted — contract not issued yet", whenAr: "صفقة مقدمة — لم يصدر العقد بعد", next: "issued", nextLabel: "Issue contract" },
+  review:    { label: "Submitted", labelAr: "مقدمة", when: "Deal submitted — contract not issued yet", whenAr: "صفقة مقدمة — لم يصدر العقد بعد", next: "issued", nextLabel: "Issue contract" },
+  active:    { label: "Submitted", labelAr: "مقدمة", when: "Deal submitted — contract not issued yet", whenAr: "صفقة مقدمة — لم يصدر العقد بعد", next: "issued", nextLabel: "Issue contract" },
+  issued:    { label: "Contract issued", labelAr: "صدر العقد", when: "Sent to the customer for signature", whenAr: "أرسل للعميل للتوقيع", next: "signed", nextLabel: "Mark signed" },
+  signed:    { label: "Signed", labelAr: "موقع", when: "Signed contract uploaded — awaiting first payment", whenAr: "رفع العقد الموقع — بانتظار الدفعة الأولى", next: "paid", nextLabel: "Mark customer paid" },
+  paid:      { label: "Customer paid", labelAr: "دفع العميل", when: "First payment in — Revnu invoices the developer, commission earned", whenAr: "وصلت الدفعة الأولى — تفوتر Revnu المطور وتستحق العمولة", next: null, nextLabel: null },
+  cancelled: { label: "Cancelled", labelAr: "ملغى", when: "Cancelled — units released, excluded from all figures", whenAr: "ملغى — تحررت الوحدات واستثني من كل الأرقام", next: null, nextLabel: null },
   completed: { label: "Customer paid", labelAr: "دفع العميل", when: "First payment in", whenAr: "وصلت الدفعة الأولى", next: null, nextLabel: null },
 };
 const STATUS_FLOW = ["active", "issued", "signed", "paid"];
@@ -181,7 +185,9 @@ function App() {
   const canSell = me && D.devHasPerm(me, "orders");
   const isAdminish = me && (D.devHasPerm(me, "team") || D.devHasPerm(me, "projects"));
   const isRep = canSell && !isAdminish;
-  const [salesView, setSalesView] = useState(asRole === "rep" && canSell);
+  // Reps have their own portal (sales.html). The developer portal never shows the rep board any more.
+  if ((asRole === "rep" || isRep) && canSell && !isAdminish) { location.replace("/sales?dev=" + developer.id + (me ? "&u=" + me.id : "")); }
+  const [salesView, setSalesView] = useState(false);
   const inRep = isRep || salesView;
   const [page, setPage] = useState((isRep || (asRole === "rep" && canSell)) ? "mine" : "dash");
   const [selectedProject, setSelectedProject] = useState(null);
@@ -227,7 +233,7 @@ function App() {
   const signOut = () => { D.signOut().finally(() => { location.href = "/login"; }); };
 
   const nav = inRep ? REP_NAV : NAV.filter((n) => canSee(n.id));
-  const enterSales = () => { setSalesView(true); setPage("mine"); setSelectedProject(null); };
+  const enterSales = () => { location.href = "/sales?dev=" + developer.id + (me ? "&u=" + me.id : ""); };
   const enterAdmin = () => { setSalesView(false); setPage("dash"); setSelectedProject(null); };
 
   return (
@@ -272,6 +278,7 @@ function App() {
 
         <main>
           <div className="page-body">
+            {!inRep && <PlatformNotice onOpen={() => setPage("plan")} canSee={canSee("plan")} />}
             {page === "dash"      && <Dashboard orders={orders} onOpenProject={(id) => { setSelectedProject(id); setPage("projects"); }} />}
             {page === "projects"  && canSee("projects") && <Projects orders={orders} selectedId={selectedProject} setSelectedId={setSelectedProject} />}
             {page === "orders"    && canSee("orders") && <Orders orders={orders} />}
@@ -280,6 +287,8 @@ function App() {
             {page === "team"      && canSee("team") && <Team orders={orders} />}
             {page === "users"     && canSee("users") && <DevUsers />}
             {page === "money"     && canSee("money") && <Money orders={orders} />}
+            {page === "plan"      && canSee("plan") && <DevPlan />}
+            {page === "signatory" && canSee("signatory") && <SignatoryCard developer={developer} me={me} />}
             {!inRep && page !== "dash" && page !== "units" && !canSee(page) && <div className="card card-pad muted" style={{ textAlign: "center" }}>{window.I18N && window.I18N.isAR ? "ليس لديك صلاحية لهذه الصفحة." : "You don't have access to this page."}</div>}
             {page === "mine"      && <RepDeals orders={myOrders} />}
             {page === "earnings"  && <RepEarnings orders={myOrders} />}
@@ -335,10 +344,10 @@ function Dashboard({ orders, onOpenProject }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
-        <Stat label={AR ? "عقود قيد التوقيع" : "Contracts out"} value={issued + submitted} delta={AR ? `${submitted} مُقدَّمة · ${issued} صدر عقدها` : `${submitted} submitted · ${issued} issued`} />
-        <Stat label={AR ? "موقّعة · بانتظار الدفع" : "Signed · awaiting payment"} value={signedOnly} delta={AR ? `${units.length} وحدة في المخزون` : `${units.length} units in inventory`} />
-        <Stat label={AR ? "عملاء دفعوا" : "Customer paid"} value={paidN} delta={AR ? "استُحقّت العمولة وفوترة Revnu" : "commission earned · Revnu invoiced"} />
-        <Stat label={AR ? "إضافات مباعة" : "Extras sold"} value={D.fmtSAR(addOnsTotal)} unit="SAR" delta={AR ? `موقّعة أو مدفوعة · ${D.fmtSAR(addOnsPipe)} قيد التوقيع` : `signed or paid · ${D.fmtSAR(addOnsPipe)} awaiting signature`} />
+        <Stat label={AR ? "عقود قيد التوقيع" : "Contracts out"} value={issued + submitted} delta={AR ? `${submitted} مقدمة · ${issued} صدر عقدها` : `${submitted} submitted · ${issued} issued`} />
+        <Stat label={AR ? "موقعة · بانتظار الدفع" : "Signed · awaiting payment"} value={signedOnly} delta={AR ? `${units.length} وحدة في المخزون` : `${units.length} units in inventory`} />
+        <Stat label={AR ? "عملاء دفعوا" : "Customer paid"} value={paidN} delta={AR ? "استحقت العمولة وفوترة Revnu" : "commission earned · Revnu invoiced"} />
+        <Stat label={AR ? "إضافات مباعة" : "Extras sold"} value={D.fmtSAR(addOnsTotal)} unit="SAR" delta={AR ? `موقعة أو مدفوعة · ${D.fmtSAR(addOnsPipe)} قيد التوقيع` : `signed or paid · ${D.fmtSAR(addOnsPipe)} awaiting signature`} />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 18 }}>
@@ -479,7 +488,7 @@ function Projects({ orders, selectedId, setSelectedId }) {
                 <div>
                   <div className="eyebrow" style={{ fontSize: 10 }}>{TT("// EXTRAS SOLD")}</div>
                   <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 500, marginTop: 2 }}>{D.fmtSAR(addOns)}</div>
-                  <div className="soft" style={{ fontSize: 10 }}>SAR · {window.I18N && window.I18N.isAR ? "موقّعة" : "signed"}</div>
+                  <div className="soft" style={{ fontSize: 10 }}>SAR · {window.I18N && window.I18N.isAR ? "موقعة" : "signed"}</div>
                 </div>
                 <div>
                   <div className="eyebrow" style={{ fontSize: 10 }}>{window.I18N && window.I18N.isAR ? "// الإضافات" : "// EXTRAS"}</div>
@@ -560,12 +569,16 @@ function ProjectDetail({ project, onBack }) {
           <div>
             <div className="eyebrow">{TT("// PROJECT WORKSPACE")}</div>
             <h1 style={{ fontFamily: "var(--font-display)", fontSize: 32, fontWeight: 500, letterSpacing: "-0.012em", margin: "6px 0 4px" }}>{AR && project.nameAr ? project.nameAr : project.name}</h1>
-            <div className="muted" style={{ fontSize: 13.5 }}>{project.city} · {window.I18N && window.I18N.isAR ? "التسليم" : "delivery"} {project.delivery} · {projUnits.length} {window.I18N && window.I18N.isAR ? "وحدة إجمالاً" : "units total"}</div>
+            <div className="muted" style={{ fontSize: 13.5 }}>{project.city} · {window.I18N && window.I18N.isAR ? "التسليم" : "delivery"} {project.delivery} · {projUnits.length} {window.I18N && window.I18N.isAR ? "وحدة إجمالا" : "units total"}</div>
           </div>
           <div className="row" style={{ gap: 6, alignItems: "center" }}>
             <span className="chip">{project.features?.furnishing ? "Furnishing ✓" : "No furnishing"}</span>
             <span className="chip">{project.features?.fitout ? "Fit-out ✓" : "No fit-out"}</span>
             <span className="chip">{project.features?.smartHome ? "Smart home ✓" : "No smart home"}</span>
+            {project.features?.kitchens ? <span className="chip">Kitchens ✓</span> : null}
+            {project.features?.cooling ? <span className="chip">Cooling / AC ✓</span> : null}
+            {project.features?.flooring ? <span className="chip">Flooring ✓</span> : null}
+            {project.features?.layout ? <span className="chip">Layout changes ✓</span> : null}
             <span className="chip">{project.features?.operations ? "Operations ✓" : "No operations"}</span>
           </div>
         </div>
@@ -589,7 +602,7 @@ function ProjectDetail({ project, onBack }) {
         <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 14 }}>
           <div className="card card-pad-lg">
             <div className="eyebrow">{TT("// PACKAGE MIX · CLOSED DEALS")}</div>
-            <div className="display-sm" style={{ marginTop: 2 }}>{AR ? "الباقات الأكثر مبيعاً" : "Which furnishing packages are selling"}</div>
+            <div className="display-sm" style={{ marginTop: 2 }}>{AR ? "الباقات الأكثر مبيعا" : "Which furnishing packages are selling"}</div>
             <div className="stack-md" style={{ marginTop: 16 }}>
               {pkgMix.length === 0 || totalPkgs === 0 ? (
                 <div className="muted" style={{ fontSize: 13 }}>No closed deals yet for this project.</div>
@@ -648,10 +661,10 @@ function ProjectDetail({ project, onBack }) {
 
           <div className="card card-pad-lg">
             <div className="eyebrow">{TT("// COMMERCIALS")}</div>
-            <div className="display-sm" style={{ marginTop: 2 }}>{AR ? "كيف يُربح هذا المشروع" : "How this project pays"}</div>
+            <div className="display-sm" style={{ marginTop: 2 }}>{AR ? "كيف يربح هذا المشروع" : "How this project pays"}</div>
             <div className="stack-md" style={{ marginTop: 14 }}>
               <Row k={AR ? "رسوم تشغيل العميل" : "Customer op. fee"}      v={(project.commercials?.customerOpsFeePct ?? 0) + "%"} />
-              <Row k={AR ? "حصة المطوّر من التشغيل" : "Developer ops share"}   v={(project.commercials?.developerOpsSharePct ?? 0) + (AR ? "% من رسوم التشغيل" : "% of op. fee")} />
+              <Row k={AR ? "حصة المطور من التشغيل" : "Developer ops share"}   v={(project.commercials?.developerOpsSharePct ?? 0) + (AR ? "% من رسوم التشغيل" : "% of op. fee")} />
               <Row k={AR ? "عمولة المبيعات" : "Sales commission"}      v={c.kind === "pct" ? c.value + (AR ? "% من الإضافات" : "% of extras") : "SAR " + D.fmtSAR(c.value) + (AR ? " ثابت" : " flat")} />
               <Row k={AR ? "هامش العقد" : "Contract markup"}       v={project.commercials?.contractMarkup?.kind === "pct" ? project.commercials.contractMarkup.value + "%" : "SAR " + D.fmtSAR(project.commercials?.contractMarkup?.value)} />
               <Row k={AR ? "الإضافات المباعة" : "Extras sold"}           v={D.fmtSAR(addOns) + " SAR"} mono />
@@ -835,7 +848,7 @@ function Orders({ orders }) {
                       <span className={STATUS_CHIP[o.status]}>{statusLabel(o.status)}</span>
                       {canAdvance(window.__revnu_isAdminish, o.status) && (
                         <button className="btn btn-sm btn-ghost" onClick={(e) => { e.stopPropagation(); if (o.status === "issued" && !o.signedContractUrl) setOpen(o); else window.__revnu_advanceStatus(o.id); }} title={STATUS_INFO[o.status]?.nextLabel} style={{ padding: "0 8px", height: 24, fontSize: 11 }}>
-                          {o.status === "issued" && !o.signedContractUrl ? (window.I18N && window.I18N.isAR ? "⬆ رفع العقد الموقّع" : "⬆ Upload signed") : (window.I18N ? window.I18N.t(STATUS_INFO[o.status]?.nextLabel) : STATUS_INFO[o.status]?.nextLabel)} {window.I18N && window.I18N.isAR ? "←" : "→"}
+                          {o.status === "issued" && !o.signedContractUrl ? (window.I18N && window.I18N.isAR ? "⬆ رفع العقد الموقع" : "⬆ Upload signed") : (window.I18N ? window.I18N.t(STATUS_INFO[o.status]?.nextLabel) : STATUS_INFO[o.status]?.nextLabel)} {window.I18N && window.I18N.isAR ? "←" : "→"}
                         </button>
                       )}
                     </div>
@@ -843,7 +856,7 @@ function Orders({ orders }) {
                 </tr>
               );
             })}
-            {filtered.length === 0 && <tr><td colSpan={9} style={{ textAlign: "center", padding: 36, color: "var(--text-soft)" }}>{orders.length === 0 ? (window.I18N && window.I18N.isAR ? "لا توجد طلبات بعد — تبدأ الطلبات من بوابة المبيعات." : "No orders yet — orders start in the sales portal.") : (window.I18N && window.I18N.isAR ? "لا توجد طلبات مطابقة. وسّع الفلاتر." : "No orders match. Widen the filters.")}</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={9} style={{ textAlign: "center", padding: 36, color: "var(--text-soft)" }}>{orders.length === 0 ? (window.I18N && window.I18N.isAR ? "لا توجد طلبات بعد — تبدأ الطلبات من بوابة المبيعات." : "No orders yet — orders start in the sales portal.") : (window.I18N && window.I18N.isAR ? "لا توجد طلبات مطابقة. وسع الفلاتر." : "No orders match. Widen the filters.")}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -853,8 +866,30 @@ function Orders({ orders }) {
   );
 }
 
+function BuyerEditor({ order, onDone, onCancel }) {
+  const AR = window.I18N && window.I18N.isAR; const L = (en, ar) => AR ? ar : en;
+  const c = order.customer || {}; const [f, setF] = useState({ fullName: c.fullName || order.customerName || "", fullNameAr: c.fullNameAr || "", mobileCode: c.mobileCode || "+966", mobile: c.mobile || "", nationalId: c.nationalId || order.customerId || "", email: c.email || order.customerEmail || "", city: c.city || "", beneficiary: !!c.beneficiary });
+  const [err, setErr] = useState(null); const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
+  const save = () => { setErr(null); if (!f.fullName.trim()) return setErr(L("Full name is required.", "الاسم الكامل مطلوب.")); if (!/^\d{9,10}$/.test(f.mobile.replace(/\D/g, ""))) return setErr(L("Enter a valid mobile number.", "أدخل رقم جوال صحيح.")); if (f.nationalId && !/^\d{10}$/.test(f.nationalId)) return setErr(L("ID / Iqama must be 10 digits.", "رقم الهوية / الإقامة 10 أرقام."));
+    D.updateOrderCustomer(order.id, { ...f, mobile: f.mobile.replace(/\D/g, "").replace(/^0/, "") }).then(() => onDone(), (e) => setErr(e && e.friendly ? e.friendly(AR) : String((e && e.message) || e))); };
+  const F = ({ k, label, dir, type }) => <label style={{ display: "grid", gap: 4, fontSize: 12 }}><span className="muted">{label}</span><input className="input" type={type || "text"} dir={dir} value={f[k]} onChange={set(k)} style={{ minHeight: 38 }} /></label>;
+  return <div className="card card-pad" style={{ display: "grid", gap: 10, marginBottom: 14, border: "1px solid var(--brand)" }}>
+    <b style={{ fontSize: 13 }}>{L("Edit buyer details", "تعديل بيانات المشتري")}</b>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <F k="fullName" label={L("Full name (as on ID)", "الاسم الكامل (كما في الهوية)")} /><F k="fullNameAr" label={L("Name in Arabic", "الاسم بالعربية")} dir="rtl" />
+      <label style={{ display: "grid", gap: 4, fontSize: 12 }}><span className="muted">{L("Mobile", "الجوال")}</span><div style={{ display: "flex", gap: 6 }}><input className="input" value={f.mobileCode} onChange={set("mobileCode")} style={{ width: 72, minHeight: 38 }} /><input className="input" value={f.mobile} onChange={set("mobile")} inputMode="numeric" style={{ flex: 1, minHeight: 38 }} /></div></label>
+      <F k="nationalId" label={L("National ID / Iqama", "رقم الهوية / الإقامة")} /><F k="email" label={L("Email", "البريد الإلكتروني")} type="email" /><F k="city" label={L("City", "المدينة")} />
+    </div>
+    <label className="row" style={{ gap: 8, fontSize: 12.5 }}><input type="checkbox" checked={f.beneficiary} onChange={set("beneficiary")} />{L("Housing-subsidy beneficiary (beneficiary price)", "مستفيد من الدعم السكني (سعر المستفيدين)")}</label>
+    {err && <div style={{ color: "var(--alert)", fontSize: 12.5 }}>{err}</div>}
+    <div className="muted" style={{ fontSize: 11.5 }}>{order.status === "issued" ? L("The agreement is re-issued with the corrected details; any open signing link shows the new version.", "يعاد إصدار العقد بالبيانات المصححة، ويظهر لرابط التوقيع المفتوح بالنسخة الجديدة.") : L("Changes are logged on the order.", "تسجل التعديلات في سجل الطلب.")}</div>
+    <div className="row" style={{ gap: 8 }}><button className="btn btn-sm btn-primary" onClick={save}>{L("Save", "حفظ")}</button><button className="btn btn-sm btn-ghost" onClick={onCancel}>{L("Cancel", "إلغاء")}</button></div>
+  </div>;
+}
 function OrderDrawer({ order: orderProp, onClose }) {
+  const [editBuyer, setEditBuyer] = useState(false);
   const [, tick] = useState(0);
+  const [signLink, setSignLink] = useState(null);   // signing link + QR card (the buyer signs on their own phone)
   const order = D.ORDERS.find((x) => x.id === orderProp.id) || orderProp;   // always the LIVE record, never a stale prop
   const u = D.unitByNumber(order.unitNumber);
   const pkg = D.pkgById(order.packageId);
@@ -913,23 +948,26 @@ function OrderDrawer({ order: orderProp, onClose }) {
                 {/* Contract issue / signed upload */}
                 <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: order.status === "paid" || D.firstPaymentReceived(order) ? 10 : 0 }}>
                   <button className="btn btn-sm btn-secondary" onClick={() => location.href = "/sales?dev=" + order.developerId + "&order=" + order.id}>{AR ? "تنزيل العقد" : "Download contract"}</button>
+                  {order.status === "issued" && <button className="btn btn-sm btn-primary" onClick={() => { const live = R.liveSigningLink(order.id); if (live) { setSignLink(live); return; } RS.act(() => R.createSigningLink(order.id, "qr", me), { pending: AR ? "جار إنشاء رابط التوقيع…" : "Creating the signing link…" }).then((g) => { if (g && g.code) setSignLink(g); }); }}>{AR ? "رابط التوقيع للعميل" : "Signing link for the buyer"}</button>}
+                  {order.status === "signed" && order.signature && <span className="chip chip-positive">{AR ? "✓ وقعت على جوال المشتري" : "✓ Signed on the buyer's phone"} · {String(order.signature.documentHash || "").slice(0, 10)}…</span>}
                   {order.signedContractUrl
-                    ? <React.Fragment><span className="chip chip-positive">{AR ? "✓ العقد الموقّع: " : "✓ Signed: "}{order.signedContractUrl}</span>{signedDoc ? <button className="btn btn-sm btn-ghost" onClick={() => RS.openDocument(signedDoc)}>{AR ? "فتح الموقّع" : "Open signed"}</button> : null}</React.Fragment>
-                    : <button className="btn btn-sm btn-ghost" onClick={uploadSigned}>{AR ? "رفع العقد الموقّع" : "Upload signed contract"}</button>}
+                    ? <React.Fragment><span className="chip chip-positive">{AR ? "✓ العقد الموقع: " : "✓ Signed: "}{order.signedContractUrl}</span>{signedDoc ? <button className="btn btn-sm btn-ghost" onClick={() => RS.openDocument(signedDoc)}>{AR ? "فتح الموقع" : "Open signed"}</button> : null}</React.Fragment>
+                    : (order.status === "issued" ? <button className="btn btn-sm btn-ghost" onClick={uploadSigned}>{AR ? "أو ارفع نسخة موقعة ورقيا" : "or upload a paper-signed copy"}</button> : null)}
                   {order.paymentProofUrl ? <span className="chip chip-positive">{AR ? "✓ إثبات الدفع: " : "✓ Proof of payment: "}{proofDoc ? <a href="#" onClick={(e) => { e.preventDefault(); RS.openDocument(proofDoc); }} style={{ color: "inherit", textDecoration: "underline" }}>{order.paymentProofUrl}</a> : order.paymentProofUrl}</span> : null}
                   {canAdvance(window.__revnu_isAdminish, order.status) && (
                     <button className="btn btn-sm btn-primary" style={{ marginInlineStart: "auto" }}
                       disabled={needsUpload}
-                      title={needsUpload ? (AR ? "ارفع العقد الموقّع أولاً" : "Upload the signed contract first") : ""}
+                      title={needsUpload ? (AR ? "ارفع العقد الموقع أولا" : "Upload the signed contract first") : ""}
                       onClick={async () => { const r = await window.__revnu_advanceStatus(order.id); if (r && onClose) onClose(); }}>
                       {order.status === "signed" ? (AR ? "⬆ إثبات الدفع · تأكيد دفع العميل" : "⬆ Proof of payment · customer paid") : (AR ? (meta.nextAr || M[STATUS_INFO[order.status]?.next]?.ar) : (meta.nextEn || STATUS_INFO[order.status]?.nextLabel))} {AR ? "←" : "→"}
                     </button>
                   )}
                 </div>
+                {signLink && <div style={{ marginBottom: 12 }}><SigningCard order={order} link={signLink} developer={developer} project={D.projById(order.projectId)} rep={D.userById(order.repId) || me} onRegenerate={() => RS.act(() => R.createSigningLink(order.id, "qr", me)).then((g) => { if (g && g.code) setSignLink(g); })} /></div>}
                 {order.status === "paid" && (
                   <div className="row" style={{ gap: 8, alignItems: "center", padding: "8px 10px", background: "var(--positive-soft, rgba(31,138,91,0.1))", borderRadius: "var(--r-sm)" }}>
                     <span style={{ fontSize: 13 }}>💰</span>
-                    <span style={{ fontSize: 12, color: "var(--positive, #1f8a5b)", fontWeight: 600 }}>{AR ? "تم استلام الدفعة الأولى — يمكن لـ Revnu فوترة المطوّر لتحصيل الدفعة الأولى." : "First payment received — Revnu can now invoice the developer for the first instalment."}</span>
+                    <span style={{ fontSize: 12, color: "var(--positive, #1f8a5b)", fontWeight: 600 }}>{AR ? "تم استلام الدفعة الأولى — يمكن ل Revnu فوترة المطور لتحصيل الدفعة الأولى." : "First payment received — Revnu can now invoice the developer for the first instalment."}</span>
                   </div>
                 )}
               </div>
@@ -937,10 +975,11 @@ function OrderDrawer({ order: orderProp, onClose }) {
           })()}
 
           {(() => { const AR = window.I18N && window.I18N.isAR; const L = (en, ar) => AR ? ar : en; const TX = (o, k) => window.I18N ? window.I18N.tx(o, k) : (o && o[k]); const unitsList = order.unitNumbers && order.unitNumbers.length ? order.unitNumbers : [order.unitNumber]; const per = order.perUnit || {}; const act = D.activityFor(order.id); return (<>
-          <h3 style={{ fontSize: 13, fontWeight: 700, margin: "0 0 8px" }}>{L("Buyer", "المشتري")}</h3>
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "center", margin: "0 0 8px" }}><h3 style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>{L("Buyer", "المشتري")}</h3>{!editBuyer && !order.signature && !["signed", "paid", "operating", "completed"].includes(order.status) && <button className="btn btn-sm btn-ghost" onClick={() => setEditBuyer(true)}>{L("Edit", "تعديل")}</button>}{(order.signature || ["signed", "paid", "operating", "completed"].includes(order.status)) && <span className="soft" style={{ fontSize: 11.5 }}>{L("Locked after signing", "مقفل بعد التوقيع")}</span>}</div>
+          {editBuyer && <BuyerEditor order={order} onDone={() => { setEditBuyer(false); tick((t) => t + 1); }} onCancel={() => setEditBuyer(false)} />}
           <Row k={L("Name", "الاسم")} v={AR && order.customer && order.customer.fullNameAr ? order.customer.fullNameAr : order.customerName} />
           <Row k={L("National ID", "رقم الهوية")} v={order.customerId} mono />
-          <Row k={L("Mobile", "الجوال")} v={order.customer && order.customer.mobile} mono />
+          <Row k={L("Mobile", "الجوال")} v={D.fmtMobile(order.customer)} mono />
           <Row k={L("Buyer category", "فئة المشتري")} v={order.customer && order.customer.beneficiary ? L("Beneficiary · subsidised price", "مستفيد · سعر المستفيد") : L("Non-beneficiary · market price", "غير مستفيد · سعر السوق")} />
           <Row k={L("Email", "البريد")} v={order.customerEmail} />
 
@@ -956,7 +995,11 @@ function OrderDrawer({ order: orderProp, onClose }) {
           {pkg && <Row k={L("Tier", "الفئة")} v={pkg.tier} />}
           <Row k={L("Design", "التصميم")} v={D.designById(order.designId) ? TX(D.designById(order.designId), "name") : "—"} />
           <Row k={L("Smart home", "المنزل الذكي")} v={D.smartById(order.smartId) ? TX(D.smartById(order.smartId), "name") : L("None", "بدون")} />
-          <Row k={L("Fit-out", "التشطيب")} v={order.fitout ? (pkg?.fitout?.name || L("Fit-out", "تشطيب")) + L(" · included", " · مُضمَّن") : L("Not included", "غير مُضمَّن")} />
+          {order.acId && D.acById(order.acId) ? <Row k={L("Cooling", "التكييف")} v={(AR ? (D.acById(order.acId).brandAr || D.acById(order.acId).brand) : D.acById(order.acId).brand) + " " + TX(D.acById(order.acId), "name") + (order.acCost ? " · " + D.fmtSAR(order.acCost) + " SAR" : "")} /> : null}
+          {(() => { if (!order.layoutIds || !order.layoutIds.length) return null; const u0 = D.unitByNumber(order.unitNumber || (order.unitNumbers || [])[0]); const txt = u0 ? D.layoutSummary(order.projectId, u0.typeId, order.layoutIds, AR) : ""; return txt ? <Row k={L("Layout changes", "تعديلات المخطط")} v={txt + (order.layoutCost ? " · " + D.fmtSAR(order.layoutCost) + " SAR" : L(" · no charge", " · بدون تكلفة"))} /> : null; })()}
+          {(() => { if (!order.flooring || !Object.keys(order.flooring).length) return null; const u0 = D.unitByNumber(order.unitNumber || (order.unitNumbers || [])[0]); const txt = u0 ? D.flooringSummary(order.projectId, u0.typeId, order.flooring, AR) : ""; return txt ? <Row k={L("Flooring", "الأرضيات")} v={txt + (order.flooringCost ? " · " + D.fmtSAR(order.flooringCost) + " SAR" : "")} /> : null; })()}
+          {order.kitchenId && D.kitchenById(order.kitchenId) ? <Row k={L("Kitchen", "المطبخ")} v={TX(D.kitchenById(order.kitchenId), "name") + " · " + (AR ? (D.kitchenPaletteById(D.kitchenById(order.kitchenId), order.kitchenPaletteId)?.nameAr || "") : (D.kitchenPaletteById(D.kitchenById(order.kitchenId), order.kitchenPaletteId)?.name || "")) + " · " + TX(D.kitchenScopeById(order.kitchenScope), "name") + (D.kitchenAddonsChosen(D.kitchenById(order.kitchenId), order.kitchenScope, order.kitchenAddons).length ? " · " + D.kitchenAddonsChosen(D.kitchenById(order.kitchenId), order.kitchenScope, order.kitchenAddons).map((a) => TX(a, "name")).join(AR ? "، " : ", ") : "") + (order.kitchenCost ? " · " + D.fmtSAR(order.kitchenCost) + " SAR" : "")} /> : null}
+          <Row k={L("Fit-out", "التشطيب")} v={order.fitout ? (pkg?.fitout?.name || L("Fit-out", "تشطيب")) + L(" · included", " · مضمن") : L("Not included", "غير مضمن")} />
           {order.fitout && order.fitoutCost ? <Row k={L("Fit-out cost", "تكلفة التشطيب")} v={D.fmtSAR(order.fitoutCost) + " SAR"} mono /> : null}
 
           <h3 style={{ fontSize: 13, fontWeight: 700, margin: "20px 0 8px" }}>{L("Operating", "التشغيل")}</h3>
@@ -969,7 +1012,7 @@ function OrderDrawer({ order: orderProp, onClose }) {
             <strong className="mono">{D.fmtSAR(order.furnishCost)} SAR</strong>
           </div>
           <div className="row-between" style={{ fontSize: 12, color: "var(--text-soft)", marginTop: 4 }}>
-            <span>{L("Unit price (settled under the purchase agreement)", "سعر الوحدة (يُسوَّى بموجب عقد الشراء)")}</span>
+            <span>{L("Unit price (settled under the purchase agreement)", "سعر الوحدة (يسوى بموجب عقد الشراء)")}</span>
             <span className="mono">{D.fmtSAR(order.unitPrice)} SAR</span>
           </div>
           {(() => {
@@ -983,24 +1026,24 @@ function OrderDrawer({ order: orderProp, onClose }) {
                 <div className="row-between"><span>{L("Extras incl. VAT", "الإضافات شاملة الضريبة")}</span><span className="mono">{D.fmtSAR(gross)}</span></div>
                 <div className="row-between"><span>{L("÷ 1.15 → ex-VAT base", "÷ 1.15 ← الأساس بدون الضريبة")}</span><span className="mono">{D.fmtSAR(net)}</span></div>
                 <div className="row-between" style={{ fontWeight: 600 }}><span>{sc.kind === "pct" ? ("× " + sc.value + "% = " + L("commission pool", "إجمالي العمولة")) : L("Flat commission", "عمولة ثابتة")}</span><span className="mono">{D.fmtSAR(pool)} SAR</span></div>
-                {split.map((sp, i) => <div key={i} className="row-between soft" style={{ fontSize: 11.5, paddingInlineStart: 10 }}><span>{sp.pct}% · {(AR && sp.levelNameAr) || sp.levelName} · {sp.userId ? ((AR && sp.userNameAr) || sp.userName) : L("unassigned", "غير مُسنَد")}</span><span className="mono">{D.fmtSAR(sp.amount)}</span></div>)}
+                {split.map((sp, i) => <div key={i} className="row-between soft" style={{ fontSize: 11.5, paddingInlineStart: 10 }}><span>{sp.pct}% · {(AR && sp.levelNameAr) || sp.levelName} · {sp.userId ? ((AR && sp.userNameAr) || sp.userName) : L("unassigned", "غير مسند")}</span><span className="mono">{D.fmtSAR(sp.amount)}</span></div>)}
               </div>
             );
           })()}
 
           <h3 style={{ fontSize: 13, fontWeight: 700, margin: "20px 0 8px" }}>{L("Activity", "السجل")}</h3>
-          {act.length === 0 && <div className="soft" style={{ fontSize: 12 }}>{L("No activity recorded yet.", "لا يوجد نشاط مسجّل بعد.")}</div>}
+          {act.length === 0 && <div className="soft" style={{ fontSize: 12 }}>{L("No activity recorded yet.", "لا يوجد نشاط مسجل بعد.")}</div>}
           {act.slice().reverse().map((a, i) => (
             <div key={i} style={{ display: "grid", gridTemplateColumns: "118px 1fr", gap: 10, padding: "5px 0", borderBottom: "1px dotted var(--line)", fontSize: 12 }}>
               <span className="mono soft" style={{ fontSize: 10.5 }}>{new Date(a.at).toLocaleString(AR ? "ar-SA" : "en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
-              <span>{a.event === "created" ? L("Order created", "أُنشئ الطلب") : a.event === "status" ? L("Status", "الحالة") + ": " + statusLabel(a.from) + " → " + statusLabel(a.to) : a.event === "upload" ? L("Signed contract uploaded", "رُفع العقد الموقّع") + " · " + a.file : a.event === "notification" ? "✉ " + L("Email queued", "بريد مُجدوَل") + ": " + (AR ? a.subjectAr : a.subject) + " → " + a.to : a.event === "invoice" ? L("Invoice created", "أُنشئت الفاتورة") + " " + a.invoice : a.event === "cancelled" ? L("Order cancelled", "أُلغي الطلب") + (a.reason ? " · " + a.reason : "") : a.event === "reinstated" ? L("Order reinstated", "استُعيد الطلب") + " → " + statusLabel(a.to) : a.event}<span className="soft"> · {a.by}</span></span>
+              <span>{a.event === "created" ? L("Order created", "أنشئ الطلب") : a.event === "status" ? L("Status", "الحالة") + ": " + statusLabel(a.from) + " → " + statusLabel(a.to) : a.event === "upload" ? L("Signed contract uploaded", "رفع العقد الموقع") + " · " + a.file : a.event === "notification" ? "✉ " + L("Email queued", "بريد مجدول") + ": " + (AR ? a.subjectAr : a.subject) + " → " + a.to : a.event === "invoice" ? L("Invoice created", "أنشئت الفاتورة") + " " + a.invoice : a.event === "cancelled" ? L("Order cancelled", "ألغي الطلب") + (a.reason ? " · " + a.reason : "") : a.event === "customer_edit" ? L("Buyer details edited", "تم تعديل بيانات المشتري") + (a.fields ? " · " + a.fields.join(", ") : "") : a.event === "reinstated" ? L("Order reinstated", "استعيد الطلب") + " → " + statusLabel(a.to) : a.event}<span className="soft"> · {a.by}</span></span>
             </div>
           ))}
 
           {order.status === "cancelled" && (
             <div className="card card-pad" style={{ marginTop: 18, background: "rgba(192,73,47,0.07)", border: "1px solid rgba(192,73,47,0.3)" }}>
-              <div style={{ fontWeight: 600, fontSize: 13, color: "#c0492f" }}>{L("Cancelled", "طلب مُلغى")} · <span className="mono soft" style={{ fontWeight: 400, fontSize: 11 }}>{order.cancelledAt ? new Date(order.cancelledAt).toLocaleDateString(AR ? "ar-SA" : "en-GB") : ""}</span></div>
-              <div style={{ fontSize: 12.5, marginTop: 4 }}>{order.cancelReason || L("No reason recorded.", "لم يُسجَّل سبب.")}</div>
+              <div style={{ fontWeight: 600, fontSize: 13, color: "#c0492f" }}>{L("Cancelled", "طلب ملغى")} · <span className="mono soft" style={{ fontWeight: 400, fontSize: 11 }}>{order.cancelledAt ? new Date(order.cancelledAt).toLocaleDateString(AR ? "ar-SA" : "en-GB") : ""}</span></div>
+              <div style={{ fontSize: 12.5, marginTop: 4 }}>{order.cancelReason || L("No reason recorded.", "لم يسجل سبب.")}</div>
               {order.cancelledBy && <div className="soft" style={{ fontSize: 11, marginTop: 4 }}>{L("By", "بواسطة")} {order.cancelledBy}</div>}
             </div>
           )}
@@ -1011,8 +1054,8 @@ function OrderDrawer({ order: orderProp, onClose }) {
                 const why = prompt(L("Reason for cancelling " + order.id + " (required):", "سبب إلغاء الطلب " + order.id + " (إلزامي):"));
                 if (why == null) return;
                 if (!why.trim()) { alert(L("A reason is required.", "السبب إلزامي.")); return; }
-                if (D.isCustomerPaid(order) && !confirm(L("The customer has already paid on this order. Cancelling will remove it from Revnu invoices and commissions. Continue?", "العميل دفع على هذا الطلب. الإلغاء سيُخرجه من فواتير Revnu والعمولات. هل تريد المتابعة؟"))) return;
-                window.RevnuSupport.act(() => D.cancelOrder(order.id, why.trim()), { pending: L("Cancelling…", "جارٍ الإلغاء…"), done: L("Order cancelled — its units are available again.", "أُلغي الطلب — أصبحت وحداته متاحة مجددًا.") }).then(() => { window.__revnu_bump && window.__revnu_bump(); onClose(); });
+                if (D.isCustomerPaid(order) && !confirm(L("The customer has already paid on this order. Cancelling will remove it from Revnu invoices and commissions. Continue?", "العميل دفع على هذا الطلب. الإلغاء سيخرجه من فواتير Revnu والعمولات. هل تريد المتابعة؟"))) return;
+                window.RevnuSupport.act(() => D.cancelOrder(order.id, why.trim()), { pending: L("Cancelling…", "جار الإلغاء…"), done: L("Order cancelled — its units are available again.", "ألغي الطلب — أصبحت وحداته متاحة مجددا.") }).then(() => { window.__revnu_bump && window.__revnu_bump(); onClose(); });
               }}>{L("Cancel order", "إلغاء الطلب")}</button>
             )}
             {CAN_CANCEL_FN() && order.status === "cancelled" && (
@@ -1076,10 +1119,10 @@ function Inventory() {
       const rows = D.parseCSV(reader.result); let skipped = 0;
       const list = rows.filter((r) => { const ok = r.number && projects.some((p) => p.id === r.projectId) && !units.some((u) => u.number === r.number); if (!ok) skipped++; return ok; })
         .map((r) => ({ number: r.number, projectId: r.projectId, typeId: r.typeId, tower: r.tower || "", floor: Number(r.floor) || 0, view: r.view || "", priceAdj: Number(r.priceAdj) || 0 }));
-      RS.act(() => D.addUnits(list), { pending: (window.I18N && window.I18N.isAR) ? "جارٍ إضافة الوحدات…" : "Adding units…" }).then((added) => {
+      RS.act(() => D.addUnits(list), { pending: (window.I18N && window.I18N.isAR) ? "جار إضافة الوحدات…" : "Adding units…" }).then((added) => {
         if (!added) return;
         setUnits((all) => [...added, ...all]);
-        RS.toast((window.I18N && window.I18N.isAR) ? (added.length + " وحدة أُضيفت · " + skipped + " تم تجاوزها (مكرّرة أو مشروع غير معروف)") : (added.length + " units added · " + skipped + " skipped (duplicate or unknown project)"), "ok");
+        RS.toast((window.I18N && window.I18N.isAR) ? (added.length + " وحدة أضيفت · " + skipped + " تم تجاوزها (مكررة أو مشروع غير معروف)") : (added.length + " units added · " + skipped + " skipped (duplicate or unknown project)"), "ok");
       });
     };
     reader.readAsText(f); e.target.value = "";
@@ -1091,8 +1134,8 @@ function Inventory() {
         <div>
           <h1 className="page-title">{window.I18N ? window.I18N.t("Inventory") : "Inventory"}</h1>
           <p className="page-sub">{isRep
-            ? (window.I18N && window.I18N.isAR ? "التوفّر المباشر عبر مشاريعك. تُدار الحالة من مدير المطوّر — هذا العرض للقراءة فقط." : "Live availability across your projects. Status is managed by your developer admin — this view is read-only.")
-            : (window.I18N && window.I18N.isAR ? "أضف وحدات جديدة، وحدّد حالتها متاحة / محجوزة / مباعة. تظهر التغييرات مباشرةً لفريق مبيعاتك." : "Upload new units, mark them available / reserved / sold. Status changes show up live for your sales team.")}</p>
+            ? (window.I18N && window.I18N.isAR ? "التوفر المباشر عبر مشاريعك. تدار الحالة من مدير المطور — هذا العرض للقراءة فقط." : "Live availability across your projects. Status is managed by your developer admin — this view is read-only.")
+            : (window.I18N && window.I18N.isAR ? "أضف وحدات جديدة، وحدد حالتها متاحة / محجوزة / مباعة. تظهر التغييرات مباشرة لفريق مبيعاتك." : "Upload new units, mark them available / reserved / sold. Status changes show up live for your sales team.")}</p>
         </div>
         {!isRep && (
           <div className="row" style={{ gap: 8 }}>
@@ -1141,7 +1184,7 @@ function Inventory() {
                     {isRep
                       ? <span className={"chip " + (u.status === "available" ? "chip-positive" : u.status === "reserved" ? "chip-warning" : "chip")} style={{ textTransform: "capitalize" }}>{window.I18N ? window.I18N.t(u.status) : u.status}</span>
                       : D.isUnitTaken(u.number)
-                        ? <span className="chip" title={window.I18N && window.I18N.isAR ? "مرتبطة بصفقة حيّة — تتحرّر عند حذف الطلب" : "Locked by a live deal — released if the order is deleted"}>🔒 {window.I18N && window.I18N.isAR ? "مباعة · صفقة حيّة" : "Sold · live deal"}</span>
+                        ? <span className="chip" title={window.I18N && window.I18N.isAR ? "مرتبطة بصفقة حية — تتحرر عند حذف الطلب" : "Locked by a live deal — released if the order is deleted"}>🔒 {window.I18N && window.I18N.isAR ? "مباعة · صفقة حية" : "Sold · live deal"}</span>
                         : <select className="select" style={{ width: 120, height: 28, fontSize: 12 }} value={u.status} onChange={(e) => setStatus(u.number, e.target.value)}>
                           <option value="available">{window.I18N && window.I18N.isAR ? "متاحة" : "Available"}</option>
                           <option value="reserved">{window.I18N && window.I18N.isAR ? "محجوزة" : "Reserved"}</option>
@@ -1301,13 +1344,13 @@ function DevUsers() {
       <div className="page-head">
         <div>
           <h1 className="page-title">{AR ? "المستخدمون والصلاحيات" : "Users & roles"}</h1>
-          <p className="page-sub">{AR ? "ادعُ أعضاء الفريق وتحكّم في أدوارهم وصلاحياتهم وصلاحية وصولهم للمشاريع." : "Invite team members and control their roles, permissions and project access."}</p>
+          <p className="page-sub">{AR ? "ادع أعضاء الفريق وتحكم في أدوارهم وصلاحياتهم وصلاحية وصولهم للمشاريع." : "Invite team members and control their roles, permissions and project access."}</p>
         </div>
         {isAdmin && <button className="btn btn-primary" onClick={() => setEditing({ _new: true, developerId: developer.id, name: "", nameAr: "", email: "", role: "", roleAr: "", perms: ["orders"], assignedProjectIds: [] })}>{AR ? "+ دعوة مستخدم" : "+ Invite user"}</button>}
       </div>
       <div className="card card-flush">
         <table className="tbl">
-          <thead><tr><th>{TT("Name")}</th><th>{TT("Email")}</th><th>{TT("Role")}</th><th>{AR ? "المشاريع المعيّنة" : "Assigned projects"}</th>{isAdmin && <th className="right">{TT("Actions")}</th>}</tr></thead>
+          <thead><tr><th>{TT("Name")}</th><th>{TT("Email")}</th><th>{TT("Role")}</th><th>{AR ? "المشاريع المعينة" : "Assigned projects"}</th>{isAdmin && <th className="right">{TT("Actions")}</th>}</tr></thead>
           <tbody>
             {users.map((u) => (
               <tr key={u.id}>
@@ -1320,7 +1363,7 @@ function DevUsers() {
                 <td className="muted" style={{ fontSize: 12 }}>{u.email}</td>
                 <td><span className="chip chip-brand">{roleDisplay(u)}</span></td>
                 <td className="soft" style={{ fontSize: 12 }}>{!D.devHasPerm(u, "orders") ? "—" : (!u.assignedProjectIds || u.assignedProjectIds.length === 0 ? (AR ? "كل المشاريع" : "All projects") : u.assignedProjectIds.map((id) => { const p = D.projById(id); return (AR && p?.nameAr) ? p.nameAr : p?.name; }).join(window.I18N && window.I18N.isAR ? "، " : ", "))}</td>
-                {isAdmin && <td className="right"><div className="row" style={{ gap: 6, justifyContent: "flex-end" }}><button className="btn btn-sm btn-ghost" onClick={() => setEditing({ ...u })}>{AR ? "إدارة" : "Manage"}</button>{u.id !== (me && me.id) && <button className="btn btn-sm btn-ghost" style={{ color: "var(--negative, #c0492f)" }} onClick={() => { if (confirm(AR ? ("إزالة " + (u.nameAr || u.name) + " من الفريق؟ سيفقد الوصول فورًا.") : ("Remove " + u.name + " from the team? They will lose access immediately."))) { window.RevnuSupport.act(() => D.removeDevUser(u.id), { pending: AR ? "جارٍ الإزالة…" : "Removing…", done: AR ? "تمت الإزالة." : "Removed." }).then(() => bump((x) => x + 1)); } }}>{AR ? "إزالة" : "Remove"}</button>}</div></td>}
+                {isAdmin && <td className="right"><div className="row" style={{ gap: 6, justifyContent: "flex-end" }}><button className="btn btn-sm btn-ghost" onClick={() => setEditing({ ...u })}>{AR ? "إدارة" : "Manage"}</button>{u.id !== (me && me.id) && <button className="btn btn-sm btn-ghost" style={{ color: "var(--negative, #c0492f)" }} onClick={() => { if (confirm(AR ? ("إزالة " + (u.nameAr || u.name) + " من الفريق؟ سيفقد الوصول فورا.") : ("Remove " + u.name + " from the team? They will lose access immediately."))) { window.RevnuSupport.act(() => D.removeDevUser(u.id), { pending: AR ? "جار الإزالة…" : "Removing…", done: AR ? "تمت الإزالة." : "Removed." }).then(() => bump((x) => x + 1)); } }}>{AR ? "إزالة" : "Remove"}</button>}</div></td>}
               </tr>
             ))}
             {users.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", padding: 28, color: "var(--text-soft)" }}>{AR ? "لا يوجد مستخدمون بعد." : "No users yet."}</td></tr>}
@@ -1386,14 +1429,14 @@ function Team({ orders }) {
       <div className="page-head">
         <div>
           <h1 className="page-title">{window.I18N ? window.I18N.t("Sales team") : "Sales team"}</h1>
-          <p className="page-sub">{window.I18N && window.I18N.isAR ? "الأداء على الإضافات — التأثيث والمنزل الذكي. العمولة تُدفع على الإضافات فقط وتتوزّع على المندوب ومديره والإدارة حسب سلّم العمولة." : <>Performance on the <strong>extras</strong> — furnishing &amp; smart home. <strong>Commission is paid on extras only</strong> and splits across the rep, their manager and leadership per the commission ladder.</>}</p>
+          <p className="page-sub">{window.I18N && window.I18N.isAR ? "الأداء على الإضافات — التأثيث والمنزل الذكي. العمولة تدفع على الإضافات فقط وتتوزع على المندوب ومديره والإدارة حسب سلم العمولة." : <>Performance on the <strong>extras</strong> — furnishing &amp; smart home. <strong>Commission is paid on extras only</strong> and splits across the rep, their manager and leadership per the commission ladder.</>}</p>
         </div>
       </div>
 
       {/* Team-wide rollups */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 18 }}>
-        <Stat label="Extras sold"       value={D.fmtSAR(teamAddons)} unit="SAR" delta={window.I18N && window.I18N.isAR ? `${teamDeals} صفقة موقّعة` : `${teamDeals} signed deal${teamDeals === 1 ? "" : "s"}`} />
-        <Stat label="Commission earned"  value={D.fmtSAR(teamCommission)} unit="SAR" delta={window.I18N && window.I18N.isAR ? `بعد دفع العميل · ${D.fmtSAR(teamPending)} معلّقة` : `after customer payment · ${D.fmtSAR(teamPending)} pending`} />
+        <Stat label="Extras sold"       value={D.fmtSAR(teamAddons)} unit="SAR" delta={window.I18N && window.I18N.isAR ? `${teamDeals} صفقة موقعة` : `${teamDeals} signed deal${teamDeals === 1 ? "" : "s"}`} />
+        <Stat label="Commission earned"  value={D.fmtSAR(teamCommission)} unit="SAR" delta={window.I18N && window.I18N.isAR ? `بعد دفع العميل · ${D.fmtSAR(teamPending)} معلقة` : `after customer payment · ${D.fmtSAR(teamPending)} pending`} />
         <Stat label="Smart-home attach"  value={teamAttach + "%"} delta={window.I18N && window.I18N.isAR ? `${teamSmart} من ${teamDeals} صفقة` : `${teamSmart} of ${teamDeals} deals`} />
         <Stat label="Avg extras / deal"  value={D.fmtSAR(teamDeals ? teamAddons / teamDeals : 0)} unit="SAR" />
       </div>
@@ -1560,15 +1603,15 @@ function DevTeamDrawer({ member, projects, onClose }) {
         <label className="field-label">{TL("Email", "البريد الإلكتروني")}</label>
         <input className="input" type="email" value={m.email || ""} onChange={(e) => set({ email: e.target.value })} placeholder="name@developer.sa" style={{ marginBottom: 16, direction: "ltr", textAlign: AR ? "right" : "left" }} />
 
-        <label className="field-label">{TL("Role / title", "الدور / المسمّى")}</label>
-        <div className="soft" style={{ fontSize: 11, margin: "2px 0 8px" }}>{TL("Free text — a label only. What this person can actually access is set by the permissions below.", "نص حرّ — مجرد مسمّى. ما يستطيع هذا الشخص الوصول إليه تحدّده الصلاحيات أدناه.")}</div>
+        <label className="field-label">{TL("Role / title", "الدور / المسمى")}</label>
+        <div className="soft" style={{ fontSize: 11, margin: "2px 0 8px" }}>{TL("Free text — a label only. What this person can actually access is set by the permissions below.", "نص حر — مجرد مسمى. ما يستطيع هذا الشخص الوصول إليه تحدده الصلاحيات أدناه.")}</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
           <input className="input" value={m.role || ""} onChange={(e) => set({ role: e.target.value })} placeholder={TL("e.g. Sales Manager", "بالإنجليزية")} />
           <input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={m.roleAr || ""} onChange={(e) => set({ roleAr: e.target.value })} placeholder="مثال: مدير المبيعات" />
         </div>
 
         <label className="field-label">{TL("Permissions", "الصلاحيات")}</label>
-        <div className="soft" style={{ fontSize: 11, margin: "2px 0 8px" }}>{TL("Tick exactly what this person can access — independent of their title.", "حدّد بالضبط ما يمكن لهذا الشخص الوصول إليه — بصرف النظر عن مسمّاه.")}</div>
+        <div className="soft" style={{ fontSize: 11, margin: "2px 0 8px" }}>{TL("Tick exactly what this person can access — independent of their title.", "حدد بالضبط ما يمكن لهذا الشخص الوصول إليه — بصرف النظر عن مسماه.")}</div>
         <div className="stack-sm" style={{ marginBottom: 18 }}>
           {D.DEV_PERMS.map((p) => {
             const on = perms.includes(p.id);
@@ -1603,13 +1646,13 @@ function DevTeamDrawer({ member, projects, onClose }) {
         <div style={{ marginBottom: 18, padding: 14, border: "1px solid var(--line)", borderRadius: "var(--r-sm)", background: "var(--bg-sunken)" }}>
           <div className="eyebrow" style={{ marginBottom: 10 }}>{TL("// COMMISSION & PAYOUT", "// العمولة والتحويل")}</div>
           <label className="field-label">{TL("Commission level", "مستوى العمولة")}</label>
-          <div className="soft" style={{ fontSize: 11, margin: "2px 0 6px" }}>{TL("Which rung of the ladder this person sits on.", "أي درجة في سلّم العمولة يشغلها هذا الشخص.")}</div>
+          <div className="soft" style={{ fontSize: 11, margin: "2px 0 6px" }}>{TL("Which rung of the ladder this person sits on.", "أي درجة في سلم العمولة يشغلها هذا الشخص.")}</div>
           <select className="select" style={{ marginBottom: 12 }} value={m.commissionLevelId || ""} onChange={(e) => set({ commissionLevelId: e.target.value || null })}>
             <option value="">{TL("— none —", "— لا شيء —")}</option>
             {ladder.map((l) => <option key={l.id} value={l.id}>{(AR ? (l.nameAr || l.name) : l.name) + " · " + l.pct + "%"}</option>)}
           </select>
-          <label className="field-label">{TL("Reports to", "يتبع إدارياً")}</label>
-          <div className="soft" style={{ fontSize: 11, margin: "2px 0 6px" }}>{TL("Their manager — used to route the team override up the chain.", "مديره — يُستخدم لتوجيه حصة الفريق للأعلى.")}</div>
+          <label className="field-label">{TL("Reports to", "يتبع إداريا")}</label>
+          <div className="soft" style={{ fontSize: 11, margin: "2px 0 6px" }}>{TL("Their manager — used to route the team override up the chain.", "مديره — يستخدم لتوجيه حصة الفريق للأعلى.")}</div>
           <select className="select" style={{ marginBottom: 12 }} value={m.reportsTo || ""} onChange={(e) => set({ reportsTo: e.target.value || null })}>
             <option value="">{TL("— nobody (top of chain) —", "— لا أحد (قمة الهرم) —")}</option>
             {managers.map((u) => <option key={u.id} value={u.id}>{((AR && u.nameAr) ? u.nameAr : u.name) + " · " + roleDisplay(u)}</option>)}
@@ -1628,12 +1671,78 @@ function DevTeamDrawer({ member, projects, onClose }) {
         <div className="row" style={{ gap: 8 }}>
           <button className="btn btn-primary grow" disabled={!valid} onClick={save}>{m._new ? TL("Create account", "إنشاء الحساب") : TL("Save", "حفظ")}</button>
           {!m._new && <button className="btn btn-ghost" title={TL("Issue a temporary password for this person", "إصدار كلمة مرور مؤقتة لهذا الشخص")} onClick={resetPw}>{TL("Reset password", "إعادة تعيين كلمة المرور")}</button>}
-          {!m._new && m.id !== (me && me.id) && <button className="btn btn-ghost" onClick={() => { if (confirm(TL("Remove " + m.name + " from the team? They will lose access immediately.", "إزالة " + (m.nameAr || m.name) + " من الفريق؟ سيفقد الوصول فورًا.")) ) del(); }} style={{ color: "var(--negative, #c0492f)" }}>{TL("Remove", "إزالة")}</button>}
+          {!m._new && m.id !== (me && me.id) && <button className="btn btn-ghost" onClick={() => { if (confirm(TL("Remove " + m.name + " from the team? They will lose access immediately.", "إزالة " + (m.nameAr || m.name) + " من الفريق؟ سيفقد الوصول فورا.")) ) del(); }} style={{ color: "var(--negative, #c0492f)" }}>{TL("Remove", "إزالة")}</button>}
           <button className="btn btn-ghost" onClick={onClose}>{TL("Cancel", "إلغاء")}</button>
         </div>
         {m._new && <div className="soft" style={{ fontSize: 11, marginTop: 12, lineHeight: 1.5 }}>{TL("A temporary password is shown once after you create the account — share it with them privately. They choose their own password at first sign-in.", "تظهر كلمة مرور مؤقتة مرة واحدة بعد إنشاء الحساب — شاركها معه بشكل خاص. يختار كلمة مروره الخاصة عند أول تسجيل دخول.")}</div>}
       </div>
     </div>
+  );
+}
+
+/* ============================================================
+   Revnu plan — read-only view of the platform subscription & invoices
+============================================================ */
+function PlatformNotice({ onOpen, canSee }) {
+  const AR = window.I18N && window.I18N.isAR;
+  const s = D.billingSummary(developer.id);
+  if (developer.suspended) return (
+    <div style={{ marginBottom: 16, padding: "14px 18px", borderRadius: "var(--r-md)", background: "rgba(232,84,84,0.10)", border: "1px solid rgba(232,84,84,0.3)", color: "#c0492f", fontSize: 13.5 }}>
+      <strong>{AR ? "الوصول إلى المنصة معلق." : "Platform access is suspended."}</strong> {developer.suspendedReason} — {AR ? "تواصل مع Revnu لاستعادة الخدمة." : "Contact Revnu to restore service."}
+    </div>);
+  if (!s.hasOverdue || !canSee) return null;
+  return (
+    <div className="row-between" style={{ marginBottom: 16, padding: "12px 18px", borderRadius: "var(--r-md)", background: "var(--warning-soft, rgba(184,134,11,0.14))", border: "1px solid rgba(184,134,11,0.3)", fontSize: 13 }}>
+      <span><strong>{AR ? "فاتورة منصة متأخرة" : "A platform invoice is overdue"}</strong> · {D.fmtSAR(s.overdue)} SAR {AR ? "شامل الضريبة" : "incl. VAT"}</span>
+      <button className="btn btn-sm btn-secondary" onClick={onOpen}>{AR ? "عرض الفواتير" : "View invoices"}</button>
+    </div>);
+}
+function DevPlan() {
+  const AR = window.I18N && window.I18N.isAR; const TL = (en, ar) => (AR ? ar : en);
+  const pb = D.billingPriceBook(); const units = D.billingUnitsFor(developer.id); const band = D.billingBandFor(units);
+  const inv = D.billingInvoicesFor(developer.id).slice().reverse(); const s = D.billingSummary(developer.id); const nx = D.billingNextRenewal(developer.id);
+  const listOf = { onboarding: pb.onboardingFee, projectSetup: pb.projectSetupFee, annual: band.fee };
+  const STATUS = { paid: [TL("Paid", "مدفوعة"), "var(--positive, #1f8a5b)"], issued: [TL("Due", "مستحقة"), "var(--brand-deep, var(--brand))"], overdue: [TL("Overdue", "متأخرة"), "#c0492f"], scheduled: [TL("Scheduled", "مجدولة"), "var(--text-soft)"], waived: [TL("Waived", "معفاة"), "var(--text-muted)"] };
+  const print = (i) => { const w = window.open("", "_blank"); if (!w) return; w.document.write(D.billingInvoiceHTML(i, AR)); w.document.close(); setTimeout(() => w.print(), 300); };
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">{TL("Revnu plan", "خطة Revnu")}</h1>
+          <p className="page-sub">{TL("Your platform subscription with Revnu — separate from order settlements. Fees are set in your partner agreement; contact Revnu for changes.", "اشتراككم في منصة Revnu — منفصل عن تسويات الطلبات. الرسوم محددة في اتفاقية الشراكة؛ تواصلوا مع Revnu لأي تغيير.")}</p>
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginBottom: 18 }}>
+        {D.BILLING_KINDS.map((k) => { const pv = D.billingLineAmount(developer, k.id, listOf[k.id], 0); return (
+          <div key={k.id} className="card card-pad">
+            <div className="eyebrow">{AR ? k.ar : k.en}</div>
+            <div className="mono" style={{ fontSize: 22, fontWeight: 700, marginTop: 6, textDecoration: pv.waived ? "line-through" : "none", color: pv.waived ? "var(--text-soft)" : "var(--text)" }}>{D.fmtSAR(pv.waived ? pv.list : pv.amount)} <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text-soft)" }}>SAR</span></div>
+            <div className="soft" style={{ fontSize: 11.5, marginTop: 4 }}>{pv.waived ? TL("Waived", "معفى") + (pv.reason ? " · " + pv.reason : "") : (AR ? k.cadenceAr : k.cadenceEn)}{k.id === "annual" ? " · " + D.fmtSAR(units) + TL(" units · band ", " وحدة · شريحة ") + band.label : ""}</div>
+          </div>); })}
+        <div className="card card-pad">
+          <div className="eyebrow">{TL("Next renewal", "التجديد القادم")}</div>
+          <div className="mono" style={{ fontSize: 22, fontWeight: 700, marginTop: 6 }}>{nx ? D.fmtDate(nx.date) : "—"}</div>
+          <div className="soft" style={{ fontSize: 11.5, marginTop: 4 }}>{nx ? (nx.waived ? TL("Waived", "معفى") : D.fmtSAR(nx.total) + " SAR " + TL("incl. VAT", "شامل الضريبة")) + " · " + nx.daysAway + TL(" days", " يوم") : ""}</div>
+        </div>
+      </div>
+      <div className="card card-flush">
+        <div className="row-between" style={{ padding: "12px 16px" }}><strong style={{ fontSize: 13 }}>{TL("Invoices", "الفواتير")}</strong><span className="soft" style={{ fontSize: 11 }}>{TL("Outstanding", "المتبقي")}: <span className="mono" style={{ fontWeight: 700, color: s.overdue ? "#c0492f" : "var(--text)" }}>{D.fmtSAR(s.outstanding)} SAR</span></span></div>
+        <table className="tbl">
+          <thead><tr><th>{TL("Invoice", "الفاتورة")}</th><th>{TL("Fee", "الرسوم")}</th><th>{TL("Issued", "الإصدار")}</th><th>{TL("Due", "الاستحقاق")}</th><th className="right">{TL("Total incl. VAT", "الإجمالي شامل الضريبة")}</th><th>{TL("Status", "الحالة")}</th><th></th></tr></thead>
+          <tbody>
+            {inv.map((i) => <tr key={i.id} style={{ opacity: i.status === "scheduled" ? 0.6 : 1 }}>
+              <td className="mono" style={{ fontSize: 12, fontWeight: 600 }}>{i.id}</td>
+              <td><div style={{ fontWeight: 500 }}>{AR ? i.titleAr : i.title}</div>{i.reason ? <div className="soft" style={{ fontSize: 11 }}>{i.reason}</div> : null}</td>
+              <td className="mono" style={{ fontSize: 12 }}>{D.fmtDate(i.date)}</td><td className="mono" style={{ fontSize: 12 }}>{D.fmtDate(i.due)}</td>
+              <td className="right mono" style={{ fontWeight: 600 }}>{i.waived ? "0" : D.fmtSAR(i.total)}</td>
+              <td><span className="chip" style={{ color: STATUS[i.status][1] }}>{STATUS[i.status][0]}</span></td>
+              <td className="right">{!i.waived && <button className="btn btn-sm btn-ghost" onClick={() => print(i)}>PDF</button>}</td>
+            </tr>)}
+            {inv.length === 0 && <tr><td colSpan={7} style={{ textAlign: "center", padding: 26, color: "var(--text-soft)" }}>{TL("No invoices yet.", "لا توجد فواتير بعد.")}</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
@@ -1651,14 +1760,14 @@ function Money({ orders }) {
       <div className="page-head">
         <div>
           <h1 className="page-title">{window.I18N ? window.I18N.t("Financials") : "Financials"}</h1>
-          <p className="page-sub">{window.I18N && window.I18N.isAR ? "الوحدات المرتبطة بالتشغيل وإجمالي الإضافات المباعة عبر مشاريعك. دخل التشغيل يُدار خارج المنصة." : "Units locked into operations and total extras sold across your projects. Operating income is handled off-platform."}</p>
+          <p className="page-sub">{window.I18N && window.I18N.isAR ? "الوحدات المرتبطة بالتشغيل وإجمالي الإضافات المباعة عبر مشاريعك. دخل التشغيل يدار خارج المنصة." : "Units locked into operations and total extras sold across your projects. Operating income is handled off-platform."}</p>
         </div>
         <button className="btn btn-secondary" onClick={downloadPL}>{window.I18N && window.I18N.isAR ? "تنزيل CSV" : "Download CSV"}</button>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
-        <Stat label={AR ? "وحدات في التشغيل" : "Units in operations"} value={active.length} delta={AR ? "الدخل يُدار خارج المنصة" : "income handled off-platform"} />
-        <Stat label={AR ? "الإضافات المباعة (كل الأوقات)" : "Extras sold (all time)"} value={D.fmtSAR(extrasSold)} unit="SAR" delta={AR ? "تأثيث + ذكي، الصفقات الموقّعة" : "furnishing + smart, signed deals"} />
+        <Stat label={AR ? "وحدات في التشغيل" : "Units in operations"} value={active.length} delta={AR ? "الدخل يدار خارج المنصة" : "income handled off-platform"} />
+        <Stat label={AR ? "الإضافات المباعة (كل الأوقات)" : "Extras sold (all time)"} value={D.fmtSAR(extrasSold)} unit="SAR" delta={AR ? "تأثيث + ذكي، الصفقات الموقعة" : "furnishing + smart, signed deals"} />
       </div>
 
       <div className="card">
@@ -1682,7 +1791,7 @@ function Money({ orders }) {
                 </tr>
               );
             })}
-            {active.length === 0 && <tr><td colSpan={6} style={{ textAlign: "center", padding: 24, color: "var(--text-soft)" }}>{AR ? "لا توجد وحدات في التشغيل بعد — تُضاف عند دفع العميل لصفقة تتضمّن التشغيل." : "No units in operations yet — a unit is added when its customer pays on a deal that includes operations."}</td></tr>}
+            {active.length === 0 && <tr><td colSpan={6} style={{ textAlign: "center", padding: 24, color: "var(--text-soft)" }}>{AR ? "لا توجد وحدات في التشغيل بعد — تضاف عند دفع العميل لصفقة تتضمن التشغيل." : "No units in operations yet — a unit is added when its customer pays on a deal that includes operations."}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -1715,8 +1824,8 @@ function OrderRevnuCard({ o }) {
             <span className="chip chip-soft">{proj?.name}</span>
           </div>
           <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>
-            {window.I18N && window.I18N.isAR ? "مستحق لـ Revnu عن التأثيث والمنزل الذكي" : "Owed to Revnu on furnishing & smart home"}
-            <span className="soft" style={{ marginInlineStart: 8, fontSize: 11.5 }}>{window.I18N && window.I18N.isAR ? `(سعر الوحدة ${D.fmtSAR(o.unitPrice)} ريال — يُسوَّى مع المشتري، ليس جزءاً من هذا)` : `(unit price ${D.fmtSAR(o.unitPrice)} SAR — settled with the buyer, not part of this)`}</span>
+            {window.I18N && window.I18N.isAR ? "مستحق ل Revnu عن التأثيث والمنزل الذكي" : "Owed to Revnu on furnishing & smart home"}
+            <span className="soft" style={{ marginInlineStart: 8, fontSize: 11.5 }}>{window.I18N && window.I18N.isAR ? `(سعر الوحدة ${D.fmtSAR(o.unitPrice)} ريال — يسوى مع المشتري، ليس جزءا من هذا)` : `(unit price ${D.fmtSAR(o.unitPrice)} SAR — settled with the buyer, not part of this)`}</span>
           </div>
         </div>
         <div style={{ textAlign: "right" }}>
@@ -1756,7 +1865,7 @@ function OrderRevnuCard({ o }) {
                     : <span className="chip" style={{ background: "var(--bg-sunken)", color: "var(--text-muted)" }}>{window.I18N && window.I18N.isAR ? "قادمة" : "Upcoming"}</span>}
                 </td>
                 <td className="right soft" style={{ fontSize: 11 }}>
-                  {!r.paid && isNext && (window.I18N && window.I18N.isAR ? "تؤكّد Revnu الاستلام" : "Revnu confirms receipt")}
+                  {!r.paid && isNext && (window.I18N && window.I18N.isAR ? "تؤكد Revnu الاستلام" : "Revnu confirms receipt")}
                 </td>
               </tr>
             );
@@ -1779,7 +1888,7 @@ function Milestones({ orders: allOrders }) {
         <div>
           <h1 className="page-title">{window.I18N ? window.I18N.t("Revnu payments") : "Revnu payments"}</h1>
           <p className="page-sub">{window.I18N && window.I18N.isAR
-            ? <>ما تدين به لـ Revnu عن كل طلب — <strong>التأثيث والمنزل الذكي والتشغيل</strong> — يُسوَّى وفق شروطكم المتفق عليها. سعر الوحدة يُحصَّل من المشتري مباشرة بموجب عقد الشراء.</>
+            ? <>ما تدين به ل Revnu عن كل طلب — <strong>التأثيث والمنزل الذكي والتشغيل</strong> — يسوى وفق شروطكم المتفق عليها. سعر الوحدة يحصل من المشتري مباشرة بموجب عقد الشراء.</>
             : <>What you owe Revnu for each order's <strong>furnishing, smart home &amp; operations</strong> — settled on your agreed terms. The unit price is collected from the buyer separately under their purchase contract.</>}</p>
         </div>
       </div>
@@ -1797,9 +1906,9 @@ function Milestones({ orders: allOrders }) {
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div className="mono soft" style={{ fontSize: 10.5, letterSpacing: "0.08em" }}>{window.I18N && window.I18N.isAR ? "المتبقّي لـ REVNU" : "OUTSTANDING TO REVNU"}</div>
+            <div className="mono soft" style={{ fontSize: 10.5, letterSpacing: "0.08em" }}>{window.I18N && window.I18N.isAR ? "المتبقي ل REVNU" : "OUTSTANDING TO REVNU"}</div>
             <div className="mono" style={{ fontSize: 22, fontWeight: 700, marginTop: 2 }}>{D.fmtSAR(payable - collected)} <span className="soft" style={{ fontSize: 11 }}>SAR</span></div>
-            <div className="soft" style={{ fontSize: 11 }}>{window.I18N && window.I18N.isAR ? `${D.fmtSAR(collected)} مدفوع من ${D.fmtSAR(payable)} ريال · ${D.fmtSAR(projected)} متوقّع من صفقات لم يدفع عميلها بعد` : `${D.fmtSAR(collected)} paid of ${D.fmtSAR(payable)} SAR · ${D.fmtSAR(projected)} projected from deals not yet paid by the customer`}</div>
+            <div className="soft" style={{ fontSize: 11 }}>{window.I18N && window.I18N.isAR ? `${D.fmtSAR(collected)} مدفوع من ${D.fmtSAR(payable)} ريال · ${D.fmtSAR(projected)} متوقع من صفقات لم يدفع عميلها بعد` : `${D.fmtSAR(collected)} paid of ${D.fmtSAR(payable)} SAR · ${D.fmtSAR(projected)} projected from deals not yet paid by the customer`}</div>
           </div>
         </div>
       </div>
@@ -1807,7 +1916,7 @@ function Milestones({ orders: allOrders }) {
       <div className="stack-md">
         {orders.map((o) => <OrderRevnuCard key={o.id} o={o} />)}
         {orders.length === 0 && (
-          <div className="card card-pad muted" style={{ textAlign: "center" }}>{window.I18N && window.I18N.isAR ? "لا توجد فواتير بعد — تُنشأ الفاتورة عندما يدفع العميل الدفعة الأولى." : "No invoices yet — an invoice is created when a customer makes the first payment."}</div>
+          <div className="card card-pad muted" style={{ textAlign: "center" }}>{window.I18N && window.I18N.isAR ? "لا توجد فواتير بعد — تنشأ الفاتورة عندما يدفع العميل الدفعة الأولى." : "No invoices yet — an invoice is created when a customer makes the first payment."}</div>
         )}
       </div>
     </>
@@ -1864,7 +1973,7 @@ function RepDeals({ orders }) {
       <div className="page-head">
         <div>
           <h1 className="page-title">{window.I18N ? window.I18N.t("My deals") : "My deals"}</h1>
-          <p className="page-sub">{AR ? "حرّك كل صفقة عبر المراحل. للانتقال إلى المرحلة التالية قد يلزم رفع مستند." : "Move each deal through the stages. Advancing a stage may require uploading a document."}</p>
+          <p className="page-sub">{AR ? "حرك كل صفقة عبر المراحل. للانتقال إلى المرحلة التالية قد يلزم رفع مستند." : "Move each deal through the stages. Advancing a stage may require uploading a document."}</p>
         </div>
         <a className="btn btn-primary" href={"/sales?dev=" + developer.id + (me && D.devHasPerm(me, "orders") ? "&u=" + me.id : "")}>{AR ? "+ طلب جديد" : "+ New order"}</a>
       </div>
@@ -1892,12 +2001,13 @@ function RepDeals({ orders }) {
                       </div>
                       <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>{o.customerName}</div>
                       <div className="mono soft" style={{ fontSize: 11.5, marginBottom: 8 }}>{D.fmtSAR(addOnsFor(o))} SAR · {AR ? "عمولتك" : "your commission"} {D.fmtSAR(me ? myShareFor(o, me.id) : commissionFor(o))} <span style={{ opacity: 0.7 }}>({AR ? "على الصافي بدون الضريبة" : "on ex-VAT extras"})</span></div>
-                      {o.signedContractUrl && o.status !== "issued" && <div className="chip chip-positive" style={{ fontSize: 10, marginBottom: 6 }}>{AR ? "✓ عقد موقّع" : "✓ Signed"}</div>}
+                      {o.signedContractUrl && o.status !== "issued" && <div className="chip chip-positive" style={{ fontSize: 10, marginBottom: 6 }}>{AR ? "✓ عقد موقع" : "✓ Signed"}</div>}
                       {!isLast && (
                         gated ? (
-                          <button className="btn btn-sm btn-secondary" style={{ width: "100%", justifyContent: "center" }} onClick={(e) => { e.stopPropagation(); uploadSigned(o); }}>
-                            {AR ? "⬆ رفع العقد الموقّع للمتابعة" : "⬆ Upload signed contract to advance"}
-                          </button>
+                          <div style={{ display: "grid", gap: 6 }} onClick={(e) => e.stopPropagation()}>
+                            <button className="btn btn-sm btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setOpen(o)}>{AR ? "رابط التوقيع للعميل" : "Signing link for the buyer"}</button>
+                            <button className="btn btn-sm btn-ghost" style={{ width: "100%", justifyContent: "center", fontSize: 11.5 }} onClick={() => uploadSigned(o)}>{AR ? "أو ارفع نسخة موقعة ورقيا" : "or upload a paper-signed copy"}</button>
+                          </div>
                         ) : (
                           <button className="btn btn-sm btn-primary" style={{ width: "100%" }} onClick={(e) => { e.stopPropagation(); advance(o); }}>
                             {nextLabel} {AR ? "←" : "→"}
@@ -1907,7 +2017,7 @@ function RepDeals({ orders }) {
                     </div>
                   );
                 })}
-                {cards.length === 0 && <div className="soft" style={{ fontSize: 11.5, textAlign: "center", padding: "16px 0", lineHeight: 1.5 }}>{col === "active" ? (AR ? "لا صفقات مُقدَّمة — ابدأ طلبًا جديدًا" : "Nothing submitted — start a new order") : col === "issued" ? (AR ? "لا عقود بانتظار التوقيع" : "No contracts awaiting signature") : col === "signed" ? (AR ? "لا عقود موقّعة بانتظار الدفع" : "No signed deals awaiting payment") : (AR ? "لم يدفع أي عميل بعد" : "No customer payments yet")}</div>}
+                {cards.length === 0 && <div className="soft" style={{ fontSize: 11.5, textAlign: "center", padding: "16px 0", lineHeight: 1.5 }}>{col === "active" ? (AR ? "لا صفقات مقدمة — ابدأ طلبا جديدا" : "Nothing submitted — start a new order") : col === "issued" ? (AR ? "لا عقود بانتظار التوقيع" : "No contracts awaiting signature") : col === "signed" ? (AR ? "لا عقود موقعة بانتظار الدفع" : "No signed deals awaiting payment") : (AR ? "لم يدفع أي عميل بعد" : "No customer payments yet")}</div>}
               </div>
             </div>
           );
@@ -1932,13 +2042,13 @@ function RepEarnings({ orders }) {
       <div className="page-head">
         <div>
           <h1 className="page-title">{window.I18N ? window.I18N.t("My earnings") : "My earnings"}</h1>
-          <p className="page-sub">{AR ? <>عمولتك المكتسبة حتى الآن وما هو في خط الأنابيب. <strong>تُدفع على الإضافات فقط، وعلى قيمتها بدون ضريبة القيمة المضافة</strong> (التأثيث + المنزل الذكي){myLvl ? " — حصتك " + myLvl.pct + "% من عمولة كل صفقة" : ""}.</> : <>Commission earned to date, and what's still in the pipeline. <strong>Paid on extras only, on their ex-VAT value</strong> (furnishing + smart home){myLvl ? " — your share is " + myLvl.pct + "% of each deal's commission" : ""}.</>}</p>
+          <p className="page-sub">{AR ? <>عمولتك المكتسبة حتى الآن وما هو في خط الأنابيب. <strong>تدفع على الإضافات فقط، وعلى قيمتها بدون ضريبة القيمة المضافة</strong> (التأثيث + المنزل الذكي){myLvl ? " — حصتك " + myLvl.pct + "% من عمولة كل صفقة" : ""}.</> : <>Commission earned to date, and what's still in the pipeline. <strong>Paid on extras only, on their ex-VAT value</strong> (furnishing + smart home){myLvl ? " — your share is " + myLvl.pct + "% of each deal's commission" : ""}.</>}</p>
         </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
         <Stat label="Commission earned"  value={D.fmtSAR(earnedTotal)} unit="SAR" delta={window.I18N && window.I18N.isAR ? (closed.length + " صفقة دفع عميلها") : `${closed.length} deal${closed.length === 1 ? "" : "s"} with customer paid`} />
-        <Stat label={window.I18N && window.I18N.isAR ? "معلّقة" : "Pending"} value={D.fmtSAR(pipelineTotal)} unit="SAR" delta={window.I18N && window.I18N.isAR ? (pipeline.length + " صفقة بانتظار التوقيع أو الدفع") : `${pipeline.length} deal${pipeline.length === 1 ? "" : "s"} awaiting signature or payment`} />
+        <Stat label={window.I18N && window.I18N.isAR ? "معلقة" : "Pending"} value={D.fmtSAR(pipelineTotal)} unit="SAR" delta={window.I18N && window.I18N.isAR ? (pipeline.length + " صفقة بانتظار التوقيع أو الدفع") : `${pipeline.length} deal${pipeline.length === 1 ? "" : "s"} awaiting signature or payment`} />
         <Stat label="Average per deal"   value={D.fmtSAR(closed.length ? earnedTotal / closed.length : 0)} unit="SAR" />
       </div>
 
@@ -1958,7 +2068,7 @@ function RepEarnings({ orders }) {
                   <td className="right mono" style={{ fontWeight: 600 }}>{D.fmtSAR(addOnsFor(o))}</td>
                   <td className="right mono" style={{ fontWeight: 600 }}>
                     +{D.fmtSAR(commission)} <span className="soft" style={{ fontSize: 10 }}>SAR</span>
-                    <div className="soft" style={{ fontSize: 10.5, fontWeight: 400 }}>{D.isCustomerPaid(o) ? (AR ? "مستحقة" : "earned") : (AR ? "معلّقة" : "pending")}{myLvl ? " · " + myLvl.pct + (AR ? "% من العمولة" : "% of commission") : ""}</div>
+                    <div className="soft" style={{ fontSize: 10.5, fontWeight: 400 }}>{D.isCustomerPaid(o) ? (AR ? "مستحقة" : "earned") : (AR ? "معلقة" : "pending")}{myLvl ? " · " + myLvl.pct + (AR ? "% من العمولة" : "% of commission") : ""}</div>
                   </td>
                 </tr>
               );

@@ -169,3 +169,11 @@
   .pw-portal .pw-shell:not(.single){min-height:auto}
 }
 @media (min-width:900px){.pw:has(>.pw-shell:not(.single)){height:auto;display:block;overflow:visible}.pw-main>.pw-shell:not(.single){height:100vh;overflow:hidden}.pw-main>.pw-shell:not(.single)>.pw-col{height:100vh;max-height:100vh;overflow-y:auto}.pw-main>.pw-shell:not(.single)>.pw-visual{height:100vh}}
+
+/* Revnu fix (not in the prototype): inside the rep portal the two-column wizard rule
+   (.pw-main .pw-shell) outranked the phone rule above, leaving every step in a half-width
+   column on phones. On phones the step always takes the full width. */
+@media (max-width:899px){.pw-main .pw-shell:not(.single){grid-template-columns:1fr}}
+/* Revnu fix: on phones the rep portal tab bar is fixed to the bottom; keep each step's
+   Next / Finish bar above it instead of underneath it. */
+@media (max-width:899px){.pw-portal .pw-foot{bottom:calc(61px + env(safe-area-inset-bottom))}}

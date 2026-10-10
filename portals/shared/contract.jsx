@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { createPortal } from "react-dom";
 import D from "@/lib/data/store";
 import R from "@/lib/data/remote";
 import "./floorplan";
@@ -171,7 +172,7 @@ function A4Doc({ logical, head, foot, dir, lang, fontFamily, flow }) {
   React.useEffect(() => { if (plan && plan.sig === sig) window.dispatchEvent(new CustomEvent("ag-paginated", { detail: { sheets: plan.sheets.length } })); }, [plan && plan.sig === sig ? plan.sheets.length : -1, sig]);
   if (flow) return <>{logical.map((p, i) => <div key={i} className="ag-page ag-flow" style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 2px rgba(8,11,20,.06)", border: "1px solid " + LINE, padding: p.props.cover ? 0 : "18px 18px 22px", overflow: "hidden", color: INK, lineHeight: 1.6 }}>{!p.props.cover && <div style={{ marginBottom: 14 }}>{head(i + 1, logical.length)}</div>}{p.props.children}</div>)}</>;
   const ready = plan && plan.sig === sig;
-  const probeEl = ReactDOM.createPortal(<div ref={probe} aria-hidden="true" dir={dir} lang={lang} className="ag-probe" style={{ position: "fixed", left: 0, top: 0, width: A4.w, fontFamily, color: INK, lineHeight: 1.55, visibility: "hidden", pointerEvents: "none", zIndex: -1, overflow: "hidden", height: 0 }}>
+  const probeEl = createPortal(<div ref={probe} aria-hidden="true" dir={dir} lang={lang} className="ag-probe" style={{ position: "fixed", left: 0, top: 0, width: A4.w, fontFamily, color: INK, lineHeight: 1.55, visibility: "hidden", pointerEvents: "none", zIndex: -1, overflow: "hidden", height: 0 }}>
     {logical.map((p, i) => <div key={i} data-probe-page="1" data-cover={p.props.cover ? "1" : undefined} style={{ width: p.props.cover ? A4.w : A4.w - A4.padX * 2, boxSizing: "border-box" }}>{p.props.children}</div>)}
   </div>, document.body);
   if (!ready) return <>{probeEl}{logical.map((p, i) => <Sheet key={i} head={head(i + 1, logical.length)} foot={foot(i + 1, logical.length)} cover={!!p.props.cover}>{p.props.children}</Sheet>)}</>;
