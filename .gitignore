@@ -50,3 +50,6 @@ SEED-CREDENTIALS.local.*
 /supabase/.temp/
 
 .vercel
+
+# local browser-test artefacts
+.playwright-mcp/
