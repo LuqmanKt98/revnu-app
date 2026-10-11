@@ -52,7 +52,7 @@ for (const m of sql.replace(/--[^\n]*/g, "").matchAll(/alter table (?:if exists 
 
 // A view body contains no ";" until its end, so this is unambiguous.
 const views = new Map();
-for (const m of sql.matchAll(/create view public\.(\w+)([^;]*);/g)) {
+for (const m of sql.matchAll(/create (?:or replace )?view public\.(\w+)([^;]*);/g)) {
   const [, name, body] = m;
   const cols = new Set();
   for (const base of body.matchAll(/from public\.(\w+)/g)) {

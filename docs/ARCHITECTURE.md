@@ -105,20 +105,43 @@ Sign-in never depends on e-mail; password-reset links do (Supabase Auth SMTP →
 ## 7a. Remote ordering and e-signature (v2)
 
 1. A rep creates a share link (fixed units, a shortlist, or a public type-only link routed to one rep or round robin)
-   and sends it by WhatsApp (`wa.me` pre-filled message) or QR. Nothing is held.
+   and sends it by WhatsApp (`wa.me` pre-filled message) or QR. Nothing is held. Routing pools only take sales staff
+   (a commission level); the link opens in the language the rep chose unless the phone already picked one.
 2. The buyer opens it on the phone, configures, enters their details and submits (a public link first records a lead).
+   Steps the rep locked keep the rep's choices on the server (`private.apply_locks`), whatever the phone sends.
 3. The rep accepts with one tap: `submission_accept()` creates the order through `create_order_core()` (the unit is
-   locked), issues it with the pinned agreement snapshot, opens a signing link and auto-declines competing submissions.
-4. The buyer reads every page (read log per page) and signs with a finger or typed name; `public_signing_sign()` records
-   the signature, consent, IP (from the gateway headers), device and the SHA-256 fingerprint, and moves the order to
-   `signed`. The developer block is pre-signed (signature + stamp on the developer).
+   locked), issues it with the pinned agreement snapshot, opens a signing link. Any sale of a unit (remote or office,
+   or a reinstated order) auto-declines pending submissions on it (trigger on `order_units`).
+4. The buyer reads every page and signs with a finger or typed name; `public_signing_sign()` records the signature,
+   consent, IP (from the gateway headers), device and the SHA-256 fingerprint, and moves the order to `signed`.
 5. The rep confirms the first payment by attaching the transfer receipt (mandatory) — `transition_order()` → `paid`.
+
+Evidence and integrity rules (migration 018, after the 11 Oct 2026 audit):
+
+* **Read every page.** The phone reports its page list per language only once pagination has settled (fonts and
+  images loaded); a page counts as read when at least half of what fits of it stayed on screen for ~0.5 s.
+  `signing_links.pages` keeps the longest list per language and `read_log` entries carry the language. Signing needs a
+  language whose list is at least `private.agreement_min_pages()` long (a lower bound from the pinned layout) with every
+  page read in that language.
+* **Signatory versions.** `developer_signatories` stores every signatory / signature / stamp version (written by a
+  trigger on `developers`); issuing an order pins `orders.signatory_id`, which is part of the deal fingerprint. The
+  agreement, sign page, certificate, Word export and contract variables print the pinned version (`D.signerOf`).
+* **Prices.** A deferred constraint trigger refuses an order whose unit price is not the inventory price (list, or the
+  beneficiary price) — `PRICE_MISMATCH`. Extras are still priced by the rep's app; VAT is rounded per line
+  (`D.withVat`) so agreement lines always add up to the total.
+* **Public functions** are rate-limited per IP (`private.public_hits`): 30 unknown codes, 20 leads, 10 submissions and
+  10 signatures an hour → `RATE_LIMITED`. Test runs from one machine count too (`scripts/rls-tests.mjs` uses 2
+  submissions + 1 signature).
+* A suspended developer's live links show as paused; a revoked link cannot be extended; extending never passes the
+  project's maximum validity (90 days for public links). The signing page receives no internal order fields.
+* Times on buyer documents (link expiry, signature, certificate) are printed in Riyadh time on every device.
 
 ## 8. Known deliberate limitations
 
 * Payment gateway is out of scope (client decision). The e-signature is a finger signature + certificate on the buyer's
   phone (no Nafath / qualified e-signature provider).
-* The agreement shows the developer's current signatory images; earlier issued agreements are not re-stamped with a
-  frozen copy (same as the prototype).
+* Orders issued before migration 018 have no pinned signatory version; they show the developer's current signatory.
+* Extras (furnishing, kitchen, cooling, flooring, layout) are priced in the rep's app; the server checks the unit price
+  only.
 * Bulk CSV unit import runs on the client and inserts in one request (fine for hundreds of rows).
 * Order read scope for developer members is tenant-wide (client chose to mirror the prototype).

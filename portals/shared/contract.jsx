@@ -3,6 +3,8 @@ import React from "react";
 import { createPortal } from "react-dom";
 import D from "@/lib/data/store";
 import R from "@/lib/data/remote";
+// FullAgreement keeps its page renderers in a local `R`; module-level helpers from the remote module go through these names.
+const readSummary = (log, ar) => R.readSummary(log, ar);
 import "./floorplan";
 // =================================================================
 //  Full-fledged Purchase & Investment Agreement  (Buyer ↔ Developer)
@@ -138,9 +140,13 @@ function FitA4({ children, dir }) {
    onto sheets greedily. Containers (sections, divs, tables) are split at child boundaries, tables at row
    boundaries with the <thead> repeated, and open ancestors are re-opened on the continuation sheet. */
 function A4Doc({ logical, head, foot, dir, lang, fontFamily, flow }) {
-  const probe = React.useRef(null); const [plan, setPlan] = React.useState(null); const [tick, setTick] = React.useState(0);
+  const probe = React.useRef(null); const [plan, setPlan] = React.useState(null); const [tick, setTick] = React.useState(0); const [settled, setSettled] = React.useState(false);
   const sig = logical.map((p) => (p.key || "") + ":" + React.Children.count(p.props.children)).join("|") + "|" + lang + "|" + tick;
-  React.useEffect(() => { let on = true; if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (on) setTick((t) => t + 1); }); const imgs = [...(probe.current ? probe.current.querySelectorAll("img") : [])].filter((i) => !i.complete); let left = imgs.length; imgs.forEach((i) => { const d = () => { if (--left === 0 && on) setTick((t) => t + 1); }; i.addEventListener("load", d, { once: true }); i.addEventListener("error", d, { once: true }); }); return () => { on = false; }; }, []);
+  React.useEffect(() => { let on = true; let fontsDone = !(document.fonts && document.fonts.ready); const imgs = [...(probe.current ? probe.current.querySelectorAll("img") : [])].filter((i) => !i.complete); let left = imgs.length;
+    const check = () => { if (on && fontsDone && left <= 0) setSettled(true); };
+    if (!fontsDone) document.fonts.ready.then(() => { fontsDone = true; if (on) setTick((t) => t + 1); check(); });
+    imgs.forEach((i) => { const d = () => { if (--left === 0 && on) setTick((t) => t + 1); check(); }; i.addEventListener("load", d, { once: true }); i.addEventListener("error", d, { once: true }); });
+    check(); return () => { on = false; }; }, []);
   React.useLayoutEffect(() => {
     const root = probe.current; if (!root || flow) return;
     const limit = A4.well - 18;
@@ -169,7 +175,7 @@ function A4Doc({ logical, head, foot, dir, lang, fontFamily, flow }) {
     });
     setPlan({ sig, sheets: out });
   }, [sig, flow]);
-  React.useEffect(() => { if (plan && plan.sig === sig) window.dispatchEvent(new CustomEvent("ag-paginated", { detail: { sheets: plan.sheets.length } })); }, [plan && plan.sig === sig ? plan.sheets.length : -1, sig]);
+  React.useEffect(() => { if (plan && plan.sig === sig) window.dispatchEvent(new CustomEvent("ag-paginated", { detail: { sheets: plan.sheets.length, settled } })); }, [plan && plan.sig === sig ? plan.sheets.length : -1, sig, settled]);
   if (flow) return <>{logical.map((p, i) => <div key={i} className="ag-page ag-flow" style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 2px rgba(8,11,20,.06)", border: "1px solid " + LINE, padding: p.props.cover ? 0 : "18px 18px 22px", overflow: "hidden", color: INK, lineHeight: 1.6 }}>{!p.props.cover && <div style={{ marginBottom: 14 }}>{head(i + 1, logical.length)}</div>}{p.props.children}</div>)}</>;
   const ready = plan && plan.sig === sig;
   const probeEl = createPortal(<div ref={probe} aria-hidden="true" dir={dir} lang={lang} className="ag-probe" style={{ position: "fixed", left: 0, top: 0, width: A4.w, fontFamily, color: INK, lineHeight: 1.55, visibility: "hidden", pointerEvents: "none", zIndex: -1, overflow: "hidden", height: 0 }}>
@@ -210,9 +216,10 @@ function FullAgreement(ctx) {
   const brand = developer.brand.primary;
   // e-signature state: the developer signs & stamps at issue; the buyer's signature arrives from sign.html
   const esig = ctx.sig || null; const issued = !!(order.id && order.id !== "DRAFT" && order.status !== "draft"); const issuedAt = ctx.issuedAt || order.createdAt || null;
-  const fmtTs = (iso) => { if (!iso) return "—"; const d = new Date(iso); const loc = AR ? "ar-SA-u-nu-latn-ca-gregory" : "en-GB"; return String(iso).length <= 10 ? d.toLocaleDateString(loc, { day: "2-digit", month: "short", year: "numeric" }) : d.toLocaleString(loc, { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); };
-  const devSigImg = developer.signatureData || developer.signature || null; const devStampImg = developer.stampData || developer.stamp || null;
-  const signerName = (AR ? (developer.authorizedSignerAr || developer.authorizedSigner) : developer.authorizedSigner) || developer.primaryContact || "";
+  const fmtTs = (iso) => { if (!iso) return "—"; const d = new Date(iso); const loc = AR ? "ar-SA-u-nu-latn-ca-gregory" : "en-GB"; return String(iso).length <= 10 ? d.toLocaleDateString(loc, { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Riyadh" }) : d.toLocaleString(loc, { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Riyadh" }); };   // Riyadh time on every device
+  const sgn = D.signerOf(developer, order);   // the signatory, signature and stamp this order was issued with
+  const devSigImg = sgn.signatureData || sgn.signature || null; const devStampImg = sgn.stampData || sgn.stamp || null;
+  const signerName = (AR ? (sgn.authorizedSignerAr || sgn.authorizedSigner) : sgn.authorizedSigner) || developer.primaryContact || "";
   const chosenPalette = design ? D.designPaletteById(design, order.paletteId) : null;
   const palette = (chosenPalette && chosenPalette.colors) || (design && design.palette) || [INK, SOFT, LINE, "#fff"];
   const hero = darkest(palette);
@@ -313,7 +320,7 @@ function FullAgreement(ctx) {
               <AgRow k={L("Developer","المطور")} v={legal} />
               <AgRow k={L("CR number","السجل التجاري")} v={developer.crNumber} />
               {developer.vat ? <AgRow k={L("VAT","الرقم الضريبي")} v={developer.vat} /> : null}
-              <AgRow k={L("Authorised signatory","المفوض بالتوقيع")} v={((AR ? (developer.authorizedSignerAr || developer.authorizedSigner) : developer.authorizedSigner) || developer.primaryContact) + ((AR ? (developer.authorizedSignerTitleAr || developer.authorizedSignerTitle) : developer.authorizedSignerTitle) ? (AR ? "، " : " — ") + (AR ? (developer.authorizedSignerTitleAr || developer.authorizedSignerTitle) : developer.authorizedSignerTitle) : "")} />
+              <AgRow k={L("Authorised signatory","المفوض بالتوقيع")} v={((AR ? (sgn.authorizedSignerAr || sgn.authorizedSigner) : sgn.authorizedSigner) || developer.primaryContact) + ((AR ? (sgn.authorizedSignerTitleAr || sgn.authorizedSignerTitle) : sgn.authorizedSignerTitle) ? (AR ? "، " : " — ") + (AR ? (sgn.authorizedSignerTitleAr || sgn.authorizedSignerTitle) : sgn.authorizedSignerTitle) : "")} />
               <AgRow k={L("Contact","جهة الاتصال")} v={developer.primaryEmail} />
             </div>
           </div>
@@ -899,8 +906,8 @@ function FullAgreement(ctx) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 40, marginTop: 6 }}>
             <AgSigBlock role={L("The Buyer","المشتري")} name={c.fullName || "—"} sub={L("Beneficiary","المستفيد")} ar={AR} img={esig ? esig.signatureData : null} typed={esig ? esig.typedName : null} when={esig ? fmtTs(esig.signedAt) : null} note={L("Signed electronically on the buyer's own device","توقيع إلكتروني من جهاز المشتري")} />
             <AgSigBlock role={L("The Seller","البائع")} name={legal} ar={AR} img={issued ? devSigImg : null} stamp={issued ? devStampImg : null} when={issued ? fmtTs(issuedAt) : null} note={L("Signed & stamped electronically at issue","توقيع وختم إلكتروني عند الإصدار")} sub={(() => {
-              const nm = (AR ? (developer.authorizedSignerAr || developer.authorizedSigner) : developer.authorizedSigner) || developer.primaryContact;
-              const title = AR ? (developer.authorizedSignerTitleAr || developer.authorizedSignerTitle) : developer.authorizedSignerTitle;
+              const nm = (AR ? (sgn.authorizedSignerAr || sgn.authorizedSigner) : sgn.authorizedSigner) || developer.primaryContact;
+              const title = AR ? (sgn.authorizedSignerTitleAr || sgn.authorizedSignerTitle) : sgn.authorizedSignerTitle;
               return nm + (title ? (AR ? "، " : ", ") + title : (AR ? "، المفوض بالتوقيع" : ", authorised signatory"));
             })()} />
           </div>
@@ -921,10 +928,10 @@ function FullAgreement(ctx) {
       [L("Document fingerprint (SHA-256)","بصمة المستند (SHA-256)"), esig.documentHash || "—", true],
       [L("Seller","البائع"), (signerName || legal) + " · " + L("signature & stamp applied electronically at issue","توقيع وختم إلكتروني عند الإصدار") + (issuedAt ? " · " + fmtTs(issuedAt) : "")],
       [L("Buyer","المشتري"), (esig.signerName || c.fullName || "—") + " · " + L("ID","الهوية") + " ••••••" + (esig.signerIdLast4 || "")],
-      [L("Signed at","وقت التوقيع"), fmtTs(esig.signedAt) + " (" + Intl.DateTimeFormat().resolvedOptions().timeZone + ")"],
+      [L("Signed at","وقت التوقيع"), fmtTs(esig.signedAt) + " (" + L("Riyadh time, UTC+3","بتوقيت الرياض، UTC+3") + ")"],
       [L("From","من"), [esig.ip || L("IP recorded server-side in production","يسجل عنوان IP من الخادم في النسخة الفعلية"), esig.userAgent ? ua(esig.userAgent) : ""].filter(Boolean).join(" · ")],
       [L("Via","عبر"), L("Signing link","رابط التوقيع") + " " + code + " · " + L("buyer's own device","جهاز المشتري")],
-      [L("Read","القراءة"), read.length ? read.length + L(" pages opened · "," صفحات فتحت · ") + fmtTs(read[0].at) + (AR ? " ← " : " → ") + fmtTs(read[read.length - 1].at) : "—"],
+      [L("Read","القراءة"), read.length ? readSummary(read, AR) + " · " + fmtTs(read[0].at) + (AR ? " ← " : " → ") + fmtTs(read[read.length - 1].at) : "—"],
       [L("Consent","الموافقة"), fmtTs(esig.consentAt) + (esig.termsVersion ? " · " + L("terms v","الشروط ") + esig.termsVersion : "")],
     ];
     return (
@@ -989,7 +996,7 @@ function agreementCtxFromOrder(order, lang) {
     const layC = (project.features && project.features.layout && cfg.layoutIds) ? D.layoutChosen(project.id, u.typeId, cfg.layoutIds) : []; const layP = layC.reduce((a, o) => a + D.layoutPrice(o, project), 0);
     const fo = !!(project.features && project.features.fitout && pk && pk.fitout && cfg.fitout);
     const pre = (pk ? ((pk.pricing || {})[u.typeId] || 0) : 0) + (sm ? (sm.price || 0) : 0) + (fo ? D.boqTotal(pk.fitout.boq) : 0) + ktPrice + acP + flP + layP;
-    return { unit: u, pkg: pk, design: ds, palette: ds ? D.designPaletteById(ds, cfg.paletteId) : null, smart: sm, kitchen: kt, kitchenPalette: kt ? D.kitchenPaletteById(kt, cfg.kitchenPaletteId) : null, kitchenScope: kt ? D.kitchenScopeById(cfg.kitchenScope) : null, kitchenAddons: kt ? D.kitchenAddonsChosen(kt, cfg.kitchenScope, cfg.kitchenAddons) : [], kitchenPrice: ktPrice * 1.15, ac: acS, acAddons: acS ? D.acAddonsChosen(acS, cfg.acAddons) : [], acPrice: acP * 1.15, acPoints: acS ? D.coolingPointsFor(project.id, u.typeId) : [], flooring: flL, flooringUp: flL.filter((l) => l.finish), flooringPrice: flP * 1.15, layout: layC, layoutPrice: layP * 1.15, fitout: fo, furnish: pre * 1.15, ops: op };
+    return { unit: u, pkg: pk, design: ds, palette: ds ? D.designPaletteById(ds, cfg.paletteId) : null, smart: sm, kitchen: kt, kitchenPalette: kt ? D.kitchenPaletteById(kt, cfg.kitchenPaletteId) : null, kitchenScope: kt ? D.kitchenScopeById(cfg.kitchenScope) : null, kitchenAddons: kt ? D.kitchenAddonsChosen(kt, cfg.kitchenScope, cfg.kitchenAddons) : [], kitchenPrice: D.withVat(ktPrice), ac: acS, acAddons: acS ? D.acAddonsChosen(acS, cfg.acAddons) : [], acPrice: D.withVat(acP), acPoints: acS ? D.coolingPointsFor(project.id, u.typeId) : [], flooring: flL, flooringUp: flL.filter((l) => l.finish), flooringPrice: D.withVat(flP), layout: layC, layoutPrice: D.withVat(layP), fitout: fo, furnish: D.withVatSum(pre - ktPrice - acP - flP - layP - (fo ? D.boqTotal(pk.fitout.boq) : 0), fo ? D.boqTotal(pk.fitout.boq) : 0, ktPrice, acP, flP, layP), ops: op };
   });
   const opsRows = rows.map((r) => ({ unit: r.unit, ops: r.ops, ec: r.ops ? D.opsEconomics(r.ops, r.unit, r.unit.price) : null }));
   const our = D.dealEconomics(opsRows);

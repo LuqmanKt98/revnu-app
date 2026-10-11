@@ -489,7 +489,7 @@ function buildBody(ctx, assets) {
   H += letterhead(developer, brand, ref, today, logo);
   H += sectionHead("7", "Execution", "SIGNED BY THE PARTIES", brand);
   H += `<p style="font-family:${SANS};font-size:10pt;color:${MUT};line-height:1.55;margin:0 0 18px;">By signing below, the Buyer and ${esc(legal)} agree to be bound by this Agreement together with its Schedules and Appendices — the floor plan (Appendix A), the furnishing and fit-out bills of quantities (Schedule A, Appendices F-1${fitoutOn ? " & F-2" : ""})${ops ? ", the operating terms (Schedule B)" : ""} and the KYC &amp; PDPL acknowledgement.</p>`;
-  H += sigTable(developer, c);
+  H += sigTable(developer, c, order);
   H += `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;margin-top:28px;border-top:1px solid ${LINE};padding-top:10px;"><tr><td style="font-family:${MONO};font-size:8pt;color:${SOFT};">${esc(ref)} · ${esc(project ? project.name : "")}</td><td style="text-align:right;font-family:${MONO};font-size:8pt;color:${SOFT};letter-spacing:1px;">Revnu.sa</td></tr></table>`;
 
   /* ===== KYC APPENDIX ===== */
@@ -509,7 +509,7 @@ function buildBody(ctx, assets) {
   );
   H += `<p style="font-family:${SANS};font-size:10.5pt;font-weight:bold;margin:18px 0 6px;">2 · Rights</p>`;
   H += `<p style="font-family:${SANS};font-size:10pt;line-height:1.55;color:#3A3A3E;margin:0;">The Buyer may request access, correction or deletion of their data at any time, subject to ${esc(developer.name)}'s retention obligations.</p>`;
-  H += `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;margin-top:34px;"><tr><td style="width:50%;vertical-align:top;padding-right:20px;">${sigBlock("The Buyer", c.fullName || "—", "Beneficiary")}</td><td style="width:50%;vertical-align:top;">${sigBlock("The Seller", D.legalNameOf(developer, false), (developer.authorizedSigner || developer.primaryContact) + ", " + (developer.authorizedSignerTitle || "authorised signatory"))}</td></tr></table>`;
+  H += `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;margin-top:34px;"><tr><td style="width:50%;vertical-align:top;padding-right:20px;">${sigBlock("The Buyer", c.fullName || "—", "Beneficiary")}</td><td style="width:50%;vertical-align:top;">${sigBlock("The Seller", D.legalNameOf(developer, false), (D.signerOf(developer, order).authorizedSigner || developer.primaryContact) + ", " + (D.signerOf(developer, order).authorizedSignerTitle || "authorised signatory"))}</td></tr></table>`;
 
   return H;
 }
@@ -521,10 +521,10 @@ function sigBlock(role, name, sub) {
     <div style="font-family:${SANS};font-size:9pt;color:${MUT};">${esc(sub)}</div>
     <div style="font-family:${SANS};font-size:9pt;color:${SOFT};margin-top:9px;">Date: ____________________</div>`;
 }
-function sigTable(developer, c) {
+function sigTable(developer, c, order) {
   return `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;"><tr>
     <td style="width:50%;vertical-align:top;padding-right:20px;">${sigBlock("The Buyer", c.fullName || "—", "Beneficiary")}</td>
-    <td style="width:50%;vertical-align:top;">${sigBlock("The Seller", D.legalNameOf(developer, false), (developer.authorizedSigner || developer.primaryContact) + ", " + (developer.authorizedSignerTitle || "authorised signatory"))}</td>
+    <td style="width:50%;vertical-align:top;">${sigBlock("The Seller", D.legalNameOf(developer, false), (D.signerOf(developer, order).authorizedSigner || developer.primaryContact) + ", " + (D.signerOf(developer, order).authorizedSignerTitle || "authorised signatory"))}</td>
   </tr></table>`;
 }
 
