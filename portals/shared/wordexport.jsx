@@ -372,7 +372,11 @@ function buildBody(ctx, assets) {
   const flT = flRows.reduce((a, r) => a + (r.flooringPrice || 0), 0);
   const layRows = (ctx.perUnitRows || []).filter((r) => r.unit && r.layout && r.layout.length);
   const layT = layRows.reduce((a, r) => a + (r.layoutPrice || 0), 0);
-  H += term("A.1", "Scope", `The Seller shall supply and install the furnishing package “${pkg ? pkg.tier : ""} — ${pkg ? pkg.name : ""}” (${pkg ? pkg.pieces : 0} items) executed in the “${design ? design.name : ""}” design${smart ? ", with the “" + smart.name + "” smart-home layer" : ""}${flRows.length ? ", with upgraded flooring per Appendix F-5" : ""}${layRows.length ? ", with the internal layout modifications per Appendix F-6" : ""}${fitoutOn ? ", together with the interior fit-out itemised below" : ""}. The bills of quantities below form part of this Schedule.`);
+  const kitRows = (ctx.perUnitRows || []).filter((r) => r.unit && r.kitchen);
+  const kitT = kitRows.reduce((a, r) => a + (r.kitchenPrice || 0), 0);
+  const acRows = (ctx.perUnitRows || []).filter((r) => r.unit && r.ac);
+  const acT = acRows.reduce((a, r) => a + (r.acPrice || 0), 0);
+  H += term("A.1", "Scope", `The Seller shall supply and install the furnishing package “${pkg ? pkg.tier : ""} — ${pkg ? pkg.name : ""}” (${pkg ? pkg.pieces : 0} items) executed in the “${design ? design.name : ""}” design${smart ? ", with the “" + smart.name + "” smart-home layer" : ""}${flRows.length ? ", with upgraded flooring per Appendix F-5" : ""}${layRows.length ? ", with the internal layout modifications per Appendix F-6" : ""}${kitRows.length ? ", with the kitchen per Appendix F-3" : ""}${acRows.length ? ", with air-conditioning per Appendix F-4" : ""}${fitoutOn ? ", together with the interior fit-out itemised below" : ""}. The bills of quantities below form part of this Schedule.`);
   // F-1
   H += `<p style="font-family:${SANS};font-size:10pt;font-weight:bold;margin:18px 0 5px;">Appendix F-1 · Furnishing bill of quantities <span style="font-family:${MONO};font-size:8.5pt;font-weight:normal;color:${SOFT};">${furnBoq.length} LINES</span></p>`;
   H += `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
@@ -389,6 +393,36 @@ function buildBody(ctx, assets) {
       <tr style="border-top:1.5px solid ${INK};"><td colspan="4" style="padding:6px 0;font-family:${SANS};font-size:10pt;font-weight:bold;">Fit-out total (excl. VAT)</td><td style="text-align:right;font-family:${MONO};font-weight:bold;color:${brand};">${esc(D.fmtSAR(fitoutBoqTotal))}</td></tr>
     </table>`;
   }
+  const TH3 = (cols) => `<tr style="border-bottom:1px solid ${INK};">${cols.map((h, i) => `<td style="font-family:${MONO};font-size:8pt;color:${SOFT};padding-bottom:5px;${i === cols.length - 1 ? "text-align:right;" : ""}">${h}</td>`).join("")}</tr>`;
+  const line3 = (a, b, c, muted) => `<tr style="border-bottom:1px solid #EFEDE7;"><td style="padding:4px 0;font-family:${SANS};font-size:9pt;color:${MUT};">${esc(a)}</td><td style="padding:4px 0;font-family:${SANS};font-size:9pt;font-weight:bold;">${esc(b)}</td><td style="padding:4px 0;text-align:right;font-family:${MONO};font-size:9pt;${muted ? "color:" + SOFT + ";" : ""}">${esc(c)}</td></tr>`;
+  const total3 = (label, r, v) => `<tr style="border-top:1.5px solid ${INK};"><td colspan="2" style="padding:6px 0;font-family:${SANS};font-size:10pt;font-weight:bold;">${esc(label)} · ${esc(r.unit.number)} <span style="color:${SOFT};font-size:8pt;font-weight:normal;">${esc((r.unit.type && r.unit.type.name) || "")} · incl. VAT</span></td><td style="text-align:right;font-family:${MONO};font-weight:bold;color:${brand};">${esc(D.fmtSAR(v || 0))} SAR</td></tr>`;
+  // F-3 · Kitchen — one block per kitchen × scope × palette × optional items
+  const kg = []; const ki = {};
+  kitRows.forEach((r) => { const ids = (r.kitchenAddons || []).map((a) => a.id).sort().join(","); const k = r.kitchen.id + "|" + (r.kitchenScope ? r.kitchenScope.id : "") + "|" + (r.kitchenPalette ? r.kitchenPalette.id : "") + "|" + ids; if (ki[k] == null) { ki[k] = kg.length; kg.push({ kit: r.kitchen, scope: r.kitchenScope, pal: r.kitchenPalette, addons: r.kitchenAddons || [], rows: [] }); } kg[ki[k]].rows.push(r); });
+  kg.forEach((g, n) => {
+    const sc = g.kit.scopes && g.scope ? g.kit.scopes[g.scope.id] : null; const inc = (sc && sc.includes) || [];
+    H += `<p style="font-family:${SANS};font-size:10pt;font-weight:bold;margin:20px 0 5px;">Appendix F-3${kg.length > 1 ? "." + (n + 1) : ""} · Kitchen <span style="font-family:${MONO};font-size:8.5pt;font-weight:normal;color:${SOFT};">${esc(g.rows.map((r) => r.unit.number).join(" · "))} · PRICED</span></p>`;
+    H += kvTable(row2("Design", g.kit.name || "—") + row2("Colour palette", g.pal ? g.pal.name : "—") + row2("Scope", g.scope ? g.scope.name : "—"));
+    H += `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">${TH3(["SCOPE", "ITEM", "PRICE (EXCL. VAT)"])}
+      ${inc.map((it, i) => line3(i === 0 && g.scope ? g.scope.name : "", it, i === 0 ? "included" : "", true)).join("")}
+      ${g.addons.map((a, i) => line3(i === 0 ? "Optional items" : "", a.name || "", D.fmtSAR(Number(a.price) || 0))).join("")}
+      ${g.rows.map((r) => total3("Kitchen total", r, r.kitchenPrice)).join("")}
+    </table>`;
+  });
+  // F-4 · Cooling — one block per system × unit type × optional items
+  const ag = []; const ai = {};
+  acRows.forEach((r) => { const ids = (r.acAddons || []).map((a) => a.id).sort().join(","); const k = r.ac.id + "|" + r.unit.typeId + "|" + ids; if (ai[k] == null) { ai[k] = ag.length; ag.push({ ac: r.ac, pts: r.acPoints || [], addons: r.acAddons || [], rows: [] }); } ag[ai[k]].rows.push(r); });
+  ag.forEach((g, n) => {
+    const ty = D.acTypeById(g.ac.type); const install = (Number(g.ac.install) || 0) * g.pts.length;
+    H += `<p style="font-family:${SANS};font-size:10pt;font-weight:bold;margin:20px 0 5px;">Appendix F-4${ag.length > 1 ? "." + (n + 1) : ""} · Cooling <span style="font-family:${MONO};font-size:8.5pt;font-weight:normal;color:${SOFT};">${esc(g.rows.map((r) => r.unit.number).join(" · "))} · PRICED</span></p>`;
+    H += kvTable(row2("System", (g.ac.brand || "") + " " + (g.ac.name || "")) + row2("Type", ty ? ty.en : "—") + row2("Warranty", g.ac.warrantyYears ? g.ac.warrantyYears + " years" : "—"));
+    H += `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">${TH3(["ROOM", "CAPACITY", "PRICE (EXCL. VAT)"])}
+      ${g.pts.map((pt) => line3(pt.room || "", D.fmtSAR(pt.btu) + " BTU", D.fmtSAR(D.acTierPrice(g.ac, pt.btu)))).join("")}
+      ${line3("Installation & commissioning", "× " + g.pts.length, D.fmtSAR(install))}
+      ${g.addons.map((a, i) => line3(i === 0 ? "Optional items" : "", a.name || "", D.fmtSAR(Number(a.price) || 0))).join("")}
+      ${g.rows.map((r) => total3("Cooling total", r, r.acPrice)).join("")}
+    </table>`;
+  });
   // F-5 · Flooring upgrades — one table per unit with upgraded zones
   flRows.forEach((r, n) => {
     const net = r.flooringUp.reduce((a, l) => a + l.amount, 0);
@@ -417,7 +451,9 @@ function buildBody(ctx, assets) {
   H += `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;margin-top:14px;background:#FAF8F3;border:1px solid ${LINE};"><tr><td style="padding:12px 14px;">
     <div style="font-family:${MONO};font-size:8pt;letter-spacing:1px;color:${SOFT};text-transform:uppercase;margin-bottom:4px;">A.5 · Commercial value</div>
     ${moneyTable([
-      { k: "Furnishing", sub: "incl. VAT", v: fmt((fitoutOn ? furnishOnlyTotal : furnishTotal) - flT - layT) },
+      { k: "Furnishing", sub: "incl. VAT", v: fmt((fitoutOn ? furnishOnlyTotal : furnishTotal) - flT - layT - kitT - acT) },
+      ...(kitT > 0 ? [{ k: "Kitchen", sub: "incl. VAT · F-3", v: fmt(kitT) }] : []),
+      ...(acT > 0 ? [{ k: "Cooling / AC", sub: "incl. VAT · F-4", v: fmt(acT) }] : []),
       ...(layT > 0 ? [{ k: "Layout changes", sub: "incl. VAT · F-6", v: fmt(layT) }] : []),
       ...(flT > 0 ? [{ k: "Flooring upgrade", sub: "incl. VAT · F-5", v: fmt(flT) }] : []),
       ...(fitoutOn ? [{ k: "Fit-out", sub: "incl. VAT", v: fmt(fitoutTotal) }] : []),

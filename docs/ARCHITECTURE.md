@@ -85,6 +85,9 @@ before, then stored in the public `media` bucket instead of as base64 inside the
 `transition_order()` writes an outbox row (`notifications`); the browser then calls
 `POST /api/notifications/dispatch` for that order (any signed-in user; only queued rows are touched).
 `lib/email/mailer.ts` logs in `MAIL_MODE=log` and sends through Resend otherwise. Templates are bilingual.
+A new or corrected buyer e-mail on an issued agreement queues "ready to sign" again (queued rows for the old address are
+superseded). The buyer is signed out when signing, so the sign page posts `{ signingCode }` to the same route, which
+sends only that signed order's queued rows.
 Sign-in never depends on e-mail; password-reset links do (Supabase Auth SMTP → Resend at cut-over).
 
 ## 7. Frontend
@@ -126,9 +129,12 @@ Evidence and integrity rules (migration 018, after the 11 Oct 2026 audit):
 * **Signatory versions.** `developer_signatories` stores every signatory / signature / stamp version (written by a
   trigger on `developers`); issuing an order pins `orders.signatory_id`, which is part of the deal fingerprint. The
   agreement, sign page, certificate, Word export and contract variables print the pinned version (`D.signerOf`).
-* **Prices.** A deferred constraint trigger refuses an order whose unit price is not the inventory price (list, or the
-  beneficiary price) — `PRICE_MISMATCH`. Extras are still priced by the rep's app; VAT is rounded per line
-  (`D.withVat`) so agreement lines always add up to the total.
+* **Prices.** `private.deal_prices()` prices a deal on the server exactly as the wizard does (catalogue look-ups, skip
+  flags, feature switches, JavaScript arithmetic: double precision, `Math.round`, VAT per line). A deferred check on
+  every new order (`orders_check_prices`) refuses a unit price or any extras line more than 3 SAR per unit away, and a
+  kitchen or cooling choice on a project that does not offer it — `PRICE_MISMATCH`. The payload stores exactly what was
+  priced (each unit's full configuration in per-unit mode). VAT is rounded per line (`D.withVat`), so agreement lines
+  always add up to the total. Parity was proven on 600 randomised deals (kitchens, cooling, fit-out included).
 * **Public functions** are rate-limited per IP (`private.public_hits`, limits in `private.over_limit`): 60 unknown
   codes, 60 leads, 30 submissions and 60 signatures an hour → `RATE_LIMITED` (set for shared office Wi-Fi and carrier NAT). Test runs from one machine count too (`scripts/rls-tests.mjs` uses 2
   submissions + 1 signature).
@@ -141,7 +147,6 @@ Evidence and integrity rules (migration 018, after the 11 Oct 2026 audit):
 * Payment gateway is out of scope (client decision). The e-signature is a finger signature + certificate on the buyer's
   phone (no Nafath / qualified e-signature provider).
 * Orders issued before migration 018 have no pinned signatory version; they show the developer's current signatory.
-* Extras (furnishing, kitchen, cooling, flooring, layout) are priced in the rep's app; the server checks the unit price
-  only.
+* The operator fee and the monthly-net projection are not re-checked by the server (neither is an amount the buyer pays).
 * Bulk CSV unit import runs on the client and inserts in one request (fine for hundreds of rows).
 * Order read scope for developer members is tenant-wide (client chose to mirror the prototype).

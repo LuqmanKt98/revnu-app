@@ -111,13 +111,18 @@ async function main() {
   const basePrice = Object.fromEntries((await expectOk(rep.from("unit_types").select("id, base_price").eq("project_id", "nk-noor-khuzam"))).map((x) => [x.id, Number(x.base_price) || 0]));
   const listPrice = async (number) => { const u = await expectOk(rep.from("units").select("type_id, price_adj").eq("number", number).single()); return (basePrice[u.type_id] || 0) + (Number(u.price_adj) || 0); };
   const priceOf = Object.fromEntries(await Promise.all([u1, u2].map(async (u) => [u.number, await listPrice(u.number)])));
+  // the furnishing package's price for a unit, VAT per line as the wizard stores it: the server re-prices every extras line (S3)
+  const pkgPricing = (await expectOk(rep.from("packages").select("pricing").eq("id", "nk-pkg-modern-minimal").single())).pricing || {};
+  const typeOf = async (number) => (await expectOk(rep.from("units").select("type_id").eq("number", number).single())).type_id;
+  const furnishFor = async (number) => Math.round((Number(pkgPricing[await typeOf(number)]) || 0) * 115 / 100);
+  const furnishOf = Object.fromEntries(await Promise.all([u1, u2].map(async (u) => [u.number, await furnishFor(u.number)])));
   const u2view = (await expectOk(rep.from("units").select("view").eq("number", u2.number).single())).view;
   let orderId = null, orderId2 = null;
   await t("reserve_order_id returns a REV-26-N reference", async () => {
     orderId = await expectOk(rep.rpc("reserve_order_id"));
     if (!/^REV-26-\d+$/.test(orderId)) throw new Error("bad id " + orderId);
   });
-  const payload = (id, unit) => ({ id, projectId: "nk-noor-khuzam", unitNumbers: [unit], customerName: "RLS Test", customerId: "1000000000", customerEmail: "rls-test@example.com", customer: { fullName: "RLS Test" }, packageId: "nk-pkg-modern-minimal", designId: "nk-modern-minimal", unitPrice: priceOf[unit] || 0, furnishCost: 48300, status: "issued" });
+  const payload = (id, unit) => ({ id, projectId: "nk-noor-khuzam", unitNumbers: [unit], customerName: "RLS Test", customerId: "1000000000", customerEmail: "rls-test@example.com", customer: { fullName: "RLS Test" }, packageId: "nk-pkg-modern-minimal", designId: "nk-modern-minimal", unitPrice: priceOf[unit] || 0, furnishCost: furnishOf[unit] || 0, status: "issued" });
   await t("create_order succeeds and locks the unit", async () => {
     await expectOk(rep.rpc("create_order", { p: payload(orderId, u1.number) }));
     const u = await expectOk(rep.from("units").select("status").eq("number", u1.number).single());
@@ -129,6 +134,7 @@ async function main() {
   });
   await t("create_order refuses negative amounts", () => expectErr(rep.rpc("create_order", { p: Object.assign(payload(null, u2.number), { unitPrice: -1 }) }), /negative/));
   await t("create_order refuses a unit price that is not the inventory price (S3)", () => expectErr(rep.rpc("create_order", { p: Object.assign(payload(null, u2.number), { unitPrice: 1 }) }), /PRICE_MISMATCH/));
+  await t("create_order refuses an extras price that is not the catalogue's (S3)", () => expectErr(rep.rpc("create_order", { p: Object.assign(payload(null, u2.number), { furnishCost: 1 }) }), /PRICE_MISMATCH/));
   await t("same unit cannot be sold twice (B-01)", async () => {
     const id = await expectOk(rep.rpc("reserve_order_id"));
     await expectErr(rep.rpc("create_order", { p: payload(id, u1.number) }), /UNIT_TAKEN/);
@@ -270,7 +276,7 @@ async function main() {
   await t("an office sale of the unit declines a pending submission at once (B10)", async () => {
     link2 = await expectOk(rep.rpc("sale_link_create", { p: { projectId: "nk-noor-khuzam", mode: "units", unitNumbers: [free[1].number] } }));
     sub2 = (await expectOk(anon.rpc("public_link_submit", { p_code: link2.code, p: { consent: true, customer: { fullName: "RLS Buyer Two", nationalId: "1000000002", mobile: "0500000002" } } }))).submission;
-    officeOrder = (await expectOk(rep.rpc("create_order", { p: Object.assign(payload(null, free[1].number), { unitPrice: free2Price, status: "active" }) }))).id;
+    officeOrder = (await expectOk(rep.rpc("create_order", { p: Object.assign(payload(null, free[1].number), { unitPrice: free2Price, furnishCost: await furnishFor(free[1].number), status: "active" }) }))).id;
     const s2 = await expectOk(rep.from("submissions").select("status, decline_reason").eq("id", sub2.id).single());
     if (s2.status !== "auto_declined") throw new Error(JSON.stringify(s2));
   });

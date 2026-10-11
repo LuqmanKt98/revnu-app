@@ -52,18 +52,23 @@ function computeDeal(project, P, unit, cfg) {
   return { unit, type: unit ? unit.type : null, unitPrice, design, pkg, pkgPrice, fitoutNet, smart, smartPrice, kitchen: kitchenNet > 0 ? kitchen : null, kitchenNet: Math.max(0, kitchenNet), ac: acNet > 0 ? ac : null, acNet: Math.max(0, acNet), pts, flLines, flNet, layChosen, layNet, ops, eco, extrasNet, furnish, total: unitPrice + furnish,
     layLocked: !D.deadlineOpen(project, "layout"), flLocked: !D.deadlineOpen(project, "flooring") };
 }
-/** createOrder payload for one or many units (one configuration for all, or one per unit). Totals are summed; ids come from the first unit's configuration. */
+/** createOrder payload for one or many units (one configuration for all, or one per unit). Totals are summed per unit.
+ *  What is stored is exactly what was priced — the server re-prices every order from it: per-unit mode keeps every unit's
+ *  configuration in perUnit; one shared configuration keeps every item any unit takes (a kitchen priced for only some unit
+ *  types, each unit type's layout options and flooring zones). Otherwise the columns follow the first unit. */
 function buildOrderPayloadMulti(project, developer, units, cfgFor, perMode, perUnit, customer, rep, extra) {
   const P = P_of(project); const rows = units.map((u) => { const c = cfgFor(u.number); return { u, c, d: computeDeal(project, P, u, c) }; });
-  const sum = (f) => rows.reduce((s, x) => s + (f(x.d) || 0), 0); const { c: cfg, d } = rows[0]; const flUp = d.flLines.filter((l) => l.finish);
+  const sum = (f) => rows.reduce((s, x) => s + (f(x.d) || 0), 0); const { c: cfg, d } = rows[0];
+  const shared = perMode ? [rows[0]] : rows; const kitRow = shared.find((x) => x.d.kitchen) || rows[0]; const acRow = shared.find((x) => x.d.ac) || rows[0];
+  const flUp = shared.flatMap((x) => x.d.flLines.filter((l) => l.finish)); const layIds = Array.from(new Set(shared.flatMap((x) => x.d.layChosen.map((o) => o.id))));
   return Object.assign({
-    developerId: developer.id, projectId: project.id, unitNumbers: units.map((u) => u.number), perUnitMode: !!perMode, perUnit: perMode ? perUnit : null,
+    developerId: developer.id, projectId: project.id, unitNumbers: units.map((u) => u.number), perUnitMode: !!perMode, perUnit: perMode ? Object.fromEntries(rows.map((x) => [x.u.number, x.c])) : null,
     customerName: customer.fullName, customerId: customer.nationalId, customerEmail: customer.email,
     designId: d.pkg ? cfg.designId : null, paletteId: d.pkg ? cfg.paletteId : null, packageId: d.pkg ? d.pkg.id : null, smartId: d.smart ? d.smart.id : null, opsId: d.ops ? d.ops.id : null,
-    kitchenId: d.kitchen ? d.kitchen.id : null, kitchenPaletteId: d.kitchen ? cfg.kitchenPaletteId : null, kitchenScope: d.kitchen ? (cfg.kitchenScope || "cabinets") : null, kitchenAddons: d.kitchen ? (cfg.kitchenAddons || []) : [], kitchenCost: sum((x) => D.withVat(x.kitchenNet)),
-    acId: d.ac ? d.ac.id : null, acAddons: d.ac ? (cfg.acAddons || []) : [], acCost: sum((x) => D.withVat(x.acNet)),
+    kitchenId: kitRow.d.kitchen ? kitRow.d.kitchen.id : null, kitchenPaletteId: kitRow.d.kitchen ? kitRow.c.kitchenPaletteId : null, kitchenScope: kitRow.d.kitchen ? (kitRow.c.kitchenScope || "cabinets") : null, kitchenAddons: kitRow.d.kitchen ? (kitRow.c.kitchenAddons || []) : [], kitchenCost: sum((x) => D.withVat(x.kitchenNet)),
+    acId: acRow.d.ac ? acRow.d.ac.id : null, acAddons: acRow.d.ac ? (acRow.c.acAddons || []) : [], acCost: sum((x) => D.withVat(x.acNet)),
     flooring: flUp.length ? Object.fromEntries(flUp.map((l) => [l.zone, { finishId: l.finish.id, sizeId: l.size ? l.size.id : null }])) : null, flooringCost: sum((x) => D.withVat(x.flNet)),
-    layoutIds: d.layChosen.map((o) => o.id), layoutCost: sum((x) => D.withVat(x.layNet)), fitout: rows.some((x) => x.d.fitoutNet > 0), fitoutCost: sum((x) => D.withVat(x.fitoutNet)),
+    layoutIds: layIds, layoutCost: sum((x) => D.withVat(x.layNet)), fitout: rows.some((x) => x.d.fitoutNet > 0), fitoutCost: sum((x) => D.withVat(x.fitoutNet)),
     customer: Object.assign({ fullNameAr: "", city: project.city || "Riyadh", funding: "mixed" }, customer, { beneficiary: !!cfg.beneficiary }), repId: rep && rep.id,
     unitPrice: sum((x) => x.unitPrice), furnishCost: sum((x) => x.furnish), operatorFee: d.ops ? d.ops.mgmtFee : 0, monthlyNet: Math.round(sum((x) => (x.eco ? x.eco.annualNet : 0)) / 12),
     agreement: D.agreementSnapshot(developer.id), status: "issued",
@@ -446,7 +451,7 @@ function ReviewStep(props) {
       {f.smartHome && <Row id="smart" k={L("Smart home", "المنزل الذكي")} v={d.smart ? TX(d.smart, "name") : L("Skipped", "بدون")} amt={SAR(d.smartPrice)} />}
       {f.layout && <Row id="layout" k={L("Layout", "المخطط")} v={d.layChosen.length ? d.layChosen.map((o) => TX(o, "name")).join(" · ") : L("As designed", "حسب التصميم")} amt={SAR(d.layNet)} />}
       {f.flooring && <Row id="flooring" k={L("Flooring", "الأرضيات")} v={d.flLines.some((l) => l.finish) ? d.flLines.filter((l) => l.finish).map((l) => (AR ? l.meta.ar : l.meta.en) + ": " + TX(l.finish, "name")).join(" · ") : L("Standard — included", "أساسي · مشمول")} amt={SAR(d.flNet)} />}
-      {f.kitchens && <Row id="kitchen" k={L("Kitchen", "المطبخ")} v={d.kitchen ? TX(d.kitchen, "name") + " · " + (AR ? scope.ar : scope.en) : L("Skipped", "بدون")} amt={SAR(d.kitchenNet)} />}
+      {f.kitchens && <Row id="kitchen" k={L("Kitchen", "المطبخ")} v={d.kitchen ? TX(d.kitchen, "name") + " · " + TX(scope, "name") : L("Skipped", "بدون")} amt={SAR(d.kitchenNet)} />}
       {f.cooling && <Row id="cooling" k={L("Cooling", "التكييف")} v={d.ac ? TX(d.ac, "brand") + " " + TX(d.ac, "name") + " · " + d.pts.length + " " + L("units", "وحدات") : L("Skipped", "بدون")} amt={SAR(d.acNet)} />}
       {f.operations && <Row id="operate" k={L("Operation", "التشغيل")} v={d.ops ? TX(d.ops, "name") : L("Self-managed", "إدارة ذاتية")} amt={d.ops && d.eco && !HIDE ? <span style={{ color: "var(--growth)" }}>≈ {SAR(d.eco.annualNet)} / {L("yr", "سنة")}</span> : HIDE ? "" : "—"} />}
       {d.fitoutNet > 0 && <div><span><span className="pw-hint">{L("Fit-out", "التأثيث")}</span></span><span>{SAR(d.fitoutNet)}</span></div>}
@@ -930,6 +935,6 @@ function SignatoryCard({ developer, me }) {
   </div>;
 }
 
-if (typeof window !== "undefined") Object.assign(window, { MobileWizard, MobileSaleApp, RemoteOrderApp, ShareSheet, PublicLinkSheet, AssignSheet, SigningCard, SignaturePad, SignatoryCard, PresignedBlock, QrImg, computeDeal, buildOrderPayload, mobileWizardSteps: stepsFor });
+if (typeof window !== "undefined") Object.assign(window, { MobileWizard, MobileSaleApp, RemoteOrderApp, ShareSheet, PublicLinkSheet, AssignSheet, SigningCard, SignaturePad, SignatoryCard, PresignedBlock, QrImg, computeDeal, buildOrderPayload, buildOrderPayloadMulti, mobileWizardSteps: stepsFor });
 
 export { MobileWizard, MobileSaleApp, RemoteOrderApp, ShareSheet, PublicLinkSheet, AssignSheet, SigningCard, SignaturePad, SignatoryCard, PresignedBlock, QrImg, BuyerEditSheet, AgreementSheet, computeDeal, buildOrderPayload, buildOrderPayloadMulti, stepsFor as mobileWizardSteps };

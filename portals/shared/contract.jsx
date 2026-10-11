@@ -988,12 +988,13 @@ function agreementCtxFromOrder(order, lang) {
   const cfgFor = (n) => (order.perUnitMode && order.perUnit && order.perUnit[n]) ? order.perUnit[n] : { packageId: order.packageId, designId: order.designId, paletteId: order.paletteId, smartId: order.smartId, kitchenId: order.kitchenId, kitchenPaletteId: order.kitchenPaletteId, kitchenScope: order.kitchenScope, kitchenAddons: order.kitchenAddons, acId: order.acId, acAddons: order.acAddons, flooring: order.flooring, layoutIds: order.layoutIds, fitout: order.fitout, opsId: order.opsId };
   const find = (list, id) => (id && (list || []).find((x) => x.id === id)) || null;
   const rows = units.map((u) => {
-    const cfg = cfgFor(u.number) || {};
-    const pk = find(P.packages, cfg.packageId), ds = find(P.designs, cfg.designId), sm = find(P.smart, cfg.smartId), kt = find(P.kitchens, cfg.kitchenId), acS = find(P.ac, cfg.acId), op = find(P.ops, cfg.opsId);
-    const ktPrice = kt ? D.kitchenTotalPrice(kt, cfg.kitchenScope, u.typeId, cfg.kitchenAddons) : 0;
-    const acP = acS ? D.acTotalPrice(acS, project.id, u.typeId, cfg.acAddons) : 0;
-    const flL = (project.features && project.features.flooring && cfg.flooring) ? D.flooringLines(project.id, u.typeId, cfg.flooring) : []; const flP = flL.reduce((a, l) => a + l.amount, 0);
-    const layC = (project.features && project.features.layout && cfg.layoutIds) ? D.layoutChosen(project.id, u.typeId, cfg.layoutIds) : []; const layP = layC.reduce((a, o) => a + D.layoutPrice(o, project), 0);
+    const cfg = cfgFor(u.number) || {}; const skip = cfg.skip || {};   // as the wizard priced it: skipped steps and items not offered for this unit type are out
+    const pk = skip.furnishing ? null : find(P.packages, cfg.packageId), ds = skip.furnishing ? null : find(P.designs, cfg.designId), sm = skip.smartHome ? null : find(P.smart, cfg.smartId), op = skip.operations ? null : find(P.ops, cfg.opsId);
+    const kt0 = skip.kitchens ? null : find(P.kitchens, cfg.kitchenId), acS0 = skip.cooling ? null : find(P.ac, cfg.acId);
+    const ktPrice = kt0 ? D.kitchenTotalPrice(kt0, cfg.kitchenScope, u.typeId, cfg.kitchenAddons) : 0; const kt = ktPrice > 0 ? kt0 : null;
+    const acP = acS0 ? D.acTotalPrice(acS0, project.id, u.typeId, cfg.acAddons) : 0; const acS = acP > 0 ? acS0 : null;
+    const flL = (project.features && project.features.flooring && !skip.flooring && cfg.flooring) ? D.flooringLines(project.id, u.typeId, cfg.flooring) : []; const flP = flL.reduce((a, l) => a + l.amount, 0);
+    const layC = (project.features && project.features.layout && !skip.layout && cfg.layoutIds) ? D.layoutChosen(project.id, u.typeId, cfg.layoutIds) : []; const layP = layC.reduce((a, o) => a + D.layoutPrice(o, project), 0);
     const fo = !!(project.features && project.features.fitout && pk && pk.fitout && cfg.fitout);
     const pre = (pk ? ((pk.pricing || {})[u.typeId] || 0) : 0) + (sm ? (sm.price || 0) : 0) + (fo ? D.boqTotal(pk.fitout.boq) : 0) + ktPrice + acP + flP + layP;
     return { unit: u, pkg: pk, design: ds, palette: ds ? D.designPaletteById(ds, cfg.paletteId) : null, smart: sm, kitchen: kt, kitchenPalette: kt ? D.kitchenPaletteById(kt, cfg.kitchenPaletteId) : null, kitchenScope: kt ? D.kitchenScopeById(cfg.kitchenScope) : null, kitchenAddons: kt ? D.kitchenAddonsChosen(kt, cfg.kitchenScope, cfg.kitchenAddons) : [], kitchenPrice: D.withVat(ktPrice), ac: acS, acAddons: acS ? D.acAddonsChosen(acS, cfg.acAddons) : [], acPrice: D.withVat(acP), acPoints: acS ? D.coolingPointsFor(project.id, u.typeId) : [], flooring: flL, flooringUp: flL.filter((l) => l.finish), flooringPrice: D.withVat(flP), layout: layC, layoutPrice: D.withVat(layP), fitout: fo, furnish: D.withVatSum(pre - ktPrice - acP - flP - layP - (fo ? D.boqTotal(pk.fitout.boq) : 0), fo ? D.boqTotal(pk.fitout.boq) : 0, ktPrice, acP, flP, layP), ops: op };

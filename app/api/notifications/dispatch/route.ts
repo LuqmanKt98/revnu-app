@@ -1,5 +1,7 @@
 // POST /api/notifications/dispatch  { orderId? }  — send queued outbox rows (called by the
 // browser right after an order transition, by any signed-in user; only queued rows are touched).
+// POST { signingCode } without a session — the buyer's phone right after signing: only the queued rows
+// of the order behind that signing link, and only once the link is signed.
 // GET  /api/notifications/dispatch?secret=CRON_SECRET — sweeper for a scheduler (optional).
 import { NextResponse } from "next/server";
 import { currentSession } from "@/lib/auth/session";
@@ -36,10 +38,24 @@ async function dispatch(orderId?: string) {
   return { processed, mode: mailMode() };
 }
 
+/** "noor-khuzam-AB2CDE" or "AB2CDE" → "AB2CDE" (the link alphabet has no I, O, 0 or 1). */
+function signingCode(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const c = v.trim().split("-").pop()?.toUpperCase() || "";
+  return /^[A-HJ-NP-Z2-9]{6}$/.test(c) ? c : null;
+}
+
 export async function POST(req: Request) {
-  const { user } = await currentSession();
-  if (!user) return NextResponse.json({ code: "SESSION_EXPIRED" }, { status: 401 });
   const body = await req.json().catch(() => ({}));
+  const { user } = await currentSession();
+  if (!user) {
+    const code = signingCode(body.signingCode);
+    if (!code || !hasServiceRole()) return NextResponse.json({ code: "SESSION_EXPIRED" }, { status: 401 });
+    const { data: link } = await supabaseAdmin().from("signing_links").select("order_id, status").eq("code", code).maybeSingle();
+    if (!link || link.status !== "signed") return NextResponse.json({ processed: 0 });
+    try { return NextResponse.json(await dispatch(link.order_id)); }
+    catch (e) { return NextResponse.json({ error: (e as Error).message }, { status: 500 }); }
+  }
   try { return NextResponse.json(await dispatch(typeof body.orderId === "string" ? body.orderId : undefined)); }
   catch (e) { return NextResponse.json({ error: (e as Error).message }, { status: 500 }); }
 }
