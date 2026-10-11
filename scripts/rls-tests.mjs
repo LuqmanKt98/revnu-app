@@ -6,7 +6,7 @@
 //  and B-05 (upload gate bypass). Safe to run repeatedly: it cleans up after itself,
 //  and every value it changes (tagline, a unit's view) is written back as it found it.
 //  The public functions are rate-limited per IP (2 submissions + 1 signature per run;
-//  10 an hour), so about five runs an hour from one machine.
+//  30 submissions an hour), so about fifteen runs an hour from one machine.
 //
 //  Needs: NEXT_PUBLIC_SUPABASE_URL + ANON key in .env.local, and the seeded
 //  users' passwords (SEED-CREDENTIALS.local.txt from seed-users.mjs, or

@@ -129,8 +129,8 @@ Evidence and integrity rules (migration 018, after the 11 Oct 2026 audit):
 * **Prices.** A deferred constraint trigger refuses an order whose unit price is not the inventory price (list, or the
   beneficiary price) — `PRICE_MISMATCH`. Extras are still priced by the rep's app; VAT is rounded per line
   (`D.withVat`) so agreement lines always add up to the total.
-* **Public functions** are rate-limited per IP (`private.public_hits`): 30 unknown codes, 20 leads, 10 submissions and
-  10 signatures an hour → `RATE_LIMITED`. Test runs from one machine count too (`scripts/rls-tests.mjs` uses 2
+* **Public functions** are rate-limited per IP (`private.public_hits`, limits in `private.over_limit`): 60 unknown
+  codes, 60 leads, 30 submissions and 60 signatures an hour → `RATE_LIMITED` (set for shared office Wi-Fi and carrier NAT). Test runs from one machine count too (`scripts/rls-tests.mjs` uses 2
   submissions + 1 signature).
 * A suspended developer's live links show as paused; a revoked link cannot be extended; extending never passes the
   project's maximum validity (90 days for public links). The signing page receives no internal order fields.
