@@ -230,6 +230,7 @@ function buildBody(ctx, assets) {
   H += `<p style="font-family:${SANS};font-size:10pt;color:${MUT};line-height:1.55;margin-top:22px;border-top:1px solid ${LINE};padding-top:16px;">This Agreement records the sale of the Unit described herein by ${esc(developer.name)} (the “Seller”) to the Buyer named above, together with the interior furnishing, fit-out and (where applicable) operating services the Buyer has selected, and the investment projection on which the Buyer has relied. The Seller is the sole counterparty to the Buyer under this Agreement.</p>`;
 
   /* ===== §1 PARTIES + §2 PROPERTY ===== */
+  const signer = D.signerOf(developer, order);   // the signatory, signature and stamp this order was issued with
   H += pageBreak();
   H += letterhead(developer, brand, ref, today, logo);
   H += sectionHead("1", "The Parties", "", brand);
@@ -240,7 +241,7 @@ function buildBody(ctx, assets) {
     </td>
     <td style="width:50%;vertical-align:top;">
       <div style="font-family:${MONO};font-size:8.5pt;letter-spacing:1px;color:${SOFT};text-transform:uppercase;margin-bottom:3px;">The Seller</div>
-      ${kvTable(row2("Developer", legal) + row2("CR number", developer.crNumber) + (developer.vat ? row2("VAT", developer.vat) : "") + row2("Authorised signatory", developer.primaryContact) + row2("Contact", developer.primaryEmail))}
+      ${kvTable(row2("Developer", legal) + row2("CR number", developer.crNumber) + (developer.vat ? row2("VAT", developer.vat) : "") + row2("Authorised signatory", (signer.authorizedSigner || developer.primaryContact || "—") + (signer.authorizedSignerTitle ? " — " + signer.authorizedSignerTitle : "")) + row2("Contact", developer.primaryEmail))}
     </td>
   </tr></table>`;
   H += sectionHead("2", "The Property", "", brand);
@@ -395,6 +396,7 @@ function buildBody(ctx, assets) {
   }
   const TH3 = (cols) => `<tr style="border-bottom:1px solid ${INK};">${cols.map((h, i) => `<td style="font-family:${MONO};font-size:8pt;color:${SOFT};padding-bottom:5px;${i === cols.length - 1 ? "text-align:right;" : ""}">${h}</td>`).join("")}</tr>`;
   const line3 = (a, b, c, muted) => `<tr style="border-bottom:1px solid #EFEDE7;"><td style="padding:4px 0;font-family:${SANS};font-size:9pt;color:${MUT};">${esc(a)}</td><td style="padding:4px 0;font-family:${SANS};font-size:9pt;font-weight:bold;">${esc(b)}</td><td style="padding:4px 0;text-align:right;font-family:${MONO};font-size:9pt;${muted ? "color:" + SOFT + ";" : ""}">${esc(c)}</td></tr>`;
+  const vat3 = (r, net, total) => `<tr style="border-bottom:1px solid #EFEDE7;"><td style="padding:4px 0;font-family:${SANS};font-size:9pt;color:${MUT};">VAT 15%</td><td style="padding:4px 0;font-family:${SANS};font-size:9pt;color:${MUT};">${esc(r ? r.unit.number : "")}</td><td style="padding:4px 0;text-align:right;font-family:${MONO};font-size:9pt;">${esc(D.fmtSAR(Math.max(0, (total || 0) - net)))}</td></tr>`;
   const total3 = (label, r, v) => `<tr style="border-top:1.5px solid ${INK};"><td colspan="2" style="padding:6px 0;font-family:${SANS};font-size:10pt;font-weight:bold;">${esc(label)} · ${esc(r.unit.number)} <span style="color:${SOFT};font-size:8pt;font-weight:normal;">${esc((r.unit.type && r.unit.type.name) || "")} · incl. VAT</span></td><td style="text-align:right;font-family:${MONO};font-weight:bold;color:${brand};">${esc(D.fmtSAR(v || 0))} SAR</td></tr>`;
   // F-3 · Kitchen — one block per kitchen × scope × palette × optional items
   const kg = []; const ki = {};
@@ -403,10 +405,12 @@ function buildBody(ctx, assets) {
     const sc = g.kit.scopes && g.scope ? g.kit.scopes[g.scope.id] : null; const inc = (sc && sc.includes) || [];
     H += `<p style="font-family:${SANS};font-size:10pt;font-weight:bold;margin:20px 0 5px;">Appendix F-3${kg.length > 1 ? "." + (n + 1) : ""} · Kitchen <span style="font-family:${MONO};font-size:8.5pt;font-weight:normal;color:${SOFT};">${esc(g.rows.map((r) => r.unit.number).join(" · "))} · PRICED</span></p>`;
     H += kvTable(row2("Design", g.kit.name || "—") + row2("Colour palette", g.pal ? g.pal.name : "—") + row2("Scope", g.scope ? g.scope.name : "—"));
+    const addonsNet = g.addons.reduce((a, x) => a + (Number(x.price) || 0), 0); const baseOf = (r) => D.kitchenPrice(g.kit, g.scope ? g.scope.id : null, r.unit.typeId);
     H += `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">${TH3(["SCOPE", "ITEM", "PRICE (EXCL. VAT)"])}
       ${inc.map((it, i) => line3(i === 0 && g.scope ? g.scope.name : "", it, i === 0 ? "included" : "", true)).join("")}
-      ${g.addons.map((a, i) => line3(i === 0 ? "Optional items" : "", a.name || "", D.fmtSAR(Number(a.price) || 0))).join("")}
-      ${g.rows.map((r) => total3("Kitchen total", r, r.kitchenPrice)).join("")}
+      ${g.rows.map((r) => line3("Scope price", r.unit.number + " · " + ((r.unit.type && r.unit.type.name) || ""), D.fmtSAR(baseOf(r)))).join("")}
+      ${g.addons.map((a, i) => line3(i === 0 ? "Optional items" + (g.rows.length > 1 ? " · per unit" : "") : "", a.name || "", D.fmtSAR(Number(a.price) || 0))).join("")}
+      ${g.rows.map((r) => vat3(r, baseOf(r) + addonsNet, r.kitchenPrice) + total3("Kitchen total", r, r.kitchenPrice)).join("")}
     </table>`;
   });
   // F-4 · Cooling — one block per system × unit type × optional items
@@ -416,11 +420,11 @@ function buildBody(ctx, assets) {
     const ty = D.acTypeById(g.ac.type); const install = (Number(g.ac.install) || 0) * g.pts.length;
     H += `<p style="font-family:${SANS};font-size:10pt;font-weight:bold;margin:20px 0 5px;">Appendix F-4${ag.length > 1 ? "." + (n + 1) : ""} · Cooling <span style="font-family:${MONO};font-size:8.5pt;font-weight:normal;color:${SOFT};">${esc(g.rows.map((r) => r.unit.number).join(" · "))} · PRICED</span></p>`;
     H += kvTable(row2("System", (g.ac.brand || "") + " " + (g.ac.name || "")) + row2("Type", ty ? ty.en : "—") + row2("Warranty", g.ac.warrantyYears ? g.ac.warrantyYears + " years" : "—"));
-    H += `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">${TH3(["ROOM", "CAPACITY", "PRICE (EXCL. VAT)"])}
+    H += `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">${TH3(["ROOM", "CAPACITY", g.rows.length > 1 ? "PRICE PER UNIT (EXCL. VAT)" : "PRICE (EXCL. VAT)"])}
       ${g.pts.map((pt) => line3(pt.room || "", D.fmtSAR(pt.btu) + " BTU", D.fmtSAR(D.acTierPrice(g.ac, pt.btu)))).join("")}
       ${line3("Installation & commissioning", "× " + g.pts.length, D.fmtSAR(install))}
       ${g.addons.map((a, i) => line3(i === 0 ? "Optional items" : "", a.name || "", D.fmtSAR(Number(a.price) || 0))).join("")}
-      ${g.rows.map((r) => total3("Cooling total", r, r.acPrice)).join("")}
+      ${g.rows.map((r) => vat3(r, g.pts.reduce((a, pt) => a + D.acTierPrice(g.ac, pt.btu), 0) + install + g.addons.reduce((a, x) => a + (Number(x.price) || 0), 0), r.acPrice) + total3("Cooling total", r, r.acPrice)).join("")}
     </table>`;
   });
   // F-5 · Flooring upgrades — one table per unit with upgraded zones
@@ -431,6 +435,7 @@ function buildBody(ctx, assets) {
       <tr style="border-bottom:1px solid ${INK};">${[["ZONE", "l"], ["STANDARD (INCLUDED)", "l"], ["SELECTED FINISH · SIZE", "l"], ["AREA", "r"], ["RATE / m²", "r"], ["AMOUNT (EXCL. VAT)", "r"]].map(h => `<td style="font-family:${MONO};font-size:8pt;color:${SOFT};padding-bottom:5px;text-align:${h[1] === "r" ? "right" : "left"};">${h[0]}</td>`).join("")}</tr>
       ${r.flooring.map(l => `<tr style="border-bottom:1px solid #EFEDE7;"><td style="padding:4px 0;font-family:${SANS};font-size:9pt;${l.finish ? "font-weight:bold;" : "color:" + SOFT + ";"}">${esc(l.meta.en)}</td><td style="padding:4px 0;font-family:${SANS};font-size:9pt;color:${MUT};">${esc(l.standard ? l.standard.name : "—")}</td><td style="padding:4px 0;font-family:${SANS};font-size:9pt;${l.finish ? "font-weight:bold;" : "color:" + SOFT + ";"}">${esc(l.finish ? l.finish.name + (l.size ? " · " + l.size.label : "") : "As standard")}</td><td style="padding:4px 0;text-align:right;font-family:${MONO};font-size:9pt;">${esc(l.area)} m²</td><td style="padding:4px 0;text-align:right;font-family:${MONO};font-size:9pt;">${l.finish ? esc(D.fmtSAR(l.rate)) : "—"}</td><td style="padding:4px 0;text-align:right;font-family:${MONO};font-size:9pt;">${l.finish ? esc(D.fmtSAR(l.amount)) : "included"}</td></tr>`).join("")}
       <tr style="border-top:1px solid ${LINE};"><td colspan="5" style="padding:5px 0;font-family:${SANS};font-size:9pt;color:${MUT};">Flooring upgrade · net</td><td style="text-align:right;font-family:${MONO};font-size:9pt;">${esc(D.fmtSAR(net))}</td></tr>
+      <tr><td colspan="5" style="padding:4px 0;font-family:${SANS};font-size:9pt;color:${MUT};">VAT 15%</td><td style="text-align:right;font-family:${MONO};font-size:9pt;">${esc(D.fmtSAR(Math.max(0, (r.flooringPrice || 0) - net)))}</td></tr>
       <tr style="border-top:1.5px solid ${INK};"><td colspan="5" style="padding:6px 0;font-family:${SANS};font-size:10pt;font-weight:bold;">Flooring total · ${esc(r.unit.number)} <span style="color:${SOFT};font-size:8pt;font-weight:normal;">incl. VAT</span></td><td style="text-align:right;font-family:${MONO};font-weight:bold;color:${brand};">${esc(D.fmtSAR(r.flooringPrice || 0))} SAR</td></tr>
     </table>
     <p style="font-family:${SANS};font-size:8pt;color:${SOFT};margin-top:6px;line-height:1.5;">Zones marked “as standard” are delivered in the project's standard finish at no cost. Areas are nominal per unit type; natural stone and timber vary in tone and veining.</p>`;
@@ -441,6 +446,7 @@ function buildBody(ctx, assets) {
     H += `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
       <tr style="border-bottom:1px solid ${INK};">${[["AREA", "l"], ["AS DESIGNED → SELECTED", "l"], ["WORKS INCLUDED", "l"], ["ROOMS AFTER", "l"], ["PRICE (EXCL. VAT)", "r"]].map(h => `<td style="font-family:${MONO};font-size:8pt;color:${SOFT};padding-bottom:5px;text-align:${h[1] === "r" ? "right" : "left"};">${h[0]}</td>`).join("")}</tr>
       ${r.layout.map(o => { const price = D.layoutPrice(o, project); return `<tr style="border-bottom:1px solid #EFEDE7;"><td style="padding:4px 0;font-family:${SANS};font-size:9pt;font-weight:bold;vertical-align:top;">${esc(o.areaName || "")}</td><td style="padding:4px 0;font-family:${SANS};font-size:9pt;vertical-align:top;"><span style="color:${MUT};">${esc(o.asDesigned || "As designed")}</span> → ${esc(o.name)}</td><td style="padding:4px 0;font-family:${SANS};font-size:9pt;color:${MUT};vertical-align:top;">${esc((o.works || []).join(" · "))}</td><td style="padding:4px 0;font-family:${SANS};font-size:9pt;vertical-align:top;">${esc(o.roomsAfter || "—")}</td><td style="padding:4px 0;text-align:right;font-family:${MONO};font-size:9pt;vertical-align:top;">${price ? esc(D.fmtSAR(price)) : "no charge"}</td></tr>`; }).join("")}
+      <tr><td colspan="4" style="padding:4px 0;font-family:${SANS};font-size:9pt;color:${MUT};">VAT 15%</td><td style="text-align:right;font-family:${MONO};font-size:9pt;">${esc(D.fmtSAR(Math.max(0, (r.layoutPrice || 0) - r.layout.reduce((a, o) => a + D.layoutPrice(o, project), 0))))}</td></tr>
       <tr style="border-top:1.5px solid ${INK};"><td colspan="4" style="padding:6px 0;font-family:${SANS};font-size:10pt;font-weight:bold;">Layout total · ${esc(r.unit.number)} <span style="color:${SOFT};font-size:8pt;font-weight:normal;">incl. VAT</span></td><td style="text-align:right;font-family:${MONO};font-weight:bold;color:${brand};">${esc(D.fmtSAR(r.layoutPrice || 0))} SAR</td></tr>
     </table>
     <p style="font-family:${SANS};font-size:8pt;color:${SOFT};margin-top:6px;line-height:1.5;">Pre-approved modifications to non-load-bearing partitions and doors; the registered area and external envelope are unchanged. Where a modification changes the number or use of rooms, this appendix prevails over the room count in the unit description.</p>`;

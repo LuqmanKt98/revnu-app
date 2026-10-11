@@ -39,6 +39,10 @@ re-fetches everything when it regains focus, so colleagues see each other's chan
 | `…012_v2_remote_esign.sql` | `sale_links` (units / shortlist / public type links, single or round-robin routing), `sale_leads`, `submissions`, `signing_links`, `signatures`, `inbox_notifications`; rep RPCs (`sale_link_create/set`, `submission_accept/decline/assign_units`, `signing_link_create`, `update_order_customer`, `set_signatory`, `inbox_mark_read`); anon RPCs keyed by the 6-character code (`public_link_view/status/submit`, `public_lead_start/update`, `public_signing_view/read/sign`); `orders.contract_hash` = SHA-256 deal fingerprint |
 | `…013_v2_agreement_billing.sql` | `agreement_layouts` (Revnu master + per developer) and `agreement_versions`; `billing_settings` (price book) and `platform_invoices` (paid / reference / note only — invoices are derived in the app) |
 | `…014`–`…017` | lead dismiss, suspension (blocks new orders/links), signing evidence, clean-up policies |
+| `…018_v2_audit_fixes.sql` | first v2 audit: permission checks that cannot be NULL, signatory versions pinned per order (`developer_signatories`), read-every-page evidence per language with a server-side minimum, per-IP limits (`private.public_hits`), locked steps kept on the server, auto-decline on any sale, link validity caps, suspension pauses links |
+| `…019_v2_public_limits.sql` | the per-IP limits set for shared office Wi-Fi and carrier NAT |
+| `…020`–`…023` | `private.deal_prices()` (the wizard's pricing in SQL) and the deferred price check on every new order; "ready to sign" re-queued after an e-mail correction |
+| `…024_v2_second_audit_fixes.sql` | second v2 audit: the caller's IP from the edge only; reads counted per pagination; beneficiary flips re-price; operator fee, monthly net and the item columns checked; refusals before a REV number is drawn; unknown codes counted on every public function; signatory image allowlist; signing links (re)issued by the rep or a manager only; deterministic catalogue order; the outbox "sending" claim |
 
 IDs: text keys are kept where the UI shows or builds them (`REV-26-231`, `14094-A-5-1-101`, `NK-S`,
 `noor-khuzam`); people are `uuid = auth.users.id`. Bilingual fields keep the `_ar` suffix. `jsonb` is used
@@ -84,9 +88,11 @@ before, then stored in the public `media` bucket instead of as base64 inside the
 
 `transition_order()` writes an outbox row (`notifications`); the browser then calls
 `POST /api/notifications/dispatch` for that order (any signed-in user; only queued rows are touched).
-`lib/email/mailer.ts` logs in `MAIL_MODE=log` and sends through Resend otherwise. Templates are bilingual.
-A new or corrected buyer e-mail on an issued agreement queues "ready to sign" again (queued rows for the old address are
-superseded). The buyer is signed out when signing, so the sign page posts `{ signingCode }` to the same route, which
+`lib/email/mailer.ts` logs in `MAIL_MODE=log` and sends through Resend otherwise. Templates are bilingual. A dispatcher
+claims each row (`queued` → `sending`, a conditional update) before sending it, so two dispatchers never send the same
+e-mail; a claim older than ten minutes is retried.
+A new or corrected buyer e-mail on an issued agreement queues "ready to sign" again; a changed or removed address
+supersedes the rows still queued for the old one. The buyer is signed out when signing, so the sign page posts `{ signingCode }` to the same route, which
 sends only that signed order's queued rows.
 Sign-in never depends on e-mail; password-reset links do (Supabase Auth SMTP → Resend at cut-over).
 
@@ -116,37 +122,60 @@ Sign-in never depends on e-mail; password-reset links do (Supabase Auth SMTP →
    locked), issues it with the pinned agreement snapshot, opens a signing link. Any sale of a unit (remote or office,
    or a reinstated order) auto-declines pending submissions on it (trigger on `order_units`).
 4. The buyer reads every page and signs with a finger or typed name; `public_signing_sign()` records the signature,
-   consent, IP (from the gateway headers), device and the SHA-256 fingerprint, and moves the order to `signed`.
+   consent, IP, device and the SHA-256 fingerprint, and moves the order to `signed`. The phone sends the fingerprint of
+   the version on its screen; an agreement re-issued since (a buyer edit) is refused with `AGREEMENT_CHANGED` and reloads.
 5. The rep confirms the first payment by attaching the transfer receipt (mandatory) — `transition_order()` → `paid`.
 
-Evidence and integrity rules (migration 018, after the 11 Oct 2026 audit):
+Evidence and integrity rules (migrations 018 and 024, after the two audits of 11 Oct 2026):
 
-* **Read every page.** The phone reports its page list per language only once pagination has settled (fonts and
-  images loaded); a page counts as read when at least half of what fits of it stayed on screen for ~0.5 s.
-  `signing_links.pages` keeps the longest list per language and `read_log` entries carry the language. Signing needs a
-  language whose list is at least `private.agreement_min_pages()` long (a lower bound from the pinned layout) with every
-  page read in that language.
+* **Read every page.** Nothing is reported or counted until the agreement's pagination has settled (fonts and images
+  loaded) — there is no time-based fallback; until then the phone says "Preparing the pages…". The phone numbers its
+  sheets `p1…pN` and sends that list; a list in any other form (repeated or out-of-order ids) is ignored. Every read
+  records its language and the page count it was made on, so reads count only for that pagination: the same agreement
+  can paginate differently on another device or in the other language, and nothing from one pagination completes (or
+  blocks) another. Signing needs one pagination — language + N pages, N ≥ `private.agreement_min_pages()` (a lower bound
+  from the pinned layout) — with every page read in it. Any complete language suffices; reads stored before 024 carry no
+  page count and count for any.
 * **Signatory versions.** `developer_signatories` stores every signatory / signature / stamp version (written by a
   trigger on `developers`); issuing an order pins `orders.signatory_id`, which is part of the deal fingerprint. The
-  agreement, sign page, certificate, Word export and contract variables print the pinned version (`D.signerOf`).
+  agreement, sign page, certificate, Word export (including §1) and contract variables print the pinned version
+  (`D.signerOf`). Signature and stamp images are PNG/JPEG/WebP data URLs, files under `/brand/`, or this project's public
+  `media` bucket — no `..` and no percent-encoding (`private.safe_signatory_src`, also a CHECK on `developers`).
 * **Prices.** `private.deal_prices()` prices a deal on the server exactly as the wizard does (catalogue look-ups, skip
-  flags, feature switches, JavaScript arithmetic: double precision, `Math.round`, VAT per line). A deferred check on
-  every new order (`orders_check_prices`) refuses a unit price or any extras line more than 3 SAR per unit away, and a
-  kitchen or cooling choice on a project that does not offer it — `PRICE_MISMATCH`. The payload stores exactly what was
-  priced (each unit's full configuration in per-unit mode). VAT is rounded per line (`D.withVat`), so agreement lines
-  always add up to the total. Parity was proven on 600 randomised deals (kitchens, cooling, fit-out included).
+  flags, feature switches, JavaScript arithmetic: double precision, `Math.round`, VAT per line), including the operating
+  model's rental projection (`private.ops_annual_net`, identical to `D.opsEconomics` for every unit × model × price basis).
+  Every new order is checked before it draws its REV number (and again by a deferred trigger): the unit price, every
+  extras line, the monthly net (within 3 SAR per unit), the operator fee, and the item columns (package, smart home,
+  operating model of the first unit; kitchen and cooling of the first unit in per-unit mode, else of the first unit that
+  prices them) — `PRICE_MISMATCH`; a kitchen, cooling or catalogue item the project does not offer — `NOT_OFFERED:<item>`.
+  A refused order therefore never uses up a reference. Catalogue rows are listed in one order everywhere
+  (`created_at, id`), because the wizard takes the first layout option per area. VAT is rounded per line (`D.withVat`), so
+  agreement lines — and every priced Word appendix — add up to the total.
+* **Price basis.** "Housing-subsidy beneficiary" belongs to the buyer (`customer.beneficiary`), one answer per deal, in
+  the rep's wizard and on the buyer's phone (an older phone's answer kept with the configuration is moved to the buyer
+  when it submits). Flipping it on an order that is not yet signed re-prices the units from the inventory (and the rental
+  projection that follows the unit price), re-issues the agreement and restarts the buyer's reading.
 * **Public functions** are rate-limited per IP (`private.public_hits`, limits in `private.over_limit`): 60 unknown
-  codes, 60 leads, 30 submissions and 60 signatures an hour → `RATE_LIMITED` (set for shared office Wi-Fi and carrier NAT). Test runs from one machine count too (`scripts/rls-tests.mjs` uses 2
-  submissions + 1 signature).
-* A suspended developer's live links show as paused; a revoked link cannot be extended; extending never passes the
-  project's maximum validity (90 days for public links). The signing page receives no internal order fields.
-* Times on buyer documents (link expiry, signature, certificate) are printed in Riyadh time on every device.
+  codes, 60 leads, 30 submissions and 60 signatures an hour → `RATE_LIMITED` (set for shared office Wi-Fi and carrier
+  NAT). Every public function counts unknown codes and answers them with `{status: "not_found"}` (an error would roll the
+  count back). The IP is `cf-connecting-ip` (set by Cloudflare, which refuses a request carrying its own) or else the last
+  `x-forwarded-for` entry (appended by the gateway); nothing else the caller sends is used. Test runs from one machine
+  count too (`scripts/rls-tests.mjs` uses 2 submissions + 1 signature and removes its rows when it can).
+* A suspended developer's live links show as paused (view and status poll), and leads and submissions are refused; a
+  revoked link cannot be extended; extending never passes the project's maximum validity (90 days for public links).
+  The signing page receives no internal order fields. A new signing link (which revokes the open one) is issued only by
+  the order's rep, a manager (`team`) or Revnu staff. Routing reaches only active sales staff, checked at every routing.
+* Times on buyer documents (link expiry, signature, certificate) and in the developer's order drawer are printed in
+  Riyadh time on every device. A customisation deadline closes at the end of that day in Riyadh, in the wizard and on the
+  server (the database clock is UTC).
 
 ## 8. Known deliberate limitations
 
 * Payment gateway is out of scope (client decision). The e-signature is a finger signature + certificate on the buyer's
   phone (no Nafath / qualified e-signature provider).
 * Orders issued before migration 018 have no pinned signatory version; they show the developer's current signatory.
-* The operator fee and the monthly-net projection are not re-checked by the server (neither is an amount the buyer pays).
+* The Word export is in English whatever the interface language (the on-screen agreement and its print/PDF are bilingual).
+* Reading is evidenced by the buyer's own phone: an API client that holds a signing code can report reads it never made.
+  The server enforces the shape (p1…pN, one pagination, the minimum page count) and the time, IP and device are recorded.
 * Bulk CSV unit import runs on the client and inserts in one request (fine for hundreds of rows).
 * Order read scope for developer members is tenant-wide (client chose to mirror the prototype).

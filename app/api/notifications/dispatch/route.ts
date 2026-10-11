@@ -12,12 +12,20 @@ import { orderStatusMail } from "@/lib/email/templates";
 async function dispatch(orderId?: string) {
   if (!hasServiceRole()) return { processed: 0, skipped: "service role not configured" };
   const admin = supabaseAdmin();
-  let q = admin.from("notifications").select("*").eq("status", "queued").order("created_at").limit(50);
-  if (orderId) q = q.eq("order_id", orderId);
-  const { data: rows, error } = await q;
-  if (error) throw new Error(error.message);
+  // A claim older than this belongs to a dispatcher that stopped mid-send; the row is retried.
+  const stale = new Date(Date.now() - 10 * 60e3).toISOString();
+  const pick = () => { let q = admin.from("notifications").select("*").order("created_at").limit(50); if (orderId) q = q.eq("order_id", orderId); return q; };
+  const [queued, stuck] = await Promise.all([pick().eq("status", "queued"), pick().eq("status", "sending").lt("sent_at", stale)]);
+  if (queued.error) throw new Error(queued.error.message);
+  if (stuck.error) throw new Error(stuck.error.message);
   let processed = 0;
-  for (const n of rows || []) {
+  for (const n of [...(queued.data || []), ...(stuck.data || [])]) {
+    // Claim the row before sending: of two dispatchers racing for it, only the one whose update matched sends the e-mail.
+    let claim = admin.from("notifications").update({ status: "sending", sent_at: new Date().toISOString() }).eq("id", n.id);
+    claim = n.status === "queued" ? claim.eq("status", "queued") : claim.eq("status", "sending").lt("sent_at", stale);
+    const { data: mine, error: claimError } = await claim.select("id");
+    if (claimError) throw new Error(claimError.message);
+    if (!mine || !mine.length) continue;
     try {
       if (!n.to_email) { await admin.from("notifications").update({ status: "failed", error: "no recipient" }).eq("id", n.id); continue; }
       const { data: o } = await admin.from("orders").select("id, customer_name, developer_id, project_id, developers(name, name_ar), projects(name, name_ar)").eq("id", n.order_id).maybeSingle();

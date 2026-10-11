@@ -97,7 +97,7 @@
     "Activity by developer": "النشاط حسب المطور",
     "Save model": "حفظ النموذج", "Save tier": "حفظ الباقة", "Save design": "حفظ التصميم",
     "Save package": "حفظ الباقة", "Cancel": "إلغاء", "Discard": "تجاهل",
-    "Sales team": "فريق المبيعات", "Users & roles": "المستخدمون والصلاحيات", "Financials": "المالية", "Inventory": "المخزون",
+    "Sales team": "فريق المبيعات", "Users & roles": "المستخدمون والصلاحيات", "Financials": "المالية", "Inventory": "المخزون", "Signatory & stamp": "التوقيع والختم",
     "order statuses helper": "",
     "issued": "صدر العقد", "paid": "دفع العميل", "Contract issued": "صدر العقد", "Customer paid": "دفع العميل",
     // order statuses
