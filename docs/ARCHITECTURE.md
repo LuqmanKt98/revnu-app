@@ -43,6 +43,8 @@ re-fetches everything when it regains focus, so colleagues see each other's chan
 | `…019_v2_public_limits.sql` | the per-IP limits set for shared office Wi-Fi and carrier NAT |
 | `…020`–`…023` | `private.deal_prices()` (the wizard's pricing in SQL) and the deferred price check on every new order; "ready to sign" re-queued after an e-mail correction |
 | `…024_v2_second_audit_fixes.sql` | second v2 audit: the caller's IP from the edge only; reads counted per pagination; beneficiary flips re-price; operator fee, monthly net and the item columns checked; refusals before a REV number is drawn; unknown codes counted on every public function; signatory image allowlist; signing links (re)issued by the rep or a manager only; deterministic catalogue order; the outbox "sending" claim |
+| `…025_v2_hidden_steps_payment.sql` | client feedback: steps the rep switches off are hidden from the buyer (`private.effective_locks`: a Mandatory step left empty stays with the buyer); `projects.payment_details` (bank, IBAN, first payment %) — never on a sale link, on the signing page once signed |
+| `…026_v2_buyer_email_required.sql` | the buyer's e-mail is required wherever buyer details are checked (`private.clean_customer`) |
 
 IDs: text keys are kept where the UI shows or builds them (`REV-26-231`, `14094-A-5-1-101`, `NK-S`,
 `noor-khuzam`); people are `uuid = auth.users.id`. Bilingual fields keep the `_ar` suffix. `jsonb` is used
@@ -94,6 +96,11 @@ e-mail; a claim older than ten minutes is retried.
 A new or corrected buyer e-mail on an issued agreement queues "ready to sign" again; a changed or removed address
 supersedes the rows still queued for the old one. The buyer is signed out when signing, so the sign page posts `{ signingCode }` to the same route, which
 sends only that signed order's queued rows.
+When the project has payment details (HQ → project → Settings → Payment after signing), the "signed" e-mail carries the
+first payment (a % of the order total), the bank, account holder and IBAN, the order number as the reference and a link
+to the signed agreement; the buyer's signed screen and the rep's one-tap WhatsApp (`R.paymentMessage`) show the same
+figures (`R.paymentDue`). Links in e-mails use the request's origin. Until a sending domain is verified in Resend,
+production stays on `MAIL_MODE=log`; then set `MAIL_MODE=resend`, `RESEND_API_KEY` and `MAIL_FROM` on Vercel.
 Sign-in never depends on e-mail; password-reset links do (Supabase Auth SMTP → Resend at cut-over).
 
 ## 7. Frontend
@@ -117,7 +124,10 @@ Sign-in never depends on e-mail; password-reset links do (Supabase Auth SMTP →
    and sends it by WhatsApp (`wa.me` pre-filled message) or QR. Nothing is held. Routing pools only take sales staff
    (a commission level); the link opens in the language the rep chose unless the phone already picked one.
 2. The buyer opens it on the phone, configures, enters their details and submits (a public link first records a lead).
-   Steps the rep locked keep the rep's choices on the server (`private.apply_locks`), whatever the phone sends.
+   Steps the rep switched off are hidden from the buyer and keep the rep's choices on the server (`private.apply_locks`),
+   whatever the phone sends. Only steps that can be hidden count (`private.effective_locks` / `R.effectiveLocks`): one
+   with the rep's choice, one with nothing to pick (layout, flooring), or an Optional one (left out of the sale); a
+   Mandatory step the rep left empty stays with the buyer.
 3. The rep accepts with one tap: `submission_accept()` creates the order through `create_order_core()` (the unit is
    locked), issues it with the pinned agreement snapshot, opens a signing link. Any sale of a unit (remote or office,
    or a reinstated order) auto-declines pending submissions on it (trigger on `order_units`).

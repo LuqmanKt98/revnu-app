@@ -141,7 +141,7 @@ async function main() {
     orderId = await expectOk(rep.rpc("reserve_order_id"));
     if (!/^REV-26-\d+$/.test(orderId)) throw new Error("bad id " + orderId);
   });
-  const payload = (id, unit) => ({ id, projectId: "nk-noor-khuzam", unitNumbers: [unit], customerName: "RLS Test", customerId: "1000000000", customerEmail: "rls-test@example.com", customer: { fullName: "RLS Test", nationalId: "1000000000" }, packageId: "nk-pkg-modern-minimal", designId: "nk-modern-minimal", unitPrice: priceOf[unit] || 0, furnishCost: furnishOf[unit] || 0, status: "issued" });
+  const payload = (id, unit) => ({ id, projectId: "nk-noor-khuzam", unitNumbers: [unit], customerName: "RLS Test", customerId: "1000000000", customerEmail: "rls-test@example.com", customer: { fullName: "RLS Test", nationalId: "1000000000", email: "rls-test@example.com" }, packageId: "nk-pkg-modern-minimal", designId: "nk-modern-minimal", unitPrice: priceOf[unit] || 0, furnishCost: furnishOf[unit] || 0, status: "issued" });
   await t("create_order succeeds and locks the unit", async () => {
     await expectOk(rep.rpc("create_order", { p: payload(orderId, u1.number) }));
     const u = await expectOk(rep.from("units").select("status").eq("number", u1.number).single());
@@ -185,7 +185,7 @@ async function main() {
   // B10 rides on this order: a buyer's pending submission for u2 is declined the moment u2 is sold at the office.
   await t("a buyer submits for the unit finance is about to sell; an old phone's beneficiary answer lands on the buyer (B-1)", async () => {
     link2 = await expectOk(rep.rpc("sale_link_create", { p: { projectId: "nk-noor-khuzam", mode: "units", unitNumbers: [u2.number] } }));
-    sub2 = (await expectOk(anon.rpc("public_link_submit", { p_code: link2.code, p: { consent: true, selections: { beneficiary: true }, customer: { fullName: "RLS Buyer Two", nationalId: "1000000002", mobile: "0500000002" } } }))).submission;
+    sub2 = (await expectOk(anon.rpc("public_link_submit", { p_code: link2.code, p: { consent: true, selections: { beneficiary: true }, customer: { fullName: "RLS Buyer Two", nationalId: "1000000002", mobile: "0500000002", email: "rls-buyer2@example.com" } } }))).submission;
     const { customer } = await expectOk(rep.from("submissions").select("customer").eq("id", sub2.id).single());
     if (customer.beneficiary !== true) throw new Error(JSON.stringify(customer));
   });
@@ -255,19 +255,30 @@ async function main() {
   const free = await expectOk(rep.from("units").select("number").eq("status", "available").eq("project_id", "nk-noor-khuzam").limit(1));
   if (free.length < 1) throw new Error("need an available unit for the v2 tests");
   const freePrice = await listPrice(free[0].number);
-  let link = null, sub = null, acc = null, remoteOrder = null, myIp = null;
+  let link = null, link3 = null, sub = null, acc = null, remoteOrder = null, myIp = null;
   await t("rep creates a share link (design step locked)", async () => { link = await expectOk(rep.rpc("sale_link_create", { p: { projectId: "nk-noor-khuzam", mode: "units", unitNumbers: [free[0].number], customerHint: { name: "RLS Buyer" }, selections: { designId: "nk-modern-minimal" }, locks: { design: true } } })); });
   await t("the buyer's view hides HQ commercials and the routing", async () => {
     const v = await expectOk(anon.rpc("public_link_view", { p_code: link.slug + "-" + link.code, p_open: false }));
     if (v.status !== "live") throw new Error("status " + v.status);
     if ("commercials" in v.project || "plan" in v.developer || "routing" in v.link) throw new Error("internal data exposed");
+    if ("payment_details" in v.project) throw new Error("payment details sent with a sale link (P-1)");
   });
   await t("the buyer cannot submit without consent", () => expectErr(anon.rpc("public_link_submit", { p_code: link.code, p: { customer: { fullName: "RLS Buyer", nationalId: "1000000000" } } }), /CONSENT_REQUIRED/));
   await t("the buyer cannot submit an invalid national ID", () => expectErr(anon.rpc("public_link_submit", { p_code: link.code, p: { consent: true, customer: { fullName: "RLS Buyer", nationalId: "3000000000" } } }), /INVALID_NATIONAL_ID/));
-  await t("the buyer submits", async () => { const r = await expectOk(anon.rpc("public_link_submit", { p_code: link.code, p: { consent: true, customer: { fullName: "RLS Buyer", nationalId: "1000000000", mobile: "0500000000" }, selections: { designId: "HACKED", smartId: "nk-smart-basic" } } })); sub = r.submission; });
+  await t("the buyer cannot submit without an e-mail (E-1)", () => expectErr(anon.rpc("public_link_submit", { p_code: link.code, p: { consent: true, customer: { fullName: "RLS Buyer", nationalId: "1000000000", mobile: "0500000000" } } }), /EMAIL_REQUIRED/));
+  await t("the buyer submits", async () => { const r = await expectOk(anon.rpc("public_link_submit", { p_code: link.code, p: { consent: true, customer: { fullName: "RLS Buyer", nationalId: "1000000000", mobile: "0500000000", email: "rls-buyer@example.com" }, selections: { designId: "HACKED", smartId: "nk-smart-basic" } } })); sub = r.submission; });
   await t("a locked step keeps the rep's choice whatever the phone sends (S6)", async () => {
     const { selections } = await expectOk(rep.from("submissions").select("selections").eq("id", sub.id).single());
     if (selections.designId !== "nk-modern-minimal" || selections.smartId !== "nk-smart-basic") throw new Error(JSON.stringify(selections));
+  });
+  await t("a step the rep hid empty: Mandatory stays with the buyer, Optional is left out (H-1)", async () => {
+    const { optional } = await expectOk(rep.from("projects").select("optional").eq("id", "nk-noor-khuzam").single());
+    link3 = await expectOk(rep.rpc("sale_link_create", { p: { projectId: "nk-noor-khuzam", mode: "units", unitNumbers: [free[0].number], selections: {}, locks: { design: true, package: true, kitchen: true } } }));
+    const r = await expectOk(anon.rpc("public_link_submit", { p_code: link3.code, p: { consent: true, customer: { fullName: "RLS Buyer Three", nationalId: "1000000003", mobile: "0500000003", email: "rls-buyer3@example.com" },
+      selections: { designId: "nk-new-classic", packageId: "nk-pkg-new-classic", kitchenId: "nk-kit-linear" } } }));
+    const { selections } = await expectOk(rep.from("submissions").select("selections").eq("id", r.submission.id).single());
+    const keepsDesign = !(optional && optional.furnishing), keepsKitchen = !(optional && optional.kitchens);
+    if ((selections.designId === "nk-new-classic") !== keepsDesign || (selections.kitchenId === "nk-kit-linear") !== keepsKitchen) throw new Error(JSON.stringify({ optional, selections }));
   });
   await t("a second submission on the same link is refused", () => expectErr(anon.rpc("public_link_submit", { p_code: link.code, p: { consent: true, customer: { fullName: "Other", nationalId: "1000000001" } } }), /LINK_CLOSED/));
   await t("the rep sees the submission; Revnu staff see it too", async () => {
@@ -289,6 +300,7 @@ async function main() {
     const leaked = ["submission_id", "sale_link_code", "signed_contract_url", "payment_proof_url"].filter((k) => k in v.order);
     if (leaked.length) throw new Error("internal fields sent to the phone (S7): " + leaked.join(", "));
     if (!v.signatory || !v.signatory.id) throw new Error("the signatory version issued with the order is missing (B3)");
+    if ("payment_details" in v.project) throw new Error("payment details sent before signing (P-1)");
     hash = v.order.contract_hash;
   });
   const read = (section, sections, lang) => spoofer.rpc("public_signing_read", { p_code: acc.signingCode, p_section: section, p_sections: sections, p_lang: lang || "en" });
@@ -320,6 +332,10 @@ async function main() {
     const o = await expectOk(rep.from("orders").select("status, contract_hash").eq("id", remoteOrder).single());
     if (o.status !== "signed" || !o.contract_hash) throw new Error(JSON.stringify(o));
   });
+  await t("once signed, the agreement's page carries the project's payment details (P-1)", async () => {
+    const v = await expectOk(anon.rpc("public_signing_view", { p_code: acc.signingCode, p_open: false }));
+    if (!("payment_details" in v.project)) throw new Error("no payment details after signing");
+  });
   await t("the signature records the edge's address, not the one the phone claims (S-A)", async () => {
     const s = await expectOk(rep.from("signatures").select("ip").eq("order_id", remoteOrder).single());
     myIp = s.ip;
@@ -345,7 +361,7 @@ async function main() {
     const u = await expectOk(admin.from("units").select("status").eq("number", u1.number).single());
     if (u.status !== "available") throw new Error("unit still " + u.status);
     await admin.from("units").update({ view: u2view }).eq("number", u2.number);
-    const codes = [link && link.code, link2 && link2.code].filter(Boolean);
+    const codes = [link && link.code, link2 && link2.code, link3 && link3.code].filter(Boolean);
     if (codes.length) await expectRows(admin.from("sale_links").delete().in("code", codes).select("code"), codes.length);
     const { data: gone } = await admin.from("leads").delete().like("id", "L-RLS%").select("id");
     if (!gone || !gone.length) throw new Error("test lead was not cleaned up (super admin cannot delete leads)");
@@ -353,7 +369,7 @@ async function main() {
   });
   await t("only the inbox rows that name this run's links and orders are removed", async () => {
     // inbox rows are private to their owner (a delete must also pass the read rule): the rep clears her own
-    const marks = [link && link.code, link2 && link2.code, orderId, orderId2, remoteOrder].filter(Boolean);
+    const marks = [link && link.code, link2 && link2.code, link3 && link3.code, orderId, orderId2, remoteOrder].filter(Boolean);
     const mine = await expectOk(rep.from("inbox_notifications").select("id, title, body").gte("created_at", runStart));
     const ids = mine.filter((n) => marks.some((m) => new RegExp("\\b" + m + "\\b").test((n.title || "") + " " + (n.body || "")))).map((n) => n.id);
     if (ids.length) await expectOk(rep.from("inbox_notifications").delete().in("id", ids).select("id"));
