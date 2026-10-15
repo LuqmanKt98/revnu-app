@@ -21,7 +21,7 @@ async function signedExtras(admin: ReturnType<typeof supabaseAdmin>, o: { id: st
   const total = (Number(o.unit_price) || 0) + (Number(o.furnish_cost) || 0); const pct = Number(pd?.firstPct) || 0;
   const payment: Payment | null = pd && pd.iban ? {
     total, pct, amount: pct > 0 ? Math.round((total * pct) / 100) : null, days: Number(pd.dueDays) || null, bank: pd.bankName || "", bankAr: pd.bankNameAr || "",
-    holder: pd.accountName || "", iban: String(pd.iban).replace(/\s/g, "").toUpperCase(), note: pd.note || "", noteAr: pd.noteAr || "",
+    holder: pd.accountName || "", iban: String(pd.iban).trim(), note: pd.note || "", noteAr: pd.noteAr || "",
   } : null;
   const l = link.data as { code: string; slug: string | null } | null;
   return {

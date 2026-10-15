@@ -45,6 +45,7 @@ re-fetches everything when it regains focus, so colleagues see each other's chan
 | `…024_v2_second_audit_fixes.sql` | second v2 audit: the caller's IP from the edge only; reads counted per pagination; beneficiary flips re-price; operator fee, monthly net and the item columns checked; refusals before a REV number is drawn; unknown codes counted on every public function; signatory image allowlist; signing links (re)issued by the rep or a manager only; deterministic catalogue order; the outbox "sending" claim |
 | `…025_v2_hidden_steps_payment.sql` | client feedback: steps the rep switches off are hidden from the buyer (`private.effective_locks`: a Mandatory step left empty stays with the buyer); `projects.payment_details` (bank, IBAN, first payment %) — never on a sale link, on the signing page once signed |
 | `…026_v2_buyer_email_required.sql` | the buyer's e-mail is required wherever buyer details are checked (`private.clean_customer`) |
+| `…027_v2_payment_iban_free.sql` | the IBAN / account number in the payment details is kept as entered (any bank's format) |
 
 IDs: text keys are kept where the UI shows or builds them (`REV-26-231`, `14094-A-5-1-101`, `NK-S`,
 `noor-khuzam`); people are `uuid = auth.users.id`. Bilingual fields keep the `_ar` suffix. `jsonb` is used
@@ -99,8 +100,10 @@ sends only that signed order's queued rows.
 When the project has payment details (HQ → project → Settings → Payment after signing), the "signed" e-mail carries the
 first payment (a % of the order total), the bank, account holder and IBAN, the order number as the reference and a link
 to the signed agreement; the buyer's signed screen and the rep's one-tap WhatsApp (`R.paymentMessage`) show the same
-figures (`R.paymentDue`). Links in e-mails use the request's origin. Until a sending domain is verified in Resend,
-production stays on `MAIL_MODE=log`; then set `MAIL_MODE=resend`, `RESEND_API_KEY` and `MAIL_FROM` on Vercel.
+figures (`R.paymentDue`). Links in e-mails use the request's origin. Production sends through Resend
+(`MAIL_MODE=resend`, a sending-only `RESEND_API_KEY`) from `no-reply@notify.revnu.sa`: the subdomain is verified in
+Resend (region eu-west-1) with DKIM + return-path records at T2, so the Google Workspace mail on revnu.sa is untouched.
+Local development stays on `MAIL_MODE=log`.
 Sign-in never depends on e-mail; password-reset links do (Supabase Auth SMTP → Resend at cut-over).
 
 ## 7. Frontend

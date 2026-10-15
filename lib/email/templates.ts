@@ -34,7 +34,7 @@ const COPY: Record<string, { subject: string; subjectAr: string; body: string; b
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
 const sar = (n: number) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.round(n));
-const iban = (v: string) => v.replace(/(.{4})/g, "$1 ").trim();
+const iban = (v: string) => { const s = v.trim(); return /^[A-Za-z0-9]{9,}$/.test(s) ? s.replace(/(.{4})/g, "$1 ").trim() : s; };   // same as R.fmtIban
 const daysEn = (n: number) => n + (n === 1 ? " day" : " days");
 const daysAr = (n: number) => (n === 1 ? "يوم واحد" : n === 2 ? "يومين" : n >= 3 && n <= 10 ? n + " أيام" : n + " يومًا");
 const ltr = (s: string) => "‪" + s + "‬";   // a unit number inside Arabic text keeps its order (14094-A-5-1-202)

@@ -5424,10 +5424,10 @@ function PwPayment({ P }) {
   const set = (k) => (e) => { setF((x) => ({ ...x, [k]: e.target.value })); setSaved(false); };
   const save = () => {
     setErr(null);
-    const iban = f.iban.replace(/\s/g, "").toUpperCase(); const any = Object.values(f).some((v) => String(v).trim());
+    const iban = f.iban.trim(); const any = Object.values(f).some((v) => String(v).trim());   // the IBAN / account number is kept as entered (any bank's format)
     const pct = f.firstPct.trim() === "" ? null : Number(f.firstPct); const days = f.dueDays.trim() === "" ? null : Number(f.dueDays);
     if (any) {
-      if (!D.VALID.iban(iban)) return setErr(L("Enter a Saudi IBAN: SA followed by 22 digits.", "أدخل رقم آيبان سعودي: SA ثم 22 رقما."));
+      if (!iban) return setErr(L("Enter the IBAN or account number.", "أدخل رقم الآيبان أو رقم الحساب."));
       if (!f.bankName.trim() && !f.bankNameAr.trim()) return setErr(L("Enter the bank's name.", "أدخل اسم البنك."));
       if (!f.accountName.trim()) return setErr(L("Enter the account holder's name.", "أدخل اسم صاحب الحساب."));
       if (pct != null && !(pct >= 0 && pct <= 100)) return setErr(L("The first payment is a percentage between 0 and 100.", "الدفعة الأولى نسبة بين 0 و100."));
@@ -5446,7 +5446,7 @@ function PwPayment({ P }) {
         <Labeled label={L("Bank name", "اسم البنك")}><input className="input" value={f.bankName} placeholder="e.g. Al Rajhi Bank" onChange={set("bankName")} /></Labeled>
         <Labeled label={L("Bank name (Arabic)", "اسم البنك (عربي)")}><input className="input" dir="rtl" style={{ fontFamily: "var(--font-ar)" }} value={f.bankNameAr} placeholder="مثال: مصرف الراجحي" onChange={set("bankNameAr")} /></Labeled>
         <Labeled label={L("Account holder", "اسم صاحب الحساب")}><input className="input" value={f.accountName} placeholder={L("As printed on the bank account", "كما يظهر في الحساب البنكي")} onChange={set("accountName")} /></Labeled>
-        <Labeled label="IBAN"><input className="input mono" dir="ltr" value={f.iban} placeholder="SA00 0000 0000 0000 0000 0000" onChange={(e) => { setF((x) => ({ ...x, iban: e.target.value.toUpperCase() })); setSaved(false); }} /></Labeled>
+        <Labeled label="IBAN"><input className="input mono" dir="ltr" value={f.iban} placeholder="SA00 0000 0000 0000 0000 0000" onChange={set("iban")} /></Labeled>
         <Labeled label={L("First payment (% of the order total)", "الدفعة الأولى (% من إجمالي الطلب)")}>
           <div className="row" style={{ gap: 6 }}><input className="input mono" type="number" min="0" max="100" step="0.5" value={f.firstPct} placeholder={L("optional", "اختياري")} onChange={set("firstPct")} /><span className="muted">%</span></div>
           <div className="soft" style={{ fontSize: 11, marginTop: 4 }}>{pctN > 0 ? L("On a SAR 1,000,000 order: SAR " + D.fmtSAR(Math.round(1000000 * pctN / 100)) + ".", "لطلب بقيمة 1,000,000 ريال: " + D.fmtSAR(Math.round(1000000 * pctN / 100)) + " ريال.") : L("Leave empty to show no amount.", "اتركه فارغا لعدم عرض مبلغ.")}</div>
