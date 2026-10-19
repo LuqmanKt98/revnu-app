@@ -54,11 +54,11 @@
   function setAll(sel, fn) { document.querySelectorAll(sel).forEach(fn); }
 
   // ---- nav ----
-  var navMap = { "#win": "لماذا Revnu", "#calc": "احسب عائدك", "#how": "كيف نعمل", "#request": "سجل اهتمامك" };
+  var navMap = { "/why-us": "لماذا نحن", "/how-it-works": "كيف نعمل", "#request": "اطلب عرضًا" };
   document.querySelectorAll(".nav .links a").forEach(function (a) {
     var h = a.getAttribute("href");
     if (navMap[h]) a.textContent = navMap[h];
-    if (a.classList.contains("signin")) a.textContent = "دخول المطورين ←";
+    if (a.classList.contains("signin")) a.textContent = "تسجيل الدخول ←";
   });
 
   // ---- hero ----
@@ -73,7 +73,7 @@
     '<strong style="color:var(--cyan);font-weight:500;">المندوب</strong> يكسب عمولة أعلى على نفس الصفقة. ' +
     '<strong style="color:var(--cyan);font-weight:500;">والعميل</strong> يستلم وحدة جاهزة تدخل عليه من أول يوم.');
   var cta = document.querySelectorAll(".cta-row a");
-  if (cta[0]) cta[0].textContent = "سجل اهتمامك ←";
+  if (cta[0]) cta[0].textContent = "اطلب عرضًا ←";
   if (cta[1]) cta[1].textContent = "احسب عائدك ↓";
   var trustAr = [
     ["// نظام حماية البيانات", "متوافقة من التصميم"],
@@ -198,7 +198,7 @@
   set("#handle .panel .quote", "«اخترنا Revnu لأن العميل يظل عميلنا — وفوقها أضفنا خط ربح ما كان موجود. مندوبينا يتسابقون مين يسوي العرض.»");
   set("#handle .panel .author", "— شريك في التجربة · الرياض");
   var statLbls = document.querySelectorAll("#handle .stats .stat-lbl");
-  var statAr = ["// من الجلسة إلى التوقيع"];
+  var statAr = ["// من الجلسة إلى التوقيع", "// رسوم انضمام"];
   statLbls.forEach(function (el, i) { if (statAr[i]) el.textContent = statAr[i]; });
   var statNums = document.querySelectorAll("#handle .stats .stat-num");
   if (statNums[0]) statNums[0].textContent = "~٣٠ دقيقة";

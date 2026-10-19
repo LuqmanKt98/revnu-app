@@ -1,12 +1,474 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Revnu — A win-win-win plug-in for developer sales</title>
-<meta name="description" content="Revnu plugs into a developer's sales journey so they can sell furnished, operated, earning units. Developer earns more. Sales agent earns more. Customer earns more." />
-<link rel="icon" href="brand/favicon.svg" />
-<link rel="stylesheet" href="/styles.css" />
+<html lang="en"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Revnu — White-labelled real-estate sales</title>
+<meta name="description" content="Revnu is a white-labelled real-estate platform: buyers contract directly with the developer, we run sales, admin and operations behind the scenes.">
+<meta property="og:title" content="Revnu — White-labelled real-estate sales">
+<meta property="og:description" content="Buyers contract directly with the developer. Revnu runs sales, admin and operations behind the scenes.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<script src="/i18n.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="icon" href="/brand/favicon.svg" type="image/svg+xml">
+<style>/* ============================================================
+   Revnu — Apple-precision UI on official Revnu brand.
+   Deep Ink + Signal Blue + Cyan Pulse, Playfair / Outfit / JetBrains Mono.
+   Per-developer surfaces override --brand-* tokens to white-label.
+   ============================================================ */
+
+/* Almarai — Arabic typeface, served from /brand/fonts. Used when dir="rtl". */
+:root {
+  /* ----- Revnu palette ----- */
+  --ink:         #080B14;   /* Deep Ink — foundation */
+  --signal:      #4A8FE7;   /* Signal Blue — primary action */
+  --signal-deep: #2D6BC4;   /* Depth Blue — gradient end / hover */
+  --cyan:        #5EC4D4;   /* Cyan Pulse — tech accent */
+  --cloud:       #E8EDF5;   /* Cloud White — text on dark */
+  --sky:         #7BB3F5;   /* Sky Tint — highlight text */
+  --ivory:       #F8F5EE;   /* Warm Ivory — light ground */
+  --steel:       #555F73;   /* Muted Steel — secondary text */
+  --growth:      #4CAF88;   /* Growth Green */
+  --amber:       #E8A74E;   /* Amber */
+  --alert:       #E85454;   /* Alert Red */
+
+  /* ----- Neutrals (light surface) ----- */
+  --bg:         var(--ivory);
+  --bg-card:    #FFFFFF;
+  --bg-sunken:  #F3EFE6;
+  --bg-tint:    #ECE6D7;
+  --bg-strong:  #DDD6C3;
+  --line:       rgba(8,11,20,0.08);
+  --line-strong:rgba(8,11,20,0.16);
+  --text:       var(--ink);
+  --text-muted: var(--steel);
+  --text-soft:  #8A93A6;
+
+  /* ----- The current brand (overridable for white-label) ----- */
+  --brand:      var(--signal);
+  --brand-deep: var(--signal-deep);
+  --brand-soft: rgba(74,143,231,0.10);
+  --brand-text: #FFFFFF;
+  --brand-accent: var(--cyan);
+
+  /* Semantic */
+  --positive: var(--growth);
+  --warning:  var(--amber);
+  --danger:   var(--alert);
+
+  /* Type */
+  --font:         "Outfit", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-display: "Playfair Display", "Times New Roman", Georgia, serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-ar:      "Almarai", "Outfit", system-ui, sans-serif;
+
+  /* Radii / shadows */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+  --r-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(8,11,20,0.05), 0 1px 1px rgba(8,11,20,0.03);
+  --shadow-md: 0 6px 18px rgba(8,11,20,0.06), 0 1px 3px rgba(8,11,20,0.04);
+  --shadow-lg: 0 18px 48px rgba(8,11,20,0.12), 0 2px 6px rgba(8,11,20,0.05);
+  --shadow-pop:0 24px 64px rgba(8,11,20,0.22);
+}
+
+/* ============================================================ Base */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font);
+  font-size: 14px; line-height: 1.5; font-weight: 400;
+  color: var(--text);
+  background: var(--bg);
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: default; user-select: none; }
+a { color: inherit; text-decoration: none; }
+
+/* RTL — Arabic surface picks up Almarai automatically. */
+[dir="rtl"] {
+  font-family: var(--font-ar);
+}
+
+/* Arabic mode = ONLY Almarai across the entire system (display, body, mono). */
+html.lang-ar,
+html.lang-ar body {
+  --font:         "Almarai", system-ui, sans-serif;
+  --font-display: "Almarai", system-ui, sans-serif;
+  --font-mono:    "Almarai", ui-monospace, monospace;
+}
+html.lang-ar body { font-family: "Almarai", system-ui, sans-serif; }
+/* Arabic reads better a touch larger; relax the tight Latin letter-spacing. */
+html.lang-ar .display, html.lang-ar .display-xl, html.lang-ar .display-lg,
+html.lang-ar .display-md, html.lang-ar .display-sm, html.lang-ar .page-title,
+html.lang-ar .stat-value, html.lang-ar h1, html.lang-ar h2, html.lang-ar h3 {
+  letter-spacing: 0 !important;
+}
+html.lang-ar .eyebrow, html.lang-ar .tag-mono, html.lang-ar .side-section,
+html.lang-ar .stat-label, html.lang-ar th { letter-spacing: 0.02em; }
+/* Language segmented toggle (vanilla, used in page top-bars). */
+.i18n-toggle { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+.i18n-seg { height: 32px; padding: 0 12px; border: none; background: transparent; color: var(--text-muted);
+  font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.i18n-seg + .i18n-seg { border-inline-start: 1px solid var(--line-strong); }
+.i18n-seg.on { background: var(--brand); color: var(--brand-text); }
+[dir="rtl"] .display,
+[dir="rtl"] .display-xl,
+[dir="rtl"] .display-lg,
+[dir="rtl"] .display-md,
+[dir="rtl"] .display-sm,
+[dir="rtl"] .page-title,
+[dir="rtl"] .brand-mark .word { font-family: var(--font-ar); font-weight: 700; }
+
+/* ============================================================ Typography helpers */
+.display {
+  font-family: var(--font-display);
+  font-weight: 500; letter-spacing: -0.015em; line-height: 1.06;
+  color: var(--text);
+}
+.display-xl { font-family: var(--font-display); font-size: 56px; font-weight: 500; letter-spacing: -0.018em; line-height: 1.04; }
+.display-lg { font-family: var(--font-display); font-size: 40px; font-weight: 500; letter-spacing: -0.015em; line-height: 1.08; }
+.display-md { font-family: var(--font-display); font-size: 28px; font-weight: 500; letter-spacing: -0.012em; line-height: 1.12; }
+.display-sm { font-family: var(--font-display); font-size: 20px; font-weight: 500; letter-spacing: -0.008em; line-height: 1.2; }
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px; font-weight: 500; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--text-soft);
+}
+.tag-mono {
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 500; letter-spacing: 0.08em;
+}
+.muted   { color: var(--text-muted); }
+.soft    { color: var(--text-soft); }
+.mono    { font-family: var(--font-mono); }
+.num     { font-variant-numeric: tabular-nums; }
+.right   { text-align: right; }
+.center  { text-align: center; }
+.grow    { flex: 1; }
+.nowrap  { white-space: nowrap; }
+
+/* ============================================================ Layout */
+.row { display: flex; align-items: center; gap: 10px; }
+.row-between { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.col { display: flex; flex-direction: column; }
+.stack-sm { display: flex; flex-direction: column; gap: 8px; }
+.stack-md { display: flex; flex-direction: column; gap: 14px; }
+.stack-lg { display: flex; flex-direction: column; gap: 24px; }
+
+/* ============================================================ Card */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+.card-pad    { padding: 18px 20px; }
+.card-pad-lg { padding: 24px 28px; }
+.card-flush  { padding: 0; overflow: hidden; }
+
+/* ============================================================ Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 38px; padding: 0 18px;
+  border-radius: var(--r-pill);
+  font-family: var(--font);
+  font-size: 13px; font-weight: 500; letter-spacing: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.04s;
+  white-space: nowrap;
+}
+.btn:active { transform: translateY(0.5px); }
+.btn:disabled { opacity: 0.4; }
+.btn-primary { background: var(--brand); color: var(--brand-text); }
+.btn-primary:hover:not(:disabled) { background: var(--brand-deep); }
+.btn-secondary { background: var(--bg-card); border-color: var(--line-strong); color: var(--text); }
+.btn-secondary:hover { background: var(--bg-tint); }
+.btn-ghost { background: transparent; color: var(--text); }
+.btn-ghost:hover { background: rgba(8,11,20,0.06); }
+.btn-ink   { background: var(--ink); color: var(--cloud); }
+.btn-ink:hover { background: #15192A; }
+.btn-danger { background: var(--alert); color: #fff; }
+.btn-sm { height: 28px; padding: 0 12px; font-size: 12px; }
+.btn-lg { height: 46px; padding: 0 24px; font-size: 14px; }
+
+/* ============================================================ Inputs */
+.input, .select, .textarea {
+  display: block; width: 100%;
+  height: 38px; padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-card);
+  border-radius: var(--r-sm);
+  font-size: 13px; color: var(--text);
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.textarea { height: auto; padding: 10px 12px; line-height: 1.5; resize: vertical; }
+.input:focus, .select:focus, .textarea:focus {
+  outline: 0; border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+/* ============================================================ Chips & status */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 22px; padding: 0 10px;
+  border-radius: var(--r-pill);
+  background: var(--bg-tint); color: var(--text);
+  font-size: 11px; font-weight: 500;
+}
+.chip-mono { font-family: var(--font-mono); letter-spacing: 0.04em; }
+.chip-brand    { background: var(--brand-soft); color: var(--brand-deep); }
+.chip-cyan     { background: rgba(94,196,212,0.14); color: #2E7D8A; }
+.chip-positive { background: rgba(76,175,136,0.14); color: #2E7D52; }
+.chip-warning  { background: rgba(232,167,78,0.16); color: #946208; }
+.chip-danger   { background: rgba(232,84,84,0.12); color: #9F2828; }
+.chip-soft     { background: transparent; border: 1px solid var(--line-strong); color: var(--text-muted); }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; display: inline-block; }
+
+/* ============================================================ Table */
+.tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.tbl th, .tbl td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.tbl th {
+  font-family: var(--font-mono);
+  font-size: 10.5px; font-weight: 500; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-soft);
+  background: var(--bg-sunken);
+}
+.tbl tbody tr:hover { background: var(--bg-sunken); }
+.tbl tbody tr.tbl-active { background: var(--brand-soft); }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl-clickable tbody tr { cursor: default; }
+.tbl-flush th, .tbl-flush td { padding: 10px 14px; }
+
+/* ============================================================ App shell */
+.app-shell { min-height: 100vh; display: grid; grid-template-rows: 56px 1fr; }
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 22px;
+  background: rgba(248,245,238,0.78);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  position: sticky; top: 0; z-index: 50;
+}
+
+/* Brand-mark — the Revnu node + serif wordmark */
+.brand-mark { display: inline-flex; align-items: center; gap: 12px; }
+.brand-mark .node {
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.brand-mark .node svg { width: 100%; height: 100%; display: block; }
+.brand-mark .word {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: 22px; letter-spacing: 0.005em; color: var(--ink);
+  line-height: 1;
+}
+.brand-mark .sub {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
+  color: var(--text-soft); margin-top: 2px;
+  text-transform: uppercase;
+}
+
+/* Developer brand-mark (white-label) */
+.brand-mark .dev-glyph {
+  width: 28px; height: 28px; border-radius: 7px;
+  background: var(--brand); color: var(--brand-text);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-weight: 600; font-size: 14px;
+}
+
+.app-body { display: grid; grid-template-columns: 248px 1fr; min-height: 0; }
+.sidebar {
+  background: var(--bg-card);
+  border-inline-end: 1px solid var(--line);
+  padding: 16px 14px;
+  display: flex; flex-direction: column; gap: 3px;
+  position: sticky; top: 56px; align-self: start;
+  height: calc(100vh - 56px); overflow-y: auto;
+}
+.side-link {
+  position: relative;
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 12px; border-radius: var(--r-md, 10px);
+  color: var(--text-muted); font-size: 13.5px; font-weight: 500;
+  cursor: pointer; transition: background 0.13s, color 0.13s;
+  user-select: none;
+}
+.side-link:hover { background: var(--bg-tint); color: var(--text); }
+.side-link.active { background: var(--brand-soft); color: var(--brand-deep); font-weight: 600; }
+.side-link.active::before {
+  content: ""; position: absolute; inset-inline-start: -14px;
+  top: 50%; transform: translateY(-50%);
+  width: 3px; height: 20px; border-radius: 0 3px 3px 0;
+  background: var(--brand);
+}
+[dir="rtl"] .side-link.active::before { border-radius: 3px 0 0 3px; }
+.side-link svg { width: 17px; height: 17px; flex-shrink: 0; opacity: 0.85; }
+.side-link.active svg { opacity: 1; }
+.side-section {
+  font-family: var(--font-mono);
+  font-size: 10px; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--text-soft);
+  padding: 16px 12px 6px; margin-top: 2px;
+}
+.side-section:first-child { margin-top: 0; padding-top: 4px; }
+
+.page-body { padding: 28px 36px 80px; max-width: 1320px; margin: 0 auto; width: 100%; }
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 24px; }
+.page-title { font-family: var(--font-display); font-weight: 500; font-size: 30px; letter-spacing: -0.012em; margin: 0 0 4px; color: var(--ink); }
+.page-sub { color: var(--text-muted); font-size: 13.5px; margin: 0; }
+
+/* ============================================================ Hub-back pill */
+.hub-pill {
+  position: fixed; top: 12px; right: 14px; z-index: 200;
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 30px; padding: 0 14px 0 6px;
+  border-radius: var(--r-pill);
+  background: rgba(255,255,255,0.88);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  font-size: 12px; font-weight: 500; color: var(--text);
+}
+.hub-pill .arrow {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--ink); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+}
+.hub-pill:hover { background: #fff; }
+
+/* ============================================================ Stat */
+.stat {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.stat-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px; font-weight: 500; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-soft);
+}
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 32px; font-weight: 500; letter-spacing: -0.012em;
+  line-height: 1.1;
+}
+.stat-delta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.stat-delta.up { color: var(--positive); }
+.stat-delta.dn { color: var(--danger); }
+
+/* ============================================================ Tabs */
+.tabs {
+  display: inline-flex; gap: 4px; padding: 4px;
+  background: var(--bg-tint); border-radius: var(--r-md);
+}
+.tab {
+  padding: 7px 14px; border-radius: var(--r-sm);
+  background: transparent; border: 0;
+  font-size: 12.5px; font-weight: 500; color: var(--text-muted);
+}
+.tab.active { background: var(--bg-card); color: var(--text); box-shadow: var(--shadow-sm); }
+
+/* ============================================================ Misc */
+.hr-thin   { height: 1px; background: var(--line); border: 0; margin: 0; }
+.hr-dotted { height: 1px; background: repeating-linear-gradient(90deg, var(--line-strong) 0 1px, transparent 1px 4px); border: 0; margin: 0; }
+.divider-v { width: 1px; align-self: stretch; background: var(--line); }
+
+/* Powered-by Revnu lockup — printable badge */
+.powered {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
+  color: var(--text-soft); text-transform: uppercase;
+}
+.powered .rev {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--ink); font-family: var(--font-display);
+  font-size: 12px; font-weight: 500; letter-spacing: 0;
+  text-transform: none;
+}
+.powered .rev .nd { width: 12px; height: 12px; }
+.powered .rev .nd svg { width: 100%; height: 100%; display: block; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(8,11,20,0.18); border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: rgba(8,11,20,0.32); border: 2px solid transparent; background-clip: content-box; }
+
+
+/* ===== Signature (branded) package tier ===== */
+@keyframes sigSheen {
+  0%   { transform: translateX(-130%) skewX(-18deg); }
+  60%  { transform: translateX(230%) skewX(-18deg); }
+  100% { transform: translateX(230%) skewX(-18deg); }
+}
+.pkg-signature {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(150deg, #14161d 0%, #1d212c 55%, #232838 100%) !important;
+  border: 1px solid rgba(201, 168, 105, 0.55) !important;
+  color: #f2eee6;
+  box-shadow: 0 10px 32px rgba(10, 12, 18, 0.35);
+}
+.pkg-signature::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; width: 45%;
+  inset-inline-start: 0;
+  background: linear-gradient(100deg, transparent 15%, rgba(214, 184, 124, 0.13) 50%, transparent 85%);
+  animation: sigSheen 4.5s ease-in-out infinite;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) { .pkg-signature::after { animation: none; } }
+.pkg-signature h3 { color: #f4efe4 !important; }
+.pkg-signature .opt-body, .pkg-signature .muted { color: rgba(235, 228, 213, 0.78) !important; }
+.pkg-signature .soft { color: rgba(214, 184, 124, 0.95) !important; }
+.pkg-signature .price { color: #e8d9b5 !important; }
+.pkg-signature.selected, .pkg-signature.opt.selected {
+  border-color: #d6b87c !important;
+  box-shadow: 0 0 0 2px rgba(214, 184, 124, 0.45), 0 12px 36px rgba(10, 12, 18, 0.45);
+}
+.sig-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono); font-size: 9.5px; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: #14161d; background: linear-gradient(120deg, #e9d6a8, #c9a869);
+  border-radius: 20px; padding: 3px 10px;
+}
+.sig-brandlogo {
+  height: 30px; max-width: 110px; object-fit: contain;
+  filter: brightness(0) invert(1); opacity: 0.92;
+}
+.sig-brandname {
+  font-family: var(--font-display); font-size: 13px; letter-spacing: 0.22em;
+  text-transform: uppercase; color: #e8d9b5;
+}
+
+.pkg-signature .btn-ghost { color: #e8d9b5 !important; }
+.pkg-signature .btn-secondary { background: rgba(242, 238, 230, 0.1); color: #f2eee6; border-color: rgba(214, 184, 124, 0.4); }
+.pkg-signature .chip { background: rgba(242, 238, 230, 0.12); color: #e8d9b5; border-color: rgba(214,184,124,0.35); }
+
+.pkg-signature li { background: rgba(242, 238, 230, 0.08) !important; color: #ece7da; }
+.pkg-signature li .soft, .pkg-signature li span { color: #ece7da !important; }
+.pkg-signature details { background: rgba(242, 238, 230, 0.07) !important; color: #ece7da; }
+.pkg-signature details summary, .pkg-signature details td, .pkg-signature details th { color: #d8d2c2 !important; }
+
+.pkg-signature [style*="bg-sunken"] { background: rgba(242, 238, 230, 0.08) !important; color: #ece7da; }
+.pkg-signature [style*="bg-sunken"] .soft { color: rgba(214, 184, 124, 0.9) !important; }
+.pkg-signature [style*="bg-sunken"] .mono { color: #f2eee6 !important; }
+</style>
 <style>
 body { background: var(--ivory); overflow-x: hidden; }
 
@@ -34,6 +496,31 @@ body { background: var(--ivory); overflow-x: hidden; }
   font-size: 13px; font-weight: 500;
 }
 .nav .signin:hover { background: #15192A; }
+
+/* ===================== Homepage video ===================== */
+.home-video {
+  padding: 28px 24px 64px;
+  background: var(--ivory);
+}
+.home-video-frame {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--ink);
+  box-shadow: 0 24px 64px rgba(8,11,20,0.16);
+}
+.home-video video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+@media (max-width: 640px) {
+  .home-video { padding: 10px 10px 44px; }
+  .home-video-frame { border-radius: 12px; }
+}
 
 /* ===================== Hero ===================== */
 .hero { margin: 28px 24px; max-width: 1320px; }
@@ -735,29 +1222,22 @@ html { scroll-behavior: smooth; }
 }
 
 </style>
-<meta name="ext-resource-dependency" content="brand/noor-khuzam-logo-dark.png" data-resource-id="brand_noor_khuzam_logo_dark_png" />
-<meta name="ext-resource-dependency" content="brand/noor-khuzam-logo-white.png" data-resource-id="brand_noor_khuzam_logo_white_png" />
+
 </head>
 <body>
-<template id="__bundler_thumbnail" data-bg-color="#080B14">
-  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
-    <rect width="1200" height="800" fill="#080B14"></rect>
-    <rect x="470" y="270" width="260" height="260" rx="64" fill="#5EC4D4"></rect>
-    <text x="600" y="445" font-family="Georgia, serif" font-size="170" font-weight="700" fill="#080B14" text-anchor="middle">R</text>
-  </svg>
-</template>
+
+
 
 <header class="nav">
   <div class="brand-mark">
-    <span class="node"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="42" fill="none" stroke="#080B14" stroke-width="14"/><circle cx="100" cy="100" r="18" fill="#080B14"/></svg></span>
+    <span class="node"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="42" fill="none" stroke="#080B14" stroke-width="14"></circle><circle cx="100" cy="100" r="18" fill="#080B14"></circle></svg></span>
     <span class="word">Revnu</span>
   </div>
   <div class="links">
-    <a href="#win">Why it works</a>
-    <a href="#calc">See the upside</a>
-    <a href="#how">How it works</a>
-    <a href="#request">Request access</a>
-    <a class="signin" href="/login">Developer sign-in →</a>
+    <a href="/why-us" target="_top">Why Us</a>
+    <a href="/how-it-works" target="_top">How It Works</a>
+    <a href="#request">Request demo</a>
+    <a class="signin" href="/auth" target="_top">Sign in →</a>
   </div>
 </header>
 
@@ -776,187 +1256,22 @@ html { scroll-behavior: smooth; }
       <strong style="color: var(--cyan); font-weight: 500;">The customer</strong> receives a ready unit that pays them from day one.
     </p>
     <div class="cta-row">
-      <a href="#request" class="btn-cyan">Request access →</a>
-      <a href="#calc" class="btn-line-dark">See the upside ↓</a>
+      <a href="#request" class="btn-cyan">Request demo →</a>
+      <a href="/how-it-works#calc" class="btn-line-dark">See the upside ↓</a>
     </div>
     <div class="trust">
       <div class="pr"><strong>// SAUDI PDPL</strong>compliant by design</div>
       <div class="pr"><strong>// E-SIGNATURE</strong>ready out of the box</div>
       <div class="pr"><strong>// ARABIC + ENGLISH</strong>contract pack</div>
-      <div class="pr"><strong>// 8 STEPS</strong>average 30-min session</div>
+      <div class="pr"><strong>// 11 STEPS</strong>average 30-min session</div>
     </div>
   </div>
 </section>
 
-<!-- ====================== WIN × WIN × WIN ====================== -->
-<section class="section" id="win">
-  <div class="section-head reveal">
-    <div class="section-eye">// WIN · WIN · WIN</div>
-    <h2>One deal.. and everyone walks out winning.</h2>
-    <p>Three parties sit around the table when a unit is sold — and Revnu is built so each one of them gains, without taking sides.</p>
-  </div>
-
-  <div class="www-wrap reveal d2">
-    <!-- Connecting lines between the 3 cards -->
-    <div class="www-lines" aria-hidden="true">
-      <svg viewBox="0 0 1000 60" preserveAspectRatio="none">
-        <path d="M 167 30 Q 333 -10 500 30" />
-        <path d="M 500 30 Q 667 70 833 30" />
-        <path d="M 167 30 Q 500 90 833 30" />
-      </svg>
-    </div>
-
-    <div class="www">
-      <!-- Developer -->
-      <div class="win developer">
-        <div class="badge"><span class="nm">01</span>// THE DEVELOPER</div>
-        <h3>Extra income on every unit you already sell.</h3>
-        <p class="who">Same building, same buyer — but now you also sell the furnishing and smart home with it, and keep a share of the operating income for years.</p>
-        <div class="gain">
-          <div>
-            <div style="font-size: 11px; letter-spacing: 0.04em; color: var(--text-soft);">Avg uplift per unit</div>
-            <div class="v" id="dev-uplift">+62K</div>
-          </div>
-          <div class="l">SAR</div>
-        </div>
-        <ul>
-          <li><span class="ck"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span>Furnishing margin + smart-home uplift on every signed unit.</span></li>
-          <li><span class="ck"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span>A share of the operating revenue — paid for years after handover.</span></li>
-          <li><span class="ck"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span>Brand-protected: your portal, your URL, your contracts.</span></li>
-        </ul>
-      </div>
-
-      <!-- Agent -->
-      <div class="win agent">
-        <div class="badge"><span class="nm">02</span>// THE SALES AGENT</div>
-        <h3>A bigger commission on the same deal.</h3>
-        <p class="who">Every furnishing package, smart-home layer and operating model the agent closes makes the ticket bigger — and their commission grows with it.</p>
-        <div class="gain">
-          <div>
-            <div style="font-size: 11px; letter-spacing: 0.04em; color: var(--text-soft);">Extra commission per deal</div>
-            <div class="v" id="agent-uplift">+8.4K</div>
-          </div>
-          <div class="l">SAR</div>
-        </div>
-        <ul>
-          <li><span class="ck"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span>1% commission on the entire furnishing pack they close.</span></li>
-          <li><span class="ck"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span>Higher conversion — one session, one signature, one ticket.</span></li>
-          <li><span class="ck"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span>A 8-step flow the agent looks senior on — not a sales pitch.</span></li>
-        </ul>
-      </div>
-
-      <!-- Customer -->
-      <div class="win customer">
-        <div class="badge"><span class="nm">03</span>// THE CUSTOMER</div>
-        <h3>Wholesale furnishing prices.. and income from day one.</h3>
-        <p class="who">A regular buyer can’t reach developer prices for furniture and operations. Through Revnu they can — and their unit starts earning the day they receive the keys.</p>
-        <div class="gain">
-          <div>
-            <div style="font-size: 11px; letter-spacing: 0.04em; color: var(--text-soft);">Savings vs DIY furnishing</div>
-            <div class="v" id="customer-uplift">~20%</div>
-          </div>
-          <div class="l">PRICE</div>
-        </div>
-        <ul>
-          <li><span class="ck"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span>Bulk-priced furnishing &amp; smart home — we buy at scale.</span></li>
-          <li><span class="ck"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span>Daily / Monthly / Long lease — the unit earns from day one.</span></li>
-          <li><span class="ck"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span>A signed contract pack in their hand by the end of the meeting.</span></li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ====================== LIVE UPSIDE CALCULATOR ====================== -->
-<section class="section" id="calc">
-  <div class="section-head reveal">
-    <div class="section-eye">// SEE THE UPSIDE</div>
-    <h2>Enter your project numbers.. and see the difference for yourself.</h2>
-    <p>Drag the sliders — the numbers below recalculate live, using the platform’s actual math on a typical developer deal.</p>
-  </div>
-
-  <div class="calc-wrap reveal d2">
-    <div class="calc-grid">
-      <div class="calc-head">
-        <h3>Your next project</h3>
-        <p>A back-of-envelope, but accurate to the platform's actual maths. Assumes Tier-II Full Home package and Daily / Airbnb operating model. Figures are indicative — your numbers are set when we onboard you.</p>
-
-        <div class="calc-input">
-          <label>Avg unit price <span class="v" id="lblPrice">2,000,000 SAR</span></label>
-          <input type="range" id="inPrice" min="100000" max="6000000" step="50000" value="2000000" />
-        </div>
-        <div class="calc-input">
-          <label>Units sold per quarter <span class="v" id="lblUnits">40</span></label>
-          <input type="range" id="inUnits" min="5" max="200" step="1" value="40" />
-        </div>
-        <div class="calc-input">
-          <label>Furnishing as % of unit price <span class="v" id="lblPct">10.0%</span></label>
-          <input type="range" id="inPct" min="4" max="15" step="0.5" value="10" />
-        </div>
-      </div>
-
-      <div class="calc-out">
-        <div class="ro">
-          <div class="nm"><span class="who">// DEVELOPER</span>Furnishing margin per unit</div>
-          <div class="val" id="oDevFurn">— <span class="u">SAR</span></div>
-        </div>
-        <div class="ro">
-          <div class="nm"><span class="who">// DEVELOPER</span>Operating-revenue share / yr <span style="font-family: var(--font-mono); font-size: 9.5px; color: var(--cyan); letter-spacing: 0.08em; margin-left: 6px;">(ILLUSTRATIVE)</span></div>
-          <div class="val" id="oDevOps">— <span class="u">SAR</span></div>
-        </div>
-        <div class="ro">
-          <div class="nm"><span class="who">// AGENT</span>Extra commission per closed unit</div>
-          <div class="val" id="oAgent">— <span class="u">SAR</span></div>
-        </div>
-        <div class="ro">
-          <div class="nm"><span class="who">// CUSTOMER</span>Annual net to owner (avg)</div>
-          <div class="val" id="oCust">— <span class="u">SAR</span></div>
-        </div>
-        <div class="total">
-          <div class="nm">// Developer additional revenue · this quarter</div>
-          <div class="v" id="oQuarter">— SAR</div>
-        </div>
-        <div class="calc-fine">// FIGURES ARE INDICATIVE · CONFIGURED PER DEVELOPER IN ONBOARDING</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ====================== HOW IT WORKS ====================== -->
-<section class="section" id="how">
-  <div class="section-head left reveal">
-    <div class="section-eye">// HOW IT WORKS</div>
-    <h2>From a signed deal to monthly payouts — all under your name.</h2>
-  </div>
-
-  <div class="flow reveal d2">
-    <div class="flow-grid">
-      <div class="flow-step">
-        <span class="n">01</span>
-        <h4>We onboard you</h4>
-        <p>One workshop. We upload your projects, units, designs, packages, contract templates and brand into your tenant.</p>
-      </div>
-      <div class="flow-step">
-        <span class="n">02</span>
-        <h4>Your team signs in</h4>
-        <p>Sales reps and managers log into <em>your</em> branded portal. Role-based access. SSO if you need it.</p>
-      </div>
-      <div class="flow-step">
-        <span class="n">03</span>
-        <h4>They walk the buyer through</h4>
-        <p>The 8-step Sales flow on a tablet. Each step is configurable per project. Pricing comes from your numbers.</p>
-      </div>
-      <div class="flow-step">
-        <span class="n">04</span>
-        <h4>Sign in the same session</h4>
-        <p>The contract pack is generated under your letterhead and sent for e-signature on the spot.</p>
-      </div>
-      <div class="flow-step">
-        <span class="n">05</span>
-        <h4>We operate, you get paid</h4>
-        <p>Revnu handles the back-to-back delivery — furnishing, hosting, payouts — under your name. You see everything in your admin.</p>
-      </div>
-    </div>
+<!-- ====================== PRODUCT VIDEO ====================== -->
+<section class="home-video" aria-label="Revnu overview video">
+  <div class="home-video-frame">
+    <video id="homeOverviewVideo" controls playsinline preload="metadata"></video>
   </div>
 </section>
 
@@ -969,13 +1284,13 @@ html { scroll-behavior: smooth; }
 
   <div class="handle">
     <ul class="reveal">
-      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span class="what">Furnishing packages</span><span class="desc">Tiered, priced per unit type, 5-year warranty. We source at developer scale.</span></li>
-      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span class="what">Design styles</span><span class="desc">Curated visual directions per project. The customer picks the feeling; price is identical.</span></li>
-      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span class="what">Smart home</span><span class="desc">Optional layers — smart lock, climate, lighting, audio. A fixed-price kit per tier.</span></li>
-      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span class="what">Payment plans</span><span class="desc">Full payment, instalments, bank finance. Discounts and surcharges applied live.</span></li>
-      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span class="what">Operating models</span><span class="desc">Daily / Monthly / Long lease. Rate × occupancy maths — the calculator derives yield.</span></li>
-      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span class="what">Contracts</span><span class="desc">Your templates. Auto-filled from buyer + unit + choices. Buyer signs with you, not us.</span></li>
-      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span class="what">Per-project flexibility</span><span class="desc">Not every project needs every layer. Toggle furnishing, smart, ops on / off per project.</span></li>
+      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg></span><span class="what">Furnishing packages</span><span class="desc">Tiered, priced per unit type, 5-year warranty. We source at developer scale.</span></li>
+      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg></span><span class="what">Design styles</span><span class="desc">Curated visual directions per project. The customer picks the feeling; price is identical.</span></li>
+      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg></span><span class="what">Smart home</span><span class="desc">Optional layers — smart lock, climate, lighting, audio. A fixed-price kit per tier.</span></li>
+      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg></span><span class="what">Payment plans</span><span class="desc">Full payment, instalments, bank finance. Discounts and surcharges applied live.</span></li>
+      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg></span><span class="what">Operating models</span><span class="desc">Daily / Monthly / Long lease. Rate × occupancy maths — the calculator derives yield.</span></li>
+      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg></span><span class="what">Contracts</span><span class="desc">Your templates. Auto-filled from buyer + unit + choices. Buyer signs with you, not us.</span></li>
+      <li><span class="check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg></span><span class="what">Per-project flexibility</span><span class="desc">Not every project needs every layer. Toggle furnishing, smart, ops on / off per project.</span></li>
     </ul>
 
     <aside class="panel reveal d2">
@@ -985,6 +1300,10 @@ html { scroll-behavior: smooth; }
         <div>
           <div class="stat-num">~30 min</div>
           <div class="stat-lbl">// SESSION TO SIGNED</div>
+        </div>
+        <div>
+          <div class="stat-num">0</div>
+          <div class="stat-lbl">// FEES TO ONBOARD</div>
         </div>
       </div>
     </aside>
@@ -999,7 +1318,7 @@ html { scroll-behavior: smooth; }
     <div class="d">In live pilot across multiple regions.</div>
   </div>
   <div class="bn reveal d2">
-    <div class="v"><span class="count" data-to="8" data-suf="">0</span></div>
+    <div class="v"><span class="count" data-to="11" data-suf="">0</span></div>
     <div class="l">// STEP SALES FLOW</div>
     <div class="d">Each step toggleable per project. 30-minute average session.</div>
   </div>
@@ -1023,18 +1342,17 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <form class="form" id="request-form" novalidate>
-      <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;inset-inline-start:-9999px;opacity:0;height:0;width:0" />
+    <form class="form" id="request-form" novalidate="">
       <div class="pair">
-        <div class="field"><label>Full name</label><input name="name" type="text" placeholder="Abdullah Najjar" required /></div>
-        <div class="field"><label>Role</label><input name="role" type="text" placeholder="Head of Sales" /></div>
+        <div class="field"><label>Full name</label><input name="name" type="text" placeholder="Abdullah Najjar" required=""></div>
+        <div class="field"><label>Role</label><input name="role" type="text" placeholder="Head of Sales"></div>
       </div>
       <div class="pair">
-        <div class="field"><label>Company</label><input name="company" type="text" placeholder="Grova Tilal" required /></div>
-        <div class="field"><label>Work email</label><input name="email" type="email" placeholder="name@company.sa" required /></div>
+        <div class="field"><label>Company</label><input name="company" type="text" placeholder="Marsa Developments" required=""></div>
+        <div class="field"><label>Work email</label><input name="email" type="email" placeholder="name@company.sa" required=""></div>
       </div>
       <div class="pair">
-        <div class="field"><label>Phone</label><input name="phone" type="tel" placeholder="+966 5x xxx xxxx" /></div>
+        <div class="field"><label>Phone</label><input name="phone" type="tel" placeholder="+966 5x xxx xxxx"></div>
         <div class="field"><label>City</label>
           <select name="city"><option>Riyadh</option><option>Dammam / Khobar</option><option>Madinah</option><option>Makkah</option><option>NEOM</option><option>Other</option></select>
         </div>
@@ -1047,7 +1365,8 @@ html { scroll-behavior: smooth; }
         <label>What would you want Revnu to handle?</label>
         <textarea name="notes" placeholder="Furnishing only, or also operations? Any specific contract or payment-plan needs?"></textarea>
       </div>
-      <button type="submit" class="submit">Request access →</button>
+      <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;inset-inline-start:-9999px;opacity:0;height:0;width:0">
+      <button type="submit" class="submit">Request demo →</button>
       <p class="fine">By submitting you agree to be contacted by the Revnu partnerships team. We don't share enquiries with third parties.</p>
     </form>
   </div>
@@ -1056,12 +1375,12 @@ html { scroll-behavior: smooth; }
 <!-- ====================== FOOTER ====================== -->
 <footer class="foot">
   <span class="l">
-    <span class="nd"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="42" fill="none" stroke="#080B14" stroke-width="14"/><circle cx="100" cy="100" r="18" fill="#080B14"/></svg></span>
+    <span class="nd"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="42" fill="none" stroke="#080B14" stroke-width="14"></circle><circle cx="100" cy="100" r="18" fill="#080B14"></circle></svg></span>
     <span class="word">Revnu</span>
     <span style="margin-left:14px;">© 2026</span>
   </span>
   <span>
-    <a href="/login" style="margin-right: 14px;">Revnu staff sign-in</a>
+    <a href="/auth" target="_top" style="margin-right: 14px;">Revnu staff sign-in</a>
     <span>Riyadh</span>
   </span>
 </footer>
@@ -1127,9 +1446,9 @@ html { scroll-behavior: smooth; }
     document.getElementById("oQuarter").textContent = fmt(quarterRev) + " SAR";
 
     // Update win-card headline numbers too
-    document.getElementById("dev-uplift").textContent     = "+" + (devFurnMargin >= 1000 ? Math.round(devFurnMargin / 1000) + "K" : fmt(devFurnMargin));
-    document.getElementById("agent-uplift").textContent   = "+" + (agentExtra >= 1000 ? (agentExtra / 1000).toFixed(1) + "K" : fmt(agentExtra));
-    document.getElementById("customer-uplift").textContent = "~" + Math.round(CUSTOMER_BULK * 100) + "%";
+    (document.getElementById("dev-uplift")||{}).textContent     = "+" + (devFurnMargin >= 1000 ? Math.round(devFurnMargin / 1000) + "K" : fmt(devFurnMargin));
+    (document.getElementById("agent-uplift")||{}).textContent   = "+" + (agentExtra >= 1000 ? (agentExtra / 1000).toFixed(1) + "K" : fmt(agentExtra));
+    (document.getElementById("customer-uplift")||{}).textContent = "~" + Math.round(CUSTOMER_BULK * 100) + "%";
   }
   ["input", "change"].forEach((e) => {
     inPrice.addEventListener(e, recalc);
@@ -1177,36 +1496,53 @@ html { scroll-behavior: smooth; }
   document.querySelectorAll(".count").forEach((el) => obs.observe(el));
 })();
 
-// ====================== Request form → /api/leads ======================
+// ====================== Request form → /api/leads (Revnu HQ → Interested) ======================
 document.getElementById("request-form").addEventListener("submit", function (e) {
   e.preventDefault();
   const form = this;
+  const AR = !!(window.I18N && window.I18N.isAR);
   const fd = new FormData(form);
   const lead = { name: fd.get("name"), role: fd.get("role"), company: fd.get("company"), email: fd.get("email"), phone: fd.get("phone"), city: fd.get("city"), units: fd.get("units"), notes: fd.get("notes"), website: fd.get("website") || "" };
-  const btn = form.querySelector('button[type="submit"], .btn-submit, button');
+  const esc = (s) => String(s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const btn = form.querySelector('button[type="submit"]');
   const prevLabel = btn ? btn.textContent : "";
-  if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }
+  if (btn) { btn.disabled = true; btn.textContent = AR ? "جارٍ الإرسال…" : "Sending…"; }
   fetch("/api/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(lead) })
     .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
     .then(({ ok, j }) => {
-      if (!ok) throw new Error(j && j.error ? j.error : "Could not send your request.");
-      const root = document.querySelector(".request");
-      root.querySelector(".form").outerHTML =
+      if (!ok) throw new Error(j && j.error ? j.error : "");
+      document.querySelector(".request .form").outerHTML =
         '<div class="submitted">' +
-        '  <div class="h">Request received.</div>' +
-        '  <div class="p">Thank you, ' + (lead.name || "—") + '. The Revnu partnerships team will reach out to ' + (lead.email || "you") + ' within 48 hours.</div>' +
+        '  <div class="h">' + (AR ? "وصلنا طلبك." : "Request received.") + '</div>' +
+        '  <div class="p">' + (AR
+          ? "شكرا لك — فريق شراكات Revnu بيتواصل معك خلال ٤٨ ساعة."
+          : "Thank you, " + esc(lead.name || "—") + ". The Revnu partnerships team will reach out to " + esc(lead.email || "you") + " within 48 hours.") + '</div>' +
         '</div>';
     })
     .catch((err) => {
       if (btn) { btn.disabled = false; btn.textContent = prevLabel; }
       let el = form.querySelector(".form-err");
       if (!el) { el = document.createElement("div"); el.className = "form-err"; el.style.cssText = "margin-top:10px;font-size:13px;color:#E85454"; form.appendChild(el); }
-      el.textContent = err.message || "Could not send your request. Please try again.";
+      el.textContent = AR ? "تعذر إرسال طلبك. تأكد من الاسم والبريد الإلكتروني ثم حاول مرة أخرى."
+                          : (err && err.message) || "Could not send your request. Please try again.";
     });
 });
 </script>
-<script src="/i18n.js"></script>
+
 <script src="/home-ar.js"></script>
+<script>
+// Match the homepage film to the active site language.
+(() => {
+  const video = document.getElementById("homeOverviewVideo");
+  if (!video) return;
+  const ar = Boolean(window.I18N && window.I18N.isAR);
+  video.src = ar
+    ? "/media/revnu-home-ar.webm"
+    : "/media/revnu-home-en.webm";
+  video.setAttribute("aria-label", ar ? "فيديو تعريفي عن ريفنو باللغة العربية" : "Revnu overview in English");
+})();
+</script>
+
 <script>
 // ====================== Mobile nav (hamburger) ======================
 (() => {
@@ -1247,5 +1583,6 @@ document.getElementById("request-form").addEventListener("submit", function (e) 
 })();
 </script>
 
-</body>
-</html>
+
+
+</body></html>

@@ -242,6 +242,12 @@ export default function LoginClient({ dev, asDev, next, signedInAs, mode: initia
             </>
           )}
 
+          {unified && ["signin", "welcome", "forgot", "forgot-sent"].includes(mode) && (
+            <div style={{ marginTop: 22, fontSize: 12.5 }}>
+              <a href="/" style={{ color: "var(--text-soft, #8A93A6)" }}>{L("← Back to home", "→ العودة إلى الصفحة الرئيسية")}</a>
+            </div>
+          )}
+
           {!unified && (
             <div className="powered-by">
               <span className="pby">{L("POWERED BY", "مُشغَّل بواسطة")}</span>

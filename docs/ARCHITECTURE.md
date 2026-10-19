@@ -114,7 +114,12 @@ Sign-in never depends on e-mail; password-reset links do (Supabase Auth SMTP →
   a full page load, exactly as before.
 * `public/i18n.js` is the prototype engine unchanged except the language now also lives in a cookie so the
   server renders `<html dir lang>` correctly on first paint.
-* `/` serves `public/home.html` (the marketing site) verbatim via a rewrite; the lead form posts to `/api/leads`.
+* The public site is the client's original one (from their Lovable project), merged in front of the portals:
+  `/` serves `public/home.html` via a rewrite (the original landing page unpacked from its single-file bundle; it uses
+  our `/i18n.js` and `/home-ar.js`, the videos in `public/media/`, and the "Request demo" form posts to `/api/leads`);
+  `/why-us` and `/how-it-works` are app pages (`components/public/`, the original `.public-*` styles); `/auth` is the
+  sign-in page (same as `/login`). The language is one setting everywhere (`revnu_lang` cookie + localStorage), so a
+  choice made on the landing carries into the portals. Old addresses of the original site redirect (`next.config.ts`).
 * Error boundaries wrap every portal (audit §10); the production React build replaces CDN React + in-browser Babel.
 * v2 phone-first sale: `portals/shared/mobile-wizard.jsx` is the client's wizard (rep and buyer), `portals/shared/sign.jsx`
   the read-and-sign page; `lib/data/remote.js` is the prototype's `REVNU_REMOTE` API on Supabase (sync reads from the

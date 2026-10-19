@@ -1,0 +1,214 @@
+/* Public pages (Why Us, How It Works), ported from the client's original site (src/styles.css, ".public-*").
+   The original sat on Tailwind's preflight and shadcn's Button; the few rules it relied on come first, and the
+   Button look the live site actually shows comes last. */
+/* :where() keeps these base rules at zero specificity, like the preflight they replace — every ported rule wins */
+:where(.public-page) *, :where(.public-page) *::before, :where(.public-page) *::after { margin: 0; padding: 0; border: 0 solid; box-sizing: border-box; }
+.public-page { font-size: 16px; line-height: 1.5; }
+:where(.public-page) a { color: inherit; text-decoration: none; }
+:where(.public-page) svg { display: block; flex: none; }
+:where(.public-page) button { cursor: pointer; }
+/* shadcn Button (outline / icon / lg) — only what these pages used */
+.public-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; border: 1px solid oklch(0.17 0.035 258 / 15%); border-radius: 6px; background: transparent; font-size: 14px; font-weight: 500; }
+.public-btn svg { width: 16px; height: 16px; }
+.public-cta > a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 32px; white-space: nowrap; font-size: 14px; font-weight: 500; }
+.public-cta > a svg { width: 16px; height: 16px; }
+.public-page[dir="rtl"] .public-cta > a svg { transform: scaleX(-1); }
+
+.public-page {
+  --public-ink: oklch(0.17 0.035 258);
+  --public-blue: oklch(0.63 0.13 251);
+  --public-cyan: oklch(0.76 0.09 205);
+  --public-ivory: oklch(0.975 0.014 89);
+  --public-paper: oklch(1 0 0);
+  --public-muted: oklch(0.48 0.035 257);
+  --public-line: oklch(0.17 0.035 258 / 10%);
+  min-height: 100vh;
+  background: var(--public-ivory);
+  color: var(--public-ink);
+  font-family: Outfit, ui-sans-serif, system-ui, sans-serif;
+}
+
+.public-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  min-height: 65px;
+  padding: 14px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--public-line);
+  background: oklch(0.975 0.014 89 / 82%);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+
+.public-brand { display: inline-flex; align-items: center; gap: 12px; width: fit-content; }
+.public-brand-mark { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; }
+.public-brand-mark svg { width: 100%; height: 100%; }
+.public-brand-word { font-family: "Playfair Display", Georgia, serif; font-size: 22px; font-weight: 500; line-height: 1; }
+.public-links { display: flex; align-items: center; gap: 4px; }
+.public-links a { padding: 8px 14px; border-radius: 999px; color: var(--public-muted); font-size: 13px; font-weight: 400; }
+.public-links a:hover, .public-links a.active { color: var(--public-ink); background: oklch(0.17 0.035 258 / 5%); }
+.public-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
+.public-signin { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 8px 18px; border-radius: 999px; background: var(--public-ink); color: var(--public-ivory); font-size: 13px; font-weight: 500; }
+.public-signin svg { width: 14px; height: 14px; }
+.public-signin:hover { background: oklch(0.21 0.04 270); color: var(--public-ivory); }
+.public-lang { width: 108px; height: 36px; display: inline-flex; align-items: center; justify-content: space-between; gap: 7px; padding: 0 14px; border: 1px solid oklch(0.17 0.035 258 / 22%); border-radius: 999px !important; background: var(--public-paper); color: var(--public-ink); box-shadow: 0 1px 2px oklch(0.17 0.035 258 / 6%); font-family: inherit; font-size: 12.5px; font-weight: 700; }
+.public-lang svg { width: 14px; height: 14px; }
+.public-lang svg:last-child { width: 10px; height: 10px; }
+.public-lang:hover { background: oklch(0.985 0.012 95); color: var(--public-ink); }
+.public-lang-wrap { position: relative; display: inline-flex; }
+.public-lang-menu { position: absolute; top: calc(100% + 8px); inset-inline-end: 0; z-index: 90; display: flex; flex-direction: column; width: 150px; overflow: hidden; border: 1px solid oklch(0.17 0.035 258 / 14%); border-radius: 12px; background: var(--public-paper); box-shadow: 0 12px 32px oklch(0.17 0.035 258 / 14%); }
+.public-lang-menu button { min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 14px; border: 0; background: none; cursor: pointer; color: var(--public-ink); font-family: inherit; font-size: 13px; text-align: start; }
+.public-lang-menu button + button { border-top: 1px solid oklch(0.17 0.035 258 / 7%); }
+.public-lang-menu button:hover { background: oklch(0.17 0.035 258 / 5%); }
+.public-lang-menu button.active { font-weight: 700; }
+.public-lang-menu button.ar-label { font-family: "Almarai", sans-serif; }
+.public-lang-menu button svg { width: 14px; height: 14px; color: var(--public-cyan); stroke-width: 3; }
+.public-menu, .public-mobile-languages { display: none !important; }
+.public-page[dir="rtl"] .public-signin svg { transform: scaleX(-1); }
+
+.public-page main { width: min(1320px, calc(100% - 48px)); margin: 0 auto; }
+.public-hero {
+  min-height: 510px;
+  margin: 28px 0 0;
+  padding: 100px 64px 76px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 88% -10%, oklch(0.76 0.09 205 / 32%), transparent 45%),
+    radial-gradient(circle at -10% 110%, oklch(0.63 0.13 251 / 28%), transparent 55%),
+    linear-gradient(160deg, oklch(0.21 0.04 258) 0%, var(--public-ink) 60%);
+  color: var(--public-ivory);
+}
+.public-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: linear-gradient(oklch(1 0 0 / 3%) 1px, transparent 1px), linear-gradient(90deg, oklch(1 0 0 / 3%) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(to bottom, transparent, black 45%, transparent);
+}
+.public-eyebrow { color: var(--public-blue); font-family: "JetBrains Mono", monospace; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.public-hero h1 { max-width: 940px; margin: 18px 0 24px; font-family: "Playfair Display", Georgia, serif; font-size: clamp(52px, 7vw, 88px); font-weight: 500; line-height: 1.02; letter-spacing: 0; }
+.public-hero .public-eyebrow { color: var(--public-cyan); }
+.public-hero h1 { max-width: 920px; }
+.public-hero p { max-width: 720px; margin: 0; color: oklch(0.94 0.015 250 / 78%); font-size: 18px; line-height: 1.6; }
+
+.public-content-grid { padding: 76px 0 112px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--public-line); }
+.public-benefit { min-width: 0; padding: 34px; background: var(--public-paper); }
+.public-benefit-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 58px; color: var(--public-muted); font-family: "JetBrains Mono", monospace; font-size: 12px; }
+.public-benefit-top svg { width: 26px; height: 26px; color: var(--public-cyan); }
+.public-benefit h2, .public-step h2, .public-cta h2 { font-family: "Playfair Display", Georgia, serif; font-weight: 500; letter-spacing: 0; }
+.public-benefit h2 { margin: 14px 0; font-size: 30px; line-height: 1.15; }
+.public-benefit > p { min-height: 88px; color: var(--public-muted); line-height: 1.6; }
+.public-benefit ul { margin: 28px 0 0; padding: 22px 0 0; border-top: 1px solid var(--public-line); list-style: none; display: grid; gap: 14px; }
+.public-benefit li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.45; }
+.public-benefit li svg { width: 16px; height: 16px; margin-top: 2px; flex: none; color: var(--public-blue); }
+
+.public-steps { padding: 72px 0 112px; }
+.public-step { min-height: 180px; display: grid; grid-template-columns: 100px minmax(0, 1fr) 48px; align-items: center; gap: 32px; border-bottom: 1px solid var(--public-line); }
+.public-step-number { font-family: "JetBrains Mono", monospace; font-size: 13px; color: var(--public-blue); }
+.public-step h2 { margin: 0 0 9px; font-size: 34px; }
+.public-step p { max-width: 720px; margin: 0; color: var(--public-muted); font-size: 16px; line-height: 1.6; }
+.public-step-icon { color: var(--public-cyan); }
+
+.public-calculator { padding: 12px 0 112px; }
+.public-calculator-heading { max-width: 760px; margin: 0 auto 38px; text-align: center; }
+.public-calculator-heading h2 { margin: 14px 0; font-family: "Playfair Display", Georgia, serif; font-size: 48px; font-weight: 500; line-height: 1.08; letter-spacing: 0; text-wrap: balance; }
+.public-calculator-heading p { max-width: 620px; margin: 0 auto; color: var(--public-muted); font-size: 16px; line-height: 1.6; }
+.public-calculator-panel { padding: 40px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); align-items: center; gap: 36px; border-radius: 24px; background: var(--public-ink); color: var(--public-ivory); }
+.public-calculator-inputs h3 { margin: 0 0 8px; font-family: "Playfair Display", Georgia, serif; font-size: 30px; font-weight: 500; letter-spacing: 0; }
+.public-calculator-inputs > p { max-width: 390px; margin: 0 0 24px; color: oklch(0.94 0.015 250 / 70%); font-size: 14px; line-height: 1.55; }
+.public-calculator-inputs label { display: block; margin-top: 20px; }
+.public-calculator-inputs label > span { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; color: oklch(0.94 0.015 250 / 60%); font-family: "JetBrains Mono", monospace; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; }
+.public-calculator-inputs label strong { color: var(--public-ivory); font-family: "Playfair Display", Georgia, serif; font-size: 18px; font-weight: 500; letter-spacing: 0; text-align: end; text-transform: none; }
+.public-calculator-inputs input { width: 100%; height: 4px; margin-top: 12px; appearance: none; border-radius: 2px; background: oklch(0.94 0.015 250 / 12%); outline: none; }
+.public-calculator-inputs input::-webkit-slider-thumb { width: 22px; height: 22px; appearance: none; border: 0; border-radius: 50%; background: var(--public-cyan); box-shadow: 0 0 0 4px oklch(0.76 0.09 205 / 18%); cursor: pointer; }
+.public-calculator-inputs input::-moz-range-thumb { width: 22px; height: 22px; border: 0; border-radius: 50%; background: var(--public-cyan); box-shadow: 0 0 0 4px oklch(0.76 0.09 205 / 18%); cursor: pointer; }
+.public-calculator-results { padding: 24px; border: 1px solid oklch(1 0 0 / 10%); border-radius: 16px; background: oklch(1 0 0 / 4%); }
+.public-calculator-result { padding: 14px 0; display: flex; align-items: baseline; justify-content: space-between; gap: 20px; border-bottom: 1px dotted oklch(1 0 0 / 10%); }
+.public-calculator-result > div { color: oklch(0.94 0.015 250 / 85%); font-size: 13.5px; }
+.public-calculator-result > div span { display: block; margin-bottom: 3px; color: var(--public-cyan); font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: .1em; }
+.public-calculator-result > strong { flex: none; font-family: "Playfair Display", Georgia, serif; font-size: 22px; font-weight: 500; letter-spacing: 0; }
+.public-calculator-result small { color: oklch(0.94 0.015 250 / 55%); font-family: "JetBrains Mono", monospace; font-size: 10px; font-weight: 400; }
+.public-calculator-total { margin-top: 8px; padding-top: 16px; display: flex; align-items: baseline; justify-content: space-between; gap: 20px; border-top: 1px solid oklch(0.76 0.09 205 / 40%); }
+.public-calculator-total span { color: var(--public-cyan); font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+.public-calculator-total strong { flex: none; font-family: "Playfair Display", Georgia, serif; font-size: 34px; font-weight: 500; letter-spacing: 0; }
+.public-calculator-fine { margin: 14px 0 0; color: oklch(0.94 0.015 250 / 45%); font-family: "JetBrains Mono", monospace; font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; }
+
+.public-cta { margin-bottom: 80px; padding: 54px; display: flex; align-items: center; justify-content: space-between; gap: 28px; background: var(--public-ink); color: var(--public-ivory); }
+.public-cta h2 { margin: 12px 0 0; font-size: 38px; }
+.public-cta .public-eyebrow { color: var(--public-cyan); }
+.public-cta > a { flex: none; border-radius: 999px; background: var(--public-cyan); color: var(--public-ink); }
+.public-footer { min-height: 92px; padding: 26px clamp(20px, 4vw, 56px); display: flex; align-items: center; justify-content: space-between; gap: 20px; border-top: 1px solid var(--public-line); color: var(--public-muted); font-size: 13px; }
+.public-footer div { display: flex; gap: 24px; }
+
+[dir="rtl"] .public-page, .public-page[dir="rtl"] { font-family: Almarai, Outfit, sans-serif; }
+.public-page[dir="rtl"] h1, .public-page[dir="rtl"] h2, .public-page[dir="rtl"] .public-brand-word { font-family: Almarai, sans-serif; font-weight: 700; }
+
+@media (max-width: 760px) {
+  .public-nav { min-height: 64px; padding: 10px 14px; }
+  .public-menu { display: inline-flex !important; width: 44px; height: 44px; border-color: oklch(0.25 0.03 250 / 18%); border-radius: 12px; background: transparent; box-shadow: none; color: var(--public-ink); }
+  .public-lang { display: none; }
+  .public-links { display: none; position: absolute; top: 100%; inset-inline: 0; flex-direction: column; align-items: stretch; gap: 4px; padding: 10px 14px 18px; background: oklch(0.975 0.014 89 / 98%); border-bottom: 1px solid var(--public-line); box-shadow: 0 24px 48px oklch(0.17 0.035 258 / 16%); }
+  .public-links.open { display: flex; }
+  .public-links a { padding: 15px 16px; border-radius: 12px; font-size: 15.5px; }
+  .public-links .public-signin { margin-top: 10px; height: auto; padding: 15px 16px; text-align: center; }
+  .public-actions .public-signin { display: none; }
+  .public-mobile-languages { display: flex !important; gap: 8px; margin-top: 12px; padding-top: 14px; border-top: 1px solid var(--public-line); }
+  .public-mobile-languages button { flex: 1; height: auto; padding: 14px; border-color: oklch(0.25 0.03 250 / 18%); border-radius: 12px; background: transparent; box-shadow: none; color: var(--public-ink); font-size: 14.5px; font-weight: 700; }
+  .public-mobile-languages button.active { background: var(--public-ink); color: var(--public-paper); }
+  .public-page main { width: min(100% - 28px, 680px); }
+  .public-hero { min-height: 460px; margin-top: 14px; padding: 64px 26px 48px; border-radius: 18px; }
+  .public-hero h1 { font-size: 46px; }
+  .public-hero p { font-size: 17px; }
+  .public-content-grid { grid-template-columns: 1fr; padding: 46px 0 72px; }
+  .public-benefit-top { margin-bottom: 34px; }
+  .public-benefit > p { min-height: 0; }
+  .public-step { min-height: 0; padding: 34px 0; grid-template-columns: 46px minmax(0, 1fr); gap: 18px; }
+  .public-step-icon { display: none; }
+  .public-step h2 { font-size: 27px; }
+  .public-calculator { padding: 6px 0 72px; }
+  .public-calculator-heading { margin-bottom: 28px; text-align: start; }
+  .public-calculator-heading h2 { font-size: 36px; }
+  .public-calculator-panel { padding: 28px 22px; grid-template-columns: 1fr; gap: 28px; border-radius: 18px; }
+  .public-calculator-results { padding: 18px; }
+  .public-calculator-result { align-items: flex-end; }
+  .public-calculator-result > div { max-width: 55%; }
+  .public-calculator-result > strong { font-size: 20px; }
+  .public-calculator-total { align-items: flex-end; flex-direction: column; }
+  .public-calculator-total strong { font-size: 30px; }
+  .public-cta { padding: 34px 26px; flex-direction: column; align-items: flex-start; }
+  .public-cta h2 { font-size: 31px; }
+  .public-footer { align-items: flex-start; flex-direction: column; }
+}
+
+/* ---- What the client's live site shows: its shadcn Button classes (Tailwind utilities) win over the rules above ---- */
+.public-page {
+  --public-input: oklch(0.929 0.013 255.508);
+  --public-accent: oklch(0.968 0.007 247.896);
+  --public-primary: oklch(0.208 0.042 265.755);
+  --public-primary-fg: oklch(0.984 0.003 247.858);
+  --public-btn-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
+.public-lang { justify-content: center; gap: 8px; padding: 8px 16px; border: 1px solid var(--public-input); background: var(--public-paper); box-shadow: var(--public-btn-shadow); font-size: 14px; font-weight: 500; }
+.public-lang svg, .public-lang svg:last-child { width: 16px; height: 16px; }
+.public-lang:hover { background: var(--public-accent); }
+.public-cta > a { border-radius: 8px; background: var(--public-primary); color: var(--public-primary-fg); box-shadow: var(--public-btn-shadow); }
+.public-cta > a:hover { background: oklch(0.208 0.042 265.755 / 90%); color: var(--public-primary-fg); }
+@media (max-width: 760px) {
+  .public-lang { display: inline-flex; }   /* the live site keeps the language pill beside the menu on phones */
+  .public-menu { width: 36px; height: 36px; border: 1px solid var(--public-input); border-radius: 8px; background: var(--public-paper); box-shadow: var(--public-btn-shadow); }
+  .public-menu:hover { background: var(--public-accent); }
+  .public-mobile-languages button { height: 36px; padding: 8px 16px; border: 1px solid var(--public-input); border-radius: 8px; background: var(--public-paper); font-size: 14px; font-weight: 500; }
+  /* the original painted the active language white on white; it gets the dark fill its stylesheet intended */
+  .public-mobile-languages button.active { background: var(--public-ink); color: var(--public-paper); }
+}
