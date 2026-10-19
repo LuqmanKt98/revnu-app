@@ -120,7 +120,7 @@
 .public-step p { max-width: 720px; margin: 0; color: var(--public-muted); font-size: 16px; line-height: 1.6; }
 .public-step-icon { color: var(--public-cyan); }
 
-.public-calculator { padding: 12px 0 112px; }
+.public-calculator { padding: 12px 0 112px; scroll-margin-top: 84px; } /* "See the upside" (/how-it-works#calc) lands below the sticky header */
 .public-calculator-heading { max-width: 760px; margin: 0 auto 38px; text-align: center; }
 .public-calculator-heading h2 { margin: 14px 0; font-family: "Playfair Display", Georgia, serif; font-size: 48px; font-weight: 500; line-height: 1.08; letter-spacing: 0; text-wrap: balance; }
 .public-calculator-heading p { max-width: 620px; margin: 0 auto; color: var(--public-muted); font-size: 16px; line-height: 1.6; }
