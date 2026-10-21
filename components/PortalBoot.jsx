@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import D from "@/lib/data/store";
 import { installSupport } from "@/lib/data/support";
+import { watchAccount } from "@/lib/auth/account-guard";
 import ErrorBoundary from "./ErrorBoundary";
 import MobileNav from "./MobileNav";
 
@@ -21,6 +22,8 @@ const APPS = {
 export default function PortalBoot({ portal, snapshot, me, params }) {
   const [ready] = useState(() => { D.setMe(me); D.hydrate(snapshot); return true; });
   useEffect(() => { installSupport(); }, []);
+  // The page is bound to the account it was loaded for: another tab signing in as someone else must not go unnoticed.
+  useEffect(() => watchAccount(me.id), [me.id]);
 
   // Keep the snapshot fresh across colleagues: quietly re-fetch when the tab regains focus.
   useEffect(() => {

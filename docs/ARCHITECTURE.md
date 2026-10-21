@@ -80,6 +80,12 @@ Email + password (client decision: no OTP). Accounts are admin-created (`/api/us
 HttpOnly cookies managed by `@supabase/ssr`; `proxy.ts` refreshes them and keeps signed-out visitors off
 the portals; each portal page re-checks the profile and the portal rules (`lib/auth/gate.ts`).
 
+The session cookie is shared by every tab of a browser, so signing in as someone else in a second tab makes an
+already-open portal page act as that other account (an open Revnu Admin tab would then be refused by RLS while still
+looking like HQ). `lib/auth/account-guard.js` (installed by `PortalBoot`) notices the switch — on the cross-tab
+auth event, when the tab regains focus, and before a refused write is reported as "no permission" — and asks the
+person to reload, which lets the gate route them to the right portal.
+
 ## 5. Files
 
 Uploads go straight from the browser to Storage with explicit size/type validation and visible errors
