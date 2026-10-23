@@ -1112,21 +1112,11 @@ function Inventory() {
   const addUnit = (u) => {
     RS.act(() => D.addUnit({ ...u, priceAdj: Number(u.priceAdj) || 0, floor: Number(u.floor) || 0 }), { done: (window.I18N && window.I18N.isAR) ? "أُضيفت الوحدة." : "Unit added." }).then((created) => { if (created) { setUnits((all) => [created, ...all]); setAdding(false); } else if (created === null) RS.toast((window.I18N && window.I18N.isAR) ? "رقم الوحدة موجود مسبقًا." : "That unit number already exists.", "err"); });
   };
-  // CSV columns: number, projectId, typeId, tower, floor, view, priceAdj  (same as Export CSV)
+  // The template's columns (Project when there are several, Unit number, Unit type, Tower, Floor, View, Block, Area, Market price);
+  // the old Export CSV columns (number, projectId, typeId, priceAdj …) are read too. Every row that can't be added is listed with its reason.
   const bulkUpload = (e) => {
-    const f = e.target.files && e.target.files[0]; if (!f) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const rows = D.parseCSV(reader.result); let skipped = 0;
-      const list = rows.filter((r) => { const ok = r.number && projects.some((p) => p.id === r.projectId) && !units.some((u) => u.number === r.number); if (!ok) skipped++; return ok; })
-        .map((r) => ({ number: r.number, projectId: r.projectId, typeId: r.typeId, tower: r.tower || "", floor: Number(r.floor) || 0, view: r.view || "", priceAdj: Number(r.priceAdj) || 0 }));
-      RS.act(() => D.addUnits(list), { pending: (window.I18N && window.I18N.isAR) ? "جار إضافة الوحدات…" : "Adding units…" }).then((added) => {
-        if (!added) return;
-        setUnits((all) => [...added, ...all]);
-        RS.toast((window.I18N && window.I18N.isAR) ? (added.length + " وحدة أضيفت · " + skipped + " تم تجاوزها (مكررة أو مشروع غير معروف)") : (added.length + " units added · " + skipped + " skipped (duplicate or unknown project)"), "ok");
-      });
-    };
-    reader.readAsText(f); e.target.value = "";
+    const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+    RS.importUnits(f, { projects }).then((added) => { if (added && added.length) setUnits(D.UNITS.filter((u) => projects.some((p) => p.id === u.projectId))); });
   };
 
   return (
@@ -1141,6 +1131,7 @@ function Inventory() {
         {!isRep && (
           <div className="row" style={{ gap: 8 }}>
             <button className="btn btn-secondary" onClick={() => D.downloadCSV("units-" + developer.id + ".csv", filtered, [{ key: "number", label: "number" }, { key: "projectId", label: "projectId" }, { key: "typeId", label: "typeId" }, { key: "tower", label: "tower" }, { key: "floor", label: "floor" }, { key: "view", label: "view" }, { key: "priceAdj", label: "priceAdj" }, { key: "status", label: "status" }])}>{window.I18N?window.I18N.t("Export CSV"):"Export CSV"}</button>
+            <button className="btn btn-secondary" title={(window.I18N && window.I18N.isAR) ? "ملف CSV جاهز للتعبئة بعناوين الأعمدة وأنواع وحداتك" : "A ready-to-fill CSV with the right headings and your unit types"} onClick={() => D.downloadUnitTemplate("units-template-" + developer.id + ".csv", projects, { withProject: projects.length > 1 })}>{(window.I18N && window.I18N.isAR) ? "تنزيل القالب" : "Download template"}</button>
             <label className="btn btn-secondary" style={{ cursor: "pointer" }}>{window.I18N?window.I18N.t("Bulk upload"):"Bulk upload"}<input type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={bulkUpload} /></label>
             <button className="btn btn-primary" onClick={() => setAdding(true)}>{window.I18N?window.I18N.t("+ Add unit"):"+ Add unit"}</button>
           </div>

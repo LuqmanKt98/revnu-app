@@ -2315,19 +2315,18 @@ function BoqDrawer({ pkg, onClose }) {
   const [saved, setSaved] = useState(true);
   React.useEffect(() => { setSaved(false); }, [boq]);
   const canSave = pkg.parent && pkg.parent.id && pkg.parent.id !== "new";
-  // Audit M1: these two buttons had no handler. CSV columns: room,item,qty,supplier,notes[,unitPrice] (same as the table).
+  // CSV upload: the template's columns (Room, Item, Qty, [Unit price,] Supplier, Notes) in English or Arabic, or a sheet saved
+  // from Excel with its own headings (e.g. Category, Item, Specification / Notes, Qty) — title, section and subtotal rows are skipped.
   const csvInput = React.useRef(null);
-  const onCsv = (e) => {
-    const f = e.target.files && e.target.files[0]; if (!f) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const rows = D.parseCSV(reader.result);
-      const lines = rows.filter((r) => (r.item || "").trim()).map((r) => Object.assign({ room: r.room || "", item: r.item, qty: Number(r.qty) || 1, supplier: r.supplier || "", notes: r.notes || "" }, priced ? { unitPrice: Number(r.unitPrice) || 0 } : {}));
-      if (!lines.length) { window.RevnuSupport.toast((window.I18N && window.I18N.isAR) ? "لم يُعثر على أسطر — الأعمدة المطلوبة: room,item,qty,supplier,notes" : "No lines found — expected columns: room,item,qty,supplier,notes", "err"); return; }
-      setBoq((b) => [...b, ...lines]);
-      window.RevnuSupport.toast((window.I18N && window.I18N.isAR) ? (lines.length + " سطرًا أُضيف — اضغط حفظ.") : (lines.length + " lines added — press Save."), "ok");
-    };
-    reader.readAsText(f); e.target.value = "";
+  const onCsv = async (e) => {
+    const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+    const RS = window.RevnuSupport, AR = window.I18N && window.I18N.isAR;
+    let rows;
+    try { rows = await D.readTableFile(f); } catch (err) { RS.toast(err.message, "err"); return; }
+    const plan = D.planBoqImport(rows, { priced });
+    if (plan.error || !plan.lines.length) { RS.toast(plan.error || (AR ? "لم يُعثر على أسطر — أضف البنود تحت عناوين القالب: الغرفة، البند، الكمية، المورد، ملاحظات." : "No lines found — add the items under the template headings: Room, Item, Qty, Supplier, Notes."), "err"); return; }
+    setBoq((b) => [...b, ...plan.lines]);
+    RS.toast(AR ? (plan.lines.length + " سطرًا أُضيف — اضغط حفظ.") : (plan.lines.length + " lines added — press Save."), "ok");
   };
   const printPdf = () => {
     const w = window.open("", "_blank"); if (!w) return;
@@ -2355,6 +2354,7 @@ function BoqDrawer({ pkg, onClose }) {
             <div className="soft" style={{ fontSize: 11.5, marginTop: 4 }}>{priced ? "Priced fit-out scope — line totals sum to the fit-out add-on price. Prints as Appendix F-2." : "Lives as Appendix F-1 of the Furnishing Schedule — the buyer sees this list."}</div>
           </div>
           <div className="row" style={{ gap: 8 }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => D.downloadBoqTemplate(priced)}>{(window.I18N && window.I18N.isAR) ? "تنزيل القالب" : "Download template"}</button>
             <button className="btn btn-secondary btn-sm" onClick={() => csvInput.current && csvInput.current.click()}>Upload CSV</button>
             <input ref={csvInput} type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={onCsv} />
             <button className="btn btn-secondary btn-sm" onClick={printPdf} disabled={!boq.length}>Download PDF</button>
@@ -5652,7 +5652,9 @@ function PwUnits({ P }) {
       <WsCardHead eye="// UNITS" title={units.length + (window.I18N && window.I18N.isAR ? " وحدة" : " units")} sub={window.I18N && window.I18N.isAR ? "أضف وعدل وغير الحالة. تظهر التغييرات مباشرة لفريق مبيعات المطور. الوحدات المرتبطة بصفقة حية مقفلة." : "Add, edit, change status. Status changes show up live for the developer's sales team. Units in a live deal are locked."}
         action={<div className="row" style={{ gap: 8 }}>
           <button className="btn btn-secondary" onClick={() => D.downloadCSV("units-" + P.project.id + ".csv", units, [{ key: "number", label: "number" }, { key: "projectId", label: "projectId" }, { key: "typeId", label: "typeId" }, { key: "tower", label: "tower" }, { key: "floor", label: "floor" }, { key: "view", label: "view" }, { key: "priceAdj", label: "priceAdj" }, { key: "priceBen", label: "priceBen" }, { key: "status", label: "status" }])}>{TT("Export CSV")}</button>
-          <label className="btn btn-secondary" style={{ cursor: "pointer" }}>{window.I18N?window.I18N.t("Bulk upload CSV"):"Bulk upload CSV"}<input type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={(e) => { const f = e.target.files && e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { const rows = D.parseCSV(r.result); let skip = 0; const list = rows.filter((row) => { const ok = row.number && !D.UNITS.some((u) => u.number === row.number); if (!ok) skip++; return ok; }).map((row) => ({ number: row.number, projectId: P.project.id, typeId: row.typeId, tower: row.tower || "", floor: Number(row.floor) || 0, view: row.view || "", priceAdj: Number(row.priceAdj) || 0, priceBen: row.priceBen !== undefined && row.priceBen !== "" ? Number(row.priceBen) : undefined })); RS.act(() => D.addUnits(list), { pending: (window.I18N && window.I18N.isAR) ? "جار إضافة الوحدات…" : "Adding units…" }).then((added) => { if (!added) return; RS.toast((window.I18N && window.I18N.isAR) ? (added.length + " وحدة أضيفت · " + skip + " تم تجاوزها") : (added.length + " units added · " + skip + " skipped (duplicate / missing number)"), "ok"); setUnits(D.UNITS.filter((u) => u.projectId === P.project.id)); }); }; r.readAsText(f); e.target.value = ""; }} /></label>
+          {/* A ready-to-fill sheet (headings + one example row per unit type), then the upload that reports every row it can't add. */}
+          <button className="btn btn-secondary" title={(window.I18N && window.I18N.isAR) ? "ملف CSV جاهز للتعبئة بعناوين الأعمدة وأنواع وحدات هذا المشروع" : "A ready-to-fill CSV with the right headings and this project's unit types"} onClick={() => D.downloadUnitTemplate("units-template-" + P.project.id + ".csv", [P.project], { withBen: true })}>{(window.I18N && window.I18N.isAR) ? "تنزيل القالب" : "Download template"}</button>
+          <label className="btn btn-secondary" style={{ cursor: "pointer" }}>{window.I18N?window.I18N.t("Bulk upload CSV"):"Bulk upload CSV"}<input type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={(e) => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return; RS.importUnits(f, { projects: [P.project], withBen: true }).then((added) => { if (added && added.length) setUnits(D.UNITS.filter((u) => u.projectId === P.project.id)); }); }} /></label>
           <button className="btn btn-primary" onClick={() => setAdding(true)}>{window.I18N?window.I18N.t("+ Add unit"):"+ Add unit"}</button>
         </div>} />
       <div className="card card-flush">

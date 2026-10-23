@@ -127,6 +127,15 @@ Sign-in never depends on e-mail; password-reset links do (Supabase Auth SMTP →
   sign-in page (same as `/login`). The language is one setting everywhere (`revnu_lang` cookie + localStorage), so a
   choice made on the landing carries into the portals. Old addresses of the original site redirect (`next.config.ts`).
 * Error boundaries wrap every portal (audit §10); the production React build replaces CDN React + in-browser Babel.
+* Spreadsheet imports are CSV (`lib/data/store.js`: `readTableFile`, `planUnitImport`, `planBoqImport`; the flow and the
+  per-row report in `lib/data/support.js`). They accept what Excel / Numbers / Sheets save — comma, semicolon or tab,
+  UTF-8 (BOM or not) or Windows-Arabic, title rows above the headings, English or Arabic headings — and refuse a
+  workbook with a "save it as CSV UTF-8" hint. Units: "Download template" (headings + one `EXAMPLE-…` row per unit
+  type, ignored on upload); the unit type is matched by name (EN/AR) or code; every row that isn't added is listed
+  with its reason. Unit numbers are the table's primary key, so they are unique across the platform: the insert is
+  `ON CONFLICT DO NOTHING` (`api.units.createNew`), a number taken elsewhere is reported, never overwritten.
+  BOQ: "Download template" (Room, Item, Qty, [Unit price,] Supplier, Notes); a sheet with its own headings
+  (e.g. Category / Item / Specification / Notes / Qty) is read too, section and subtotal rows skipped.
 * v2 phone-first sale: `portals/shared/mobile-wizard.jsx` is the client's wizard (rep and buyer), `portals/shared/sign.jsx`
   the read-and-sign page; `lib/data/remote.js` is the prototype's `REVNU_REMOTE` API on Supabase (sync reads from the
   store, server functions for writes). Buyer pages: `/order/<slug>-<CODE>` and `/sign/<slug>-<CODE>` (no sign-in; the
